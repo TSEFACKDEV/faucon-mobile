@@ -1,25 +1,35 @@
 {
   "expo": {
-    "name": "faucon-mobile",
-    "slug": "faucon-mobile",
+    "name": "FAUCON",
+    "slug": "faucon",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "backgroundColor": "#007A3D"
+    },
     "ios": {
-      "supportsTablet": true
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
+        "NSLocationAlwaysUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements."
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET"
+      ],
+      "package": "com.faucon.tracking"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FAUCON utilise votre position pour calculer la distance avec vos équipements."
+        }
+      ]
+    ]
   }
 }

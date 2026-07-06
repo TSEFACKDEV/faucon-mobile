@@ -7,17 +7,23 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  setUser: (user: User) => void;
+  setUser: (user: User | null) => void;
+  setIsAuthenticated: (status: boolean) => void;
   setTokens: (access: string, refresh: string) => Promise<void>;
+  setLoading: (loading: boolean) => void;
   logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: true, // Par défaut, on suppose qu'on vérifie la session au démarrage
 
-  setUser: (user) => set({ user, isAuthenticated: true }),
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  
+  setIsAuthenticated: (status) => set({ isAuthenticated: status }),
+
+  setLoading: (loading) => set({ isLoading: loading }),
 
   setTokens: async (access, refresh) => {
     await SecureStore.setItemAsync(Config.TOKEN_KEY, access);

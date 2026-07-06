@@ -7,9 +7,8 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { Formik } from 'formik';
+import { Formik, FormikHelpers } from 'formik';
 import { Ionicons } from '@expo/vector-icons';
-
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
@@ -26,17 +25,16 @@ const initialValues = { imei: '', nom: '' };
 
 export default function AddDeviceScreen() {
   const navigation = useNavigation<Nav>();
-  const { setUser } = useAuthStore();
+  // Assurez-vous d'avoir une action setIsAuthenticated dans votre store
+  const { setIsAuthenticated } = useAuthStore();
 
   const handleAddDevice = async (
     values: typeof initialValues,
-    { setSubmitting, setFieldError }: any
+    { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
   ) => {
     try {
       await authService.addDevice(values.imei, values.nom);
-      // Bascule vers le dashboard : on marque isAuthenticated = true
-      // Le RootNavigator redirige automatiquement
-      useAuthStore.setState({ isAuthenticated: true });
+      setIsAuthenticated(true);
     } catch (error: any) {
       const message = error?.response?.data?.message ?? 'IMEI invalide ou déjà enregistré';
       setFieldError('imei', message);
@@ -46,8 +44,7 @@ export default function AddDeviceScreen() {
   };
 
   const handleSkip = () => {
-    // L'utilisateur peut ignorer et ajouter un appareil plus tard depuis le profil
-    useAuthStore.setState({ isAuthenticated: true });
+    setIsAuthenticated(true);
   };
 
   return (
@@ -60,7 +57,6 @@ export default function AddDeviceScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.logo}>🦅 FAUCON</Text>
         </View>
@@ -72,7 +68,6 @@ export default function AddDeviceScreen() {
         </View>
 
         <View style={styles.body}>
-          {/* ILLUSTRATION */}
           <View style={styles.deviceIllustration}>
             <Ionicons name="hardware-chip-outline" size={48} color={Colors.primary} />
           </View>
@@ -80,7 +75,6 @@ export default function AddDeviceScreen() {
           <Text style={styles.title}>Ajouter votre appareil</Text>
           <Text style={styles.subtitle}>
             Connectez votre traceur GPS FAUCON en saisissant son identifiant unique (IMEI).
-            Vous le trouverez inscrit sous le boîtier du traceur.
           </Text>
 
           <Formik
@@ -90,35 +84,15 @@ export default function AddDeviceScreen() {
           >
             {({ handleSubmit, isSubmitting }) => (
               <View>
-                <InputField
-                  name="imei"
-                  label="IMEI de l'appareil"
-                  icon="barcode-outline"
-                  placeholder="15 chiffres — ex: 358000000000001"
-                  keyboardType="numeric"
-                  maxLength={15}
-                />
-                <InputField
-                  name="nom"
-                  label="Nom de l'appareil"
-                  icon="cube-outline"
-                  placeholder="ex: Camion A, Conteneur 01"
-                />
+                <InputField name="imei" label="IMEI de l'appareil" icon="barcode-outline" placeholder="15 chiffres" keyboardType="numeric" maxLength={15} />
+                <InputField name="nom" label="Nom de l'appareil" icon="cube-outline" placeholder="ex: Camion A" />
 
-                {/* INFO BOX */}
                 <View style={styles.infoBox}>
                   <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.infoText}>
-                    L'IMEI est l'identifiant unique de 15 chiffres gravé sous votre traceur GPS.
-                  </Text>
+                  <Text style={styles.infoText}>L'IMEI est gravé sous votre traceur.</Text>
                 </View>
 
-                <Button
-                  label="CONNECTER L'APPAREIL"
-                  onPress={() => handleSubmit()}
-                  loading={isSubmitting}
-                  style={styles.submitBtn}
-                />
+                <Button label="CONNECTER L'APPAREIL" onPress={() => handleSubmit()} loading={isSubmitting} style={styles.submitBtn} />
               </View>
             )}
           </Formik>
@@ -133,71 +107,19 @@ export default function AddDeviceScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex:       { flex: 1, backgroundColor: Colors.offWhite },
-  scroll:     { flexGrow: 1 },
-  header: {
-    backgroundColor: Colors.primary,
-    paddingTop: 56,
-    paddingBottom: 20,
-    alignItems: 'center',
-  },
-  logo: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.white,
-    letterSpacing: 2,
-  },
+  flex: { flex: 1, backgroundColor: Colors.offWhite },
+  scroll: { flexGrow: 1 },
+  header: { backgroundColor: Colors.primary, paddingTop: 56, paddingBottom: 20, alignItems: 'center' },
+  logo: { fontSize: 22, fontWeight: '700', color: Colors.white, letterSpacing: 2 },
   flagStripe: { flexDirection: 'row', height: 5 },
-  stripe:     { flex: 1 },
-  body:       { padding: 24, flex: 1 },
-  deviceIllustration: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginBottom: 28,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    alignItems: 'flex-start',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.primary,
-    lineHeight: 18,
-  },
+  stripe: { flex: 1 },
+  body: { padding: 24, flex: 1 },
+  deviceIllustration: { width: 88, height: 88, borderRadius: 44, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 8, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 28 },
+  infoBox: { flexDirection: 'row', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 8, padding: 12, marginBottom: 20, alignItems: 'flex-start' },
+  infoText: { flex: 1, fontSize: 12, color: Colors.primary, lineHeight: 18 },
   submitBtn: { marginTop: 4 },
-  skipBtn: {
-    marginTop: 16,
-    alignItems: 'center',
-    padding: 8,
-  },
-  skipText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-  },
+  skipBtn: { marginTop: 16, alignItems: 'center', padding: 8 },
+  skipText: { fontSize: 13, color: Colors.textMuted },
 });

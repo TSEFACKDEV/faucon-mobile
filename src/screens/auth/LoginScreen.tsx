@@ -7,9 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Formik } from 'formik';
+import { Formik, FormikHelpers } from 'formik';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
@@ -18,6 +17,7 @@ import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
 import { useNavigation } from '@react-navigation/native';
+
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 const initialValues = { email: '', password: '' };
@@ -27,23 +27,24 @@ export default function LoginScreen() {
   const { setUser, setTokens } = useAuthStore();
 
   const handleLogin = async (
-    values: typeof initialValues,
-    { setSubmitting, setFieldError }: any
-  ) => {
-    try {
-      const { user, tokens } = await authService.login(values);
-      await setTokens(tokens.accessToken, tokens.refreshToken);
-      setUser(user);
-      // RootNavigator bascule automatiquement vers MainNavigator
-      // grâce à isAuthenticated dans le store
-    } catch (error: any) {
-      const message = error?.response?.data?.message ?? 'Email ou mot de passe incorrect';
-      setFieldError('password', message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  values: typeof initialValues,
+  { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
+) => {
+  try {
+    const response = await authService.login(values);
+    console.log('LOGIN RAW RESPONSE:', JSON.stringify(response, null, 2));
 
+    const { user, tokens } = response;
+    await setTokens(tokens.accessToken, tokens.refreshToken);
+    setUser(user);
+  } catch (error: any) {
+    console.log('LOGIN ERROR:', error?.message, error?.response?.data, error?.stack);
+    const message = error?.response?.data?.message ?? 'Email ou mot de passe incorrect';
+    setFieldError('password', message);
+  } finally {
+    setSubmitting(false);
+  }
+};
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -76,29 +77,10 @@ export default function LoginScreen() {
           >
             {({ handleSubmit, isSubmitting }) => (
               <View>
-                <InputField
-                  name="email"
-                  label="Adresse email"
-                  icon="mail-outline"
-                  placeholder="john@email.com"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                />
-                <InputField
-                  name="password"
-                  label="Mot de passe"
-                  icon="lock-closed-outline"
-                  placeholder="Votre mot de passe"
-                  isPassword
-                  autoComplete="current-password"
-                />
+                <InputField name="email" label="Adresse email" icon="mail-outline" placeholder="john@email.com" keyboardType="email-address" autoComplete="email" />
+                <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Votre mot de passe" isPassword autoComplete="current-password" />
 
-                <Button
-                  label="SE CONNECTER"
-                  onPress={() => handleSubmit()}
-                  loading={isSubmitting}
-                  style={styles.submitBtn}
-                />
+                <Button label="SE CONNECTER" onPress={() => handleSubmit()} loading={isSubmitting} style={styles.submitBtn} />
               </View>
             )}
           </Formik>
@@ -116,49 +98,18 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex:       { flex: 1, backgroundColor: Colors.offWhite },
-  scroll:     { flexGrow: 1 },
-  header: {
-    backgroundColor: Colors.primary,
-    paddingTop: 60,
-    paddingBottom: 28,
-    alignItems: 'center',
-  },
-  logo: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: Colors.white,
-    letterSpacing: 2,
-  },
-  tagline: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 4,
-  },
+  flex: { flex: 1, backgroundColor: Colors.offWhite },
+  scroll: { flexGrow: 1 },
+  header: { backgroundColor: Colors.primary, paddingTop: 60, paddingBottom: 28, alignItems: 'center' },
+  logo: { fontSize: 26, fontWeight: '700', color: Colors.white, letterSpacing: 2 },
+  tagline: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   flagStripe: { flexDirection: 'row', height: 5 },
-  stripe:     { flex: 1 },
-  form:       { padding: 24, flex: 1 },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 28,
-  },
+  stripe: { flex: 1 },
+  form: { padding: 24, flex: 1 },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 28 },
   submitBtn: { marginTop: 8 },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
+  registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
   registerText: { fontSize: 14, color: Colors.textSecondary },
-  registerLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.action,
-  },
+  registerLink: { fontSize: 14, fontWeight: '600', color: Colors.action },
 });

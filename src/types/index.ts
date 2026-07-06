@@ -13,6 +13,24 @@ export interface Vehicle {
   niveauBatterie: number;
   estActif: boolean;
   derniereCommunication?: string;
+  limiteVitesse: {
+    seuilKmh: number;
+    estActif: boolean;
+  };
+  geofence?: {
+    nom: string;
+    centreLat: number;
+    centreLon: number;
+    rayonMetres: number;
+    estActif: boolean;
+  };
+  perimetreGeofence:{
+    nom: string;
+    centreLat: number;
+    centreLon: number;
+    rayonMetres: number;
+    estActif: boolean;
+  }
 }
 
 export interface Position {

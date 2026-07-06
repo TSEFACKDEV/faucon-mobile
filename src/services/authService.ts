@@ -12,26 +12,28 @@ interface LoginPayload {
   password: string;
 }
 
-interface RegisterResponse {
+interface AuthData {
   user: User;
   tokens: AuthTokens;
 }
 
-interface LoginResponse {
-  user: User;
-  tokens: AuthTokens;
+// Format standard renvoyé par le backend (sendSuccess / sendError)
+interface ApiEnvelope<T> {
+  success: boolean;
+  message: string;
+  data: T;
 }
 
 export const authService = {
 
-  register: async (payload: RegisterPayload): Promise<RegisterResponse> => {
-    const { data } = await api.post<RegisterResponse>('/auth/register', payload);
-    return data;
+  register: async (payload: RegisterPayload): Promise<AuthData> => {
+    const { data } = await api.post<ApiEnvelope<AuthData>>('/auth/register', payload);
+    return data.data;
   },
 
-  login: async (payload: LoginPayload): Promise<LoginResponse> => {
-    const { data } = await api.post<LoginResponse>('/auth/login', payload);
-    return data;
+  login: async (payload: LoginPayload): Promise<AuthData> => {
+    const { data } = await api.post<ApiEnvelope<AuthData>>('/auth/login', payload);
+    return data.data;
   },
 
   addDevice: async (imei: string, nom: string): Promise<void> => {
@@ -39,8 +41,8 @@ export const authService = {
   },
 
   me: async (): Promise<User> => {
-    const { data } = await api.get<User>('/auth/me');
-    return data;
+    const { data } = await api.get<ApiEnvelope<User>>('/auth/me');
+    return data.data;
   },
 
   logout: async (): Promise<void> => {
