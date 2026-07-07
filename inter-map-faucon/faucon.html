@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FAUCON — Suivi GPS de conteneurs</title>
+
+<!-- Police -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Leaflet (librairie de cartographie) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+<!-- Styles de l'application -->
+<link rel="stylesheet" href="faucon 1.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- CARTE -->
+  <div id="map"></div>
+  <div class="map-grid-overlay"></div>
+
+  <!-- BARRE SUPÉRIEURE -->
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="logo-card">
+        <span class="logo-mark" id="logoIcon"></span>
+        <span class="logo-text">FAUCON</span>
+      </div>
+      <div class="status-badge">
+        <span class="pulse-dot"></span>
+        <span id="activeCount">5 actifs</span>
+      </div>
+    </div>
+
+    <div class="map-toggle" id="mapToggle" data-mode="map">
+      <div class="toggle-slider"></div>
+      <button class="toggle-btn active" data-mode="map">Carte</button>
+      <button class="toggle-btn" data-mode="satellite">Satellite</button>
+    </div>
+  </div>
+
+  <!-- ZOOM -->
+  <div class="zoom-controls">
+    <button class="zoom-btn" id="zoomIn">+</button>
+    <button class="zoom-btn" id="zoomOut">−</button>
+  </div>
+
+  <!-- BOTTOM SHEET -->
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-drag-zone" id="sheetDragZone">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2>Dispositifs à proximité</h2>
+        <span class="sheet-count" id="deviceCount">5 au total</span>
+      </div>
+    </div>
+    <div class="device-list" id="deviceList"></div>
+    <button class="add-device-btn" id="addDeviceBtn"></button>
+  </div>
+
+  <!-- OVERLAYS DES AUTRES ONGLETS -->
+  <div class="tab-overlay" id="tab-devices">
+    <div class="tab-header">Dispositifs</div>
+    <div class="tab-body" id="tabDevicesBody"></div>
+  </div>
+  <div class="tab-overlay" id="tab-history">
+    <div class="tab-header">Historique</div>
+    <div class="tab-body">
+      <div class="tab-placeholder-row"></div>
+      <div class="tab-placeholder-row"></div>
+      <div class="tab-placeholder-row"></div>
+    </div>
+  </div>
+  <div class="tab-overlay" id="tab-alerts">
+    <div class="tab-header">Alertes</div>
+    <div class="tab-body">
+      <div class="tab-placeholder-row"></div>
+      <div class="tab-placeholder-row"></div>
+    </div>
+  </div>
+  <div class="tab-overlay" id="tab-profile">
+    <div class="tab-header">Profil</div>
+    <div class="tab-body">
+      <div class="tab-placeholder-row"></div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-item active" data-tab="map"><span class="nav-icon-wrap"></span><span class="nav-label">Carte</span></button>
+    <button class="nav-item" data-tab="devices"><span class="nav-icon-wrap"></span><span class="nav-label">Dispositifs</span></button>
+    <button class="nav-item" data-tab="history"><span class="nav-icon-wrap"></span><span class="nav-label">Historique</span></button>
+    <button class="nav-item" data-tab="alerts"><span class="nav-icon-wrap"></span><span class="nav-label">Alertes</span></button>
+    <button class="nav-item" data-tab="profile"><span class="nav-icon-wrap"></span><span class="nav-label">Profil</span></button>
+  </nav>
+
+</div>
+
+<!-- Logique de l'application -->
+<script src="faucon.js"></script>
+</body>
+</html>

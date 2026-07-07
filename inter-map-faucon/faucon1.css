@@ -1,0 +1,447 @@
+/* ===========================================================
+   1. TOKENS — palette, typographie, ombres
+   =========================================================== */
+
+/* :root cible l'élément racine du document (équivalent à <html>
+   mais avec une spécificité plus forte). On y déclare des variables
+   CSS globales (--nom-variable) réutilisables partout via var(--nom). */
+:root{
+  --forest:      #1E6B50;                  /* Vert forêt — couleur principale de marque */
+  --forest-dark: #16543E;                  /* Vert forêt foncé — variante pour textes/fonds contrastés */
+  --forest-tint: #E4F1EA;                  /* Vert très clair — utilisé pour les fonds des états "actif" */
+  --orange:      #D48B11;                  /* Orange — couleur d'accent (marqueurs, alertes, icônes) */
+  --orange-glow: rgba(212,139,17,.35);     /* Orange semi-transparent — pour effets de halo/pulse autour des marqueurs */
+  --white:       #FFFFFF;                  /* Blanc pur — fonds de cartes, boutons, etc. */
+  --gray-light:  #F5F5F5;                  /* Gris très clair — fond général de page */
+  --gray-mid:    #E7E7E7;                  /* Gris moyen — bordures discrètes, séparateurs */
+  --blue-light:  #CFE8F5;                  /* Bleu clair — probablement pour un état/info spécifique (non encore utilisé ici) */
+  --text-main:   #16211C;                  /* Couleur de texte principale, presque noir teinté de vert */
+  --text-muted:  #77837D;                  /* Couleur de texte secondaire/atténuée (sous-titres, métadonnées) */
+  --shadow-soft: 0 4px 16px rgba(20,30,25,.08); /* Ombre légère — cartes flottantes, boutons, badges */
+  --shadow-card: 0 8px 24px rgba(20,30,25,.10); /* Ombre plus marquée — cartes au survol/interaction */
+  --radius-lg:   22px;                     /* Grand rayon d'arrondi — bottom sheet, grands conteneurs */
+  --radius-md:   16px;                     /* Rayon moyen — cartes d'appareils, boutons */
+  --radius-sm:   10px;                     /* Petit rayon — petits éléments internes */
+}
+
+/* Sélecteur universel : s'applique à TOUS les éléments du document. */
+*{
+  box-sizing:border-box;              /* La largeur/hauteur définies incluent le padding et la bordure (calcul de taille plus prévisible) */
+  -webkit-tap-highlight-color:transparent; /* Supprime le flash gris/bleu au tap sur mobile (Safari/Chrome), pour un rendu plus "app native" */
+}
+
+/* Réglages de base sur les deux éléments racines du document. */
+html,body{
+  margin:0; padding:0;                /* Supprime les marges/paddings par défaut du navigateur (ex: 8px sur body) */
+  height:100%;                        /* Force la hauteur à occuper tout le viewport, nécessaire pour que les enfants en height:100% fonctionnent */
+  overflow:hidden;                    /* Empêche le défilement global de la page — comportement typique d'une "app" plutôt qu'un site classique */
+  font-family:'Inter',system-ui,sans-serif; /* Police Inter en priorité, puis police système, puis sans-serif générique en dernier recours */
+  color:var(--text-main);             /* Couleur de texte par défaut, via la variable définie plus haut */
+  background:var(--gray-light);       /* Couleur de fond par défaut de toute la page */
+}
+
+/* Reset des styles par défaut des boutons HTML (qui ont souvent
+   une bordure, un fond gris et une police différente selon les navigateurs). */
+button{
+  font-family:inherit;   /* Hérite de la police du parent au lieu de la police système par défaut */
+  border:none;           /* Supprime la bordure native des boutons */
+  background:none;       /* Supprime le fond gris natif des boutons */
+  cursor:pointer;        /* Affiche le curseur "main" au survol, comme un lien cliquable */
+}
+
+/* Supprime les marges par défaut sur les titres et paragraphes,
+   pour repartir sur une base neutre et tout gérer via des classes CSS. */
+h1,h2,h3,p{ margin:0; }
+
+/* Media query d'accessibilité : si l'utilisateur a activé
+   "réduire les animations" dans les préférences système,
+   on réduit quasiment à zéro toutes les durées d'animation/transition. */
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
+
+
+/* ===========================================================
+   2. STRUCTURE GÉNÉRALE
+   =========================================================== */
+
+/* Conteneur principal de l'application (le "cadre" global). */
+#app{
+  position:relative;         /* Sert de repère de positionnement pour les enfants en position:absolute */
+  width:100%; height:100vh; height:100dvh; /* Hauteur pleine ; 100dvh (dynamic viewport height) corrige les soucis d'affichage sur mobile (barre d'adresse qui apparaît/disparaît) */
+  max-width:520px; margin:0 auto; /* Largeur maximale de type "mobile", centrée horizontalement sur grand écran */
+  overflow:hidden;            /* Empêche tout débordement/scroll indésirable à l'intérieur du cadre app */
+  background:var(--white);   /* Fond blanc du cadre applicatif */
+}
+
+/* Conteneur de la carte (probablement une carte Leaflet, vu les
+   classes .leaflet-* utilisées plus bas dans le fichier). */
+#map{
+  position:absolute; inset:0; /* Occupe tout l'espace du parent (#app) : top/right/bottom/left à 0 */
+  filter:saturate(.92) brightness(1.03); /* Légère désaturation + légère augmentation de luminosité pour un rendu de carte plus doux/harmonieux */
+  transition:opacity .35s ease; /* Transition douce de l'opacité (utilisée avec la classe .fading ci-dessous) */
+}
+#map.fading{ opacity:0; } /* Classe ajoutée en JS pour faire disparaître la carte en fondu (ex: lors d'un changement de vue) */
+
+/* Grille discrète superposée à la carte, purement décorative. */
+.map-grid-overlay{
+  position:absolute; inset:0;   /* Recouvre toute la carte */
+  pointer-events:none;          /* Ne bloque pas les clics/interactions avec la carte en dessous */
+  z-index:390;                  /* Ordre d'empilement — place cette grille au-dessus de la carte mais sous les autres éléments d'interface */
+  background-image:
+    linear-gradient(rgba(30,60,50,.035) 1px, transparent 1px),      /* Lignes horizontales très fines et très transparentes */
+    linear-gradient(90deg, rgba(30,60,50,.035) 1px, transparent 1px); /* Lignes verticales très fines et très transparentes */
+  background-size:38px 38px;    /* Taille des cases de la grille (38px x 38px) */
+  mix-blend-mode:multiply;      /* Mode de fusion qui assombrit légèrement la carte là où les lignes se superposent, effet subtil */
+}
+
+
+/* ===========================================================
+   3. BARRE SUPÉRIEURE
+   =========================================================== */
+
+/* Barre fixée en haut de l'écran contenant logo, statut et bascule de mode carte. */
+.top-bar{
+  position:absolute; top:0; left:0; right:0; z-index:500; /* Fixée tout en haut, au-dessus de la carte */
+  display:flex; justify-content:space-between; align-items:flex-start; /* Élément de gauche et de droite écartés aux extrémités */
+  padding:18px 16px 0;           /* Espacement interne (pas de padding en bas) */
+  pointer-events:none;           /* La barre elle-même ne capte pas les clics... */
+}
+.top-bar > *{ pointer-events:auto; } /* ...mais ses enfants directs (boutons, cartes) redeviennent cliquables. Astuce pour laisser les clics "traverser" les espaces vides vers la carte */
+
+/* Colonne de gauche de la barre supérieure (logo + badge de statut empilés). */
+.top-left{ display:flex; flex-direction:column; gap:8px; }
+
+/* Petite carte blanche contenant le logo de l'application. */
+.logo-card{
+  display:flex; align-items:center; gap:8px; /* Icône et texte alignés horizontalement */
+  background:var(--white);
+  padding:10px 16px;
+  border-radius:18px;
+  box-shadow:var(--shadow-soft);  /* Légère ombre pour un effet "flottant" au-dessus de la carte */
+  width:fit-content;              /* La carte ne prend que la largeur nécessaire à son contenu */
+}
+.logo-card .logo-mark{
+  width:22px; height:22px; color:var(--forest); /* Icône du logo, colorée en vert forêt */
+  display:flex; align-items:center; justify-content:center;
+}
+.logo-card .logo-text{
+  font-weight:800; font-size:16px; letter-spacing:.4px; /* Texte du logo en gras, légèrement espacé */
+  color:var(--forest-dark);
+}
+
+/* Badge affichant un statut (ex: connexion, GPS actif...). */
+.status-badge{
+  display:flex; align-items:center; gap:6px;
+  background:var(--white);
+  padding:7px 12px;
+  border-radius:14px;
+  box-shadow:var(--shadow-soft);
+  width:fit-content;
+  font-size:12.5px; font-weight:600; color:var(--text-main);
+}
+.status-badge .icon{ width:14px; height:14px; color:var(--orange); } /* Icône orange du badge */
+.status-badge .pulse-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--forest); /* Petit point vert rond */
+  animation:softpulse 1.8s ease-in-out infinite; /* Anime un effet de pulsation douce (clignotement d'opacité), signalant "en direct/actif" */
+}
+
+/* Bascule (toggle) entre deux modes d'affichage de carte (ex: "Plan" / "Satellite"). */
+.map-toggle{
+  display:flex; background:var(--white);
+  border-radius:14px; padding:4px;
+  box-shadow:var(--shadow-soft);
+  position:relative;             /* Sert de repère pour positionner le curseur .toggle-slider en absolu */
+}
+.toggle-btn{
+  position:relative; z-index:2;  /* Passe au-dessus du curseur coloré .toggle-slider */
+  padding:8px 14px; font-size:12.5px; font-weight:600;
+  border-radius:10px; color:var(--text-muted);
+  transition:color .3s ease;     /* Transition douce de couleur lors du changement d'état actif */
+  white-space:nowrap;            /* Empêche le texte du bouton de passer à la ligne */
+}
+.toggle-btn.active{ color:var(--white); } /* Texte blanc quand ce bouton est le mode actif (car le fond coloré est dessous) */
+
+/* Curseur/pastille colorée qui glisse derrière le bouton actif. */
+.toggle-slider{
+  position:absolute; top:4px; left:4px; bottom:4px;
+  width:calc(50% - 4px);         /* Occupe la moitié de la largeur du toggle (moins les marges) */
+  background:var(--forest-dark);
+  border-radius:10px;
+  transition:transform .32s cubic-bezier(.4,0,.2,1); /* Glissement fluide avec une courbe d'accélération personnalisée */
+  z-index:1;                     /* Reste sous le texte des boutons */
+}
+/* Quand l'attribut data-mode="satellite" est présent sur .map-toggle,
+   on déplace le curseur vers la droite (glissement du 2e bouton). */
+.map-toggle[data-mode="satellite"] .toggle-slider{ transform:translateX(100%); }
+
+
+/* ===========================================================
+   4. CONTRÔLES DE ZOOM
+   =========================================================== */
+
+/* Bloc vertical avec les boutons + et - pour zoomer/dézoomer la carte. */
+.zoom-controls{
+  position:absolute; right:14px; top:50%; transform:translateY(-90px); /* Positionné à droite, verticalement centré puis légèrement remonté */
+  z-index:500; display:flex; flex-direction:column; /* Boutons empilés verticalement */
+  background:var(--white); border-radius:16px; overflow:hidden; /* overflow:hidden permet aux coins arrondis de "couper" proprement les boutons enfants */
+  box-shadow:var(--shadow-soft);
+}
+.zoom-btn{
+  width:44px; height:44px;       /* Taille confortable pour le tactile (zone de tap suffisante) */
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; font-weight:600; color:var(--forest-dark);
+  position:relative; overflow:hidden; /* overflow:hidden pour contenir un éventuel effet ripple (voir section 9) */
+}
+.zoom-btn:first-child{ border-bottom:1px solid var(--gray-mid); } /* Fine ligne de séparation entre le bouton "+" et le bouton "-" */
+.zoom-btn:active{ background:var(--gray-light); } /* Léger fond gris pendant l'appui (retour visuel tactile) */
+
+
+/* ===========================================================
+   5. MARQUEURS CONTENEURS (Leaflet divIcon)
+   =========================================================== */
+/* Ces styles définissent l'apparence des marqueurs GPS/conteneurs
+   affichés sur la carte Leaflet (via des divIcon personnalisées). */
+
+.container-marker{ position:relative; } /* Sert de repère pour positionner le point et le halo en absolu, l'un sur l'autre */
+
+/* Halo animé qui se propage autour du marqueur (effet radar/pulse). */
+.marker-pulse{
+  position:absolute; top:50%; left:50%;
+  width:22px; height:22px; margin:-11px 0 0 -11px; /* Centre précisément le halo sur le point (décalage de la moitié de sa taille) */
+  border-radius:50%; background:var(--orange-glow);
+  animation:markerpulse 2.2s ease-out infinite; /* Anime le halo en boucle (voir @keyframes plus bas) */
+}
+
+/* Point central du marqueur (le "pin" visible en permanence). */
+.marker-dot{
+  position:absolute; top:50%; left:50%;
+  width:20px; height:20px; margin:-10px 0 0 -10px; /* Centrage identique à .marker-pulse */
+  border-radius:50%;
+  background:var(--orange);
+  border:3px solid var(--white); /* Liseré blanc pour bien détacher le point du fond de carte */
+  box-shadow:0 3px 8px rgba(20,20,20,.28); /* Ombre portée pour un effet de relief/profondeur */
+  transition:box-shadow .3s ease, transform .3s ease; /* Transition douce lors de la sélection */
+}
+
+/* État "sélectionné" : le marqueur grossit légèrement et affiche
+   un double anneau lumineux autour de lui. */
+.container-marker.selected .marker-dot{
+  transform:scale(1.15);
+  box-shadow:0 0 0 6px rgba(212,139,17,.28), 0 0 0 12px rgba(212,139,17,.12), 0 3px 10px rgba(20,20,20,.3); /* Empilement de plusieurs "anneaux" via box-shadow multiples */
+}
+.container-marker.selected .marker-pulse{ animation-duration:1.4s; } /* Le halo pulse plus rapidement quand le marqueur est sélectionné, pour attirer l'attention */
+
+/* Animation du halo : grossit tout en devenant transparent, en boucle. */
+@keyframes markerpulse{
+  0%{ transform:scale(1); opacity:.65; }
+  75%{ transform:scale(2.6); opacity:0; }
+  100%{ transform:scale(2.6); opacity:0; } /* Reste invisible jusqu'à la fin du cycle avant de recommencer */
+}
+
+/* Animation du point de statut clignotant (voir .pulse-dot en section 3). */
+@keyframes softpulse{
+  0%,100%{ opacity:1; } 50%{ opacity:.35; }
+}
+
+/* Transition douce du déplacement des marqueurs Leaflet
+   (simule un glissement GPS fluide plutôt qu'un saut brusque de position). */
+.leaflet-marker-icon{ transition:transform 1.6s linear; }
+
+/* Pendant une animation de zoom de Leaflet, on désactive cette transition
+   pour éviter un effet visuel désynchronisé/étrange. */
+.leaflet-zoom-anim .leaflet-marker-icon{ transition:none; }
+
+
+/* ===========================================================
+   6. BOTTOM SHEET
+   =========================================================== */
+/* Le "bottom sheet" est le panneau qui remonte depuis le bas de l'écran
+   (comme sur Google Maps) pour afficher la liste des appareils. */
+
+.bottom-sheet{
+  position:absolute; left:0; right:0; bottom:66px; /* Positionné juste au-dessus de la barre de navigation (66px = hauteur de .bottom-nav) */
+  height:72vh; max-height:640px; /* Hauteur relative à l'écran, plafonnée sur grands écrans */
+  background:var(--white);
+  border-radius:26px 26px 0 0; /* Coins arrondis uniquement en haut (forme de "tiroir") */
+  box-shadow:0 -8px 30px rgba(20,30,25,.14); /* Ombre projetée vers le HAUT (valeur négative en Y), car le panneau est en bas */
+  z-index:600;
+  display:flex; flex-direction:column; /* Organisation verticale : header, puis liste scrollable */
+  transform:translateY(var(--sheet-y, 420px)); /* Position verticale contrôlée par une variable CSS dynamique (mise à jour en JS, ex: lors du glisser-déposer). 420px = valeur par défaut si la variable n'est pas encore définie */
+  touch-action:none;             /* Désactive les gestes tactiles natifs du navigateur (scroll, zoom) pour laisser le JS gérer le glissement (drag) du panneau */
+}
+.bottom-sheet.is-dragging{ transition:none; } /* Pendant le glissement actif (drag), on désactive la transition pour un suivi instantané du doigt */
+.bottom-sheet:not(.is-dragging){ transition:transform .38s cubic-bezier(.32,.72,0,1); } /* En dehors du drag, on anime le retour/ouverture en douceur */
+
+.sheet-drag-zone{ padding-top:10px; cursor:grab; } /* Zone dédiée à la préhension (le curseur "main ouverte" indique qu'on peut glisser) */
+.sheet-handle{
+  width:40px; height:5px; border-radius:3px;
+  background:var(--gray-mid); margin:0 auto 14px; /* Petite barre grise centrée, signal visuel classique "on peut glisser ce panneau" */
+}
+
+/* En-tête du panneau : titre + compteur d'éléments. */
+.sheet-header{
+  display:flex; align-items:baseline; justify-content:space-between;
+  padding:0 20px 14px;
+}
+.sheet-header h2{ font-size:17px; font-weight:700; }
+.sheet-header .sheet-count{
+  font-size:12.5px; font-weight:600; color:var(--text-muted);
+  background:var(--gray-light); padding:4px 10px; border-radius:20px; /* Petite pastille arrondie type "badge" affichant un nombre */
+}
+
+/* Liste scrollable des appareils/conteneurs. */
+.device-list{
+  flex:1; overflow-y:auto; padding:0 16px 8px; /* Prend tout l'espace restant en hauteur, défilement vertical uniquement si nécessaire */
+  display:flex; flex-direction:column; gap:10px; /* Cartes empilées avec un espacement régulier */
+  -webkit-overflow-scrolling:touch; /* Active le défilement "momentum" fluide sur iOS Safari */
+}
+
+/* Carte individuelle représentant un appareil/conteneur dans la liste. */
+.device-card{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:14px; border-radius:var(--radius-md);
+  background:var(--gray-light);
+  border:1.5px solid transparent; /* Bordure transparente par défaut, réservée en épaisseur pour éviter un "saut" de mise en page quand elle devient colorée (état .active) */
+  transition:transform .22s ease, box-shadow .22s ease, background .22s ease, border-color .22s ease; /* Transitions douces sur plusieurs propriétés à la fois */
+}
+.device-card:active{ transform:scale(.98); } /* Léger effet d'enfoncement au clic/tap */
+.device-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card); } /* Légère élévation au survol (desktop) */
+.device-card.active{
+  background:var(--forest-tint);              /* Fond vert clair quand cette carte est sélectionnée */
+  border-color:rgba(30,107,80,.25);            /* Bordure verte semi-transparente assortie */
+}
+
+/* Icône/pin à gauche de chaque carte d'appareil. */
+.device-card .pin{
+  flex-shrink:0; width:38px; height:38px; border-radius:12px; /* flex-shrink:0 empêche cet élément de rétrécir si l'espace manque */
+  display:flex; align-items:center; justify-content:center;
+  background:var(--white); color:var(--orange);
+  box-shadow:var(--shadow-soft);
+}
+.device-card .pin svg{ width:19px; height:19px; }
+
+/* Bloc d'informations textuelles (nom, statut, dernière mise à jour). */
+.device-card .info{ flex:1; min-width:0; } /* flex:1 prend l'espace disponible ; min-width:0 permet au texte long de se tronquer/passer à la ligne correctement dans un conteneur flex */
+.device-card .info .name{ font-size:14.5px; font-weight:700; margin-bottom:3px; }
+.device-card .info .meta{
+  font-size:12.5px; color:var(--text-muted); display:flex; align-items:center;
+  flex-wrap:wrap; gap:5px; line-height:1.5; /* Passe à la ligne si le contenu (plusieurs infos séparées par des points) ne tient pas sur une ligne */
+}
+.device-card .info .meta .dot{ opacity:.5; } /* Petit séparateur visuel (point) entre les informations, atténué */
+.device-card .info .meta .status-pill{ font-weight:700; } /* Texte de statut mis en gras */
+.device-card .info .meta .status-pill.moving{ color:var(--forest); }   /* Statut "en mouvement" → vert */
+.device-card .info .meta .status-pill.transit{ color:var(--orange); }  /* Statut "en transit" → orange */
+.device-card .info .meta .status-pill.stopped{ color:#8a8a8a; }        /* Statut "arrêté" → gris neutre */
+.device-card .info .updated{
+  font-size:11.5px; color:#9aa39d; margin-top:5px;
+  display:flex; align-items:center; gap:4px; /* Ligne "dernière mise à jour" avec une petite icône horloge par exemple */
+}
+.device-card .info .updated svg{ width:11px; height:11px; }
+
+/* Indicateur de batterie à droite de chaque carte. */
+.device-card .battery{
+  flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-size:11px; font-weight:700; color:var(--text-muted);
+}
+.device-card .battery svg{ width:18px; height:18px; }
+.device-card .battery.low{ color:#C24444; }       /* Texte rouge si batterie faible */
+.device-card .battery.low svg{ color:#C24444; }    /* Icône rouge assortie */
+
+/* Bouton en pointillés pour ajouter un nouvel appareil, en bas de la liste. */
+.add-device-btn{
+  margin:6px 16px 16px; padding:14px;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:var(--white); color:var(--forest-dark);
+  border:1.6px dashed var(--gray-mid); /* Bordure en pointillés — signale visuellement une action "ajouter" plutôt qu'un élément existant */
+  border-radius:var(--radius-md);
+  font-weight:700; font-size:14px;
+  position:relative; overflow:hidden; /* Nécessaire pour contenir un éventuel effet ripple au clic */
+  transition:background .2s ease, border-color .2s ease;
+}
+.add-device-btn:active{ background:var(--forest-tint); border-color:var(--forest); } /* Retour visuel vert au clic */
+.add-device-btn svg{ width:18px; height:18px; }
+
+
+/* ===========================================================
+   7. NAVIGATION INFÉRIEURE
+   =========================================================== */
+
+/* Barre de navigation fixée tout en bas de l'écran (5 onglets). */
+.bottom-nav{
+  position:absolute; left:0; right:0; bottom:0; z-index:700; /* z-index le plus élevé du fichier : toujours au-dessus de tout le reste */
+  height:66px; background:var(--white);
+  box-shadow:0 -2px 14px rgba(20,30,25,.08); /* Ombre projetée vers le haut, pour détacher la barre du contenu au-dessus */
+  display:flex; align-items:stretch; /* Les boutons enfants s'étirent sur toute la hauteur disponible */
+  padding-bottom:env(safe-area-inset-bottom); /* Ajoute un espace de sécurité sur les appareils avec encoche/barre de gestes (ex: iPhone), pour ne pas être masqué par le système */
+}
+
+/* Chaque bouton d'onglet occupe une portion égale de la largeur (flex:1). */
+.nav-item{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; color:var(--text-muted); /* Couleur grisée par défaut (onglet inactif) */
+  position:relative; overflow:hidden; /* Pour contenir un éventuel effet ripple */
+}
+.nav-item .nav-icon-wrap{
+  width:38px; height:26px; border-radius:12px; /* Zone qui accueillera un fond coloré derrière l'icône quand l'onglet est actif */
+  display:flex; align-items:center; justify-content:center;
+  transition:background .28s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.4,0,.2,1); /* Transition douce du fond et de la légère translation verticale */
+}
+.nav-item svg{ width:20px; height:20px; transition:color .25s ease; }
+.nav-item .nav-label{ font-size:10.5px; font-weight:600; transition:color .25s ease; }
+
+/* État actif de l'onglet (classe ajoutée en JS sur le bouton sélectionné). */
+.nav-item.active .nav-icon-wrap{ background:var(--forest-tint); transform:translateY(-1px); } /* Fond vert clair + léger décalage vers le haut */
+.nav-item.active svg, .nav-item.active .nav-label{ color:var(--forest); } /* Icône et texte passent en vert forêt */
+
+
+/* ===========================================================
+   8. PANNEAU PLACEHOLDER (autres onglets)
+   =========================================================== */
+/* Panneau générique affiché par-dessus la carte quand l'utilisateur
+   clique sur un onglet autre que "Carte" (Dispositifs, Historique, etc.),
+   probablement en attendant que ces sections soient développées. */
+
+.tab-overlay{
+  position:absolute; inset:0; bottom:66px; z-index:650; /* Recouvre tout l'écran sauf la barre de navigation (bottom:66px) */
+  background:var(--white);
+  transform:translateY(12px); opacity:0; pointer-events:none; /* État caché par défaut : légèrement décalé vers le bas, invisible, non cliquable */
+  transition:transform .32s cubic-bezier(.32,.72,0,1), opacity .28s ease;
+  display:flex; flex-direction:column;
+}
+/* Classe ajoutée en JS pour afficher le panneau avec une animation d'entrée douce. */
+.tab-overlay.visible{ transform:translateY(0); opacity:1; pointer-events:auto; }
+
+.tab-overlay .tab-header{
+  padding:22px 20px 14px; font-size:20px; font-weight:800;
+  border-bottom:1px solid var(--gray-mid); /* Ligne de séparation sous le titre de l'onglet */
+}
+.tab-overlay .tab-body{ padding:16px 20px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+
+/* Ligne d'exemple/placeholder affichée dans les onglets pas encore développés. */
+.tab-placeholder-row{
+  display:flex; align-items:center; gap:12px;
+  padding:14px; background:var(--gray-light); border-radius:var(--radius-md);
+  color:var(--text-muted); font-size:13.5px; font-weight:600;
+}
+.tab-placeholder-row svg{ width:18px; height:18px; color:var(--forest); flex-shrink:0; }
+
+
+/* ===========================================================
+   9. RIPPLE générique
+   =========================================================== */
+/* Effet "ripple" (onde circulaire) façon Material Design, déclenché
+   au clic sur certains boutons via JavaScript (ajout dynamique
+   d'un <span class="ripple-span"> positionné à l'endroit du clic). */
+
+.ripple-span{
+  position:absolute; border-radius:50%; /* Cercle positionné précisément par JS au point de clic */
+  background:rgba(0,0,0,.14);           /* Cercle noir semi-transparent */
+  transform:scale(0); animation:rippleAnim .55s ease-out; /* Démarre invisible (scale 0) puis grossit et disparaît via l'animation */
+  pointer-events:none;                  /* Ne bloque jamais les clics suivants */
+}
+@keyframes rippleAnim{ to{ transform:scale(2.6); opacity:0; } } /* Le cercle grossit jusqu'à 2.6x sa taille tout en devenant transparent */
+
+/* Masque la mention d'attribution Leaflet affichée par défaut
+   en bas à droite de la carte (habituellement "Leaflet | © OpenStreetMap"). */
+.leaflet-control-attribution{ display:none; }
