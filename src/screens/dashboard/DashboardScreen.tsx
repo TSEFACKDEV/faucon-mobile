@@ -1,18 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, ActivityIndicator,
 } from 'react-native';
-import OsmMapView, { OsmMarker } from '../../components/map/OsmMapView';
+import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import Logo from '../../components/ui/Logo';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from '../../hooks/useLocation';
-import VehicleInfoModal from '../../components/map/VehicleInfoModal';
-import { formatTime } from '../../utils/formatters';
+import { formatTime, formatCoords } from '../../utils/formatters';
+import { vehicleService } from '../../services/vehicleService';
 
 const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SAT_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -23,22 +24,18 @@ export default function DashboardScreen() {
   // State local
   const [mapStyle,      setMapStyle]      = useState<'route' | 'satellite'>('route');
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
-  const [modalVisible,  setModalVisible]  = useState(false);
+  const [dailyDistance, setDailyDistance] = useState<number | null>(null);
 
   // Store
-  const { livePositions, activeAlarms, vehicles } = useVehicleStore();
+  const { livePositions, activeAlarms, vehicles, selectedId: storeSelectedId, setSelectedId: setStoreSelectedId } = useVehicleStore();
 
   // Hooks
-  const { isLoading }           = useVehicles();
-  const { location: userLoc }   = useLocation();
+  const { isLoading }                    = useVehicles();
+  const { location: userLoc, error: locationError } = useLocation();
 
   // Ids des véhicules pour le WebSocket
   const vehicleIds = useMemo(() => vehicles.map(v => v.id), [vehicles]);
   useSocket(vehicleIds);
-
-  // Véhicule sélectionné
-  const selectedVehicle = vehicles.find(v => v.id === selectedId) ?? null;
-  const selectedPos     = selectedId ? livePositions[selectedId] : null;
 
   // Alarmes actives par véhicule
   const alarmsByVehicle = useMemo(() => {
@@ -58,35 +55,123 @@ export default function DashboardScreen() {
         const pos = livePositions[vehicle.id];
         if (!pos) return null;
         const hasAlarm = alarmsByVehicle[vehicle.id] ?? false;
+        const isSelected = vehicle.id === selectedId;
+        // Device color: blue by default, red if alarm
+        const statusColor = hasAlarm ? Colors.danger : Colors.blue;
+
         return {
           id: vehicle.id,
           latitude:  pos.latitude,
           longitude: pos.longitude,
           heading:   pos.cap ?? 0,
-          color:     hasAlarm ? Colors.danger : (pos.vitesse > 5 ? Colors.primary : Colors.warning),
+          color:     statusColor,
           label:     vehicle.nom,
           hasAlarm,
+          selected:  isSelected,
+          icon:      'vehicle',
+          // Seul le véhicule sélectionné a une popup : c'est le seul dont on affiche
+          // les infos "à cette position", pas besoin de tout calculer pour les autres.
+          popup: isSelected ? {
+            title:        vehicle.nom,
+            statusLabel:  hasAlarm ? 'ALARME' : pos.vitesse > 5 ? 'EN MOUVEMENT' : 'ARRÊTÉ',
+            statusColor:  '#fff',
+            updatedLabel: `Mis à jour à ${formatTime(pos.horodatage)}`,
+            speedLabel:   `${Math.round(pos.vitesse)} km/h`,
+            batteryLabel: `${vehicle.niveauBatterie}%`,
+            batteryColor: vehicle.niveauBatterie < 20 ? Colors.danger : Colors.primary,
+            headingLabel: `${Math.round(pos.cap ?? 0)}°`,
+            kmTodayLabel: `${(dailyDistance ?? 0).toFixed(1)} km`,
+            coordsLabel:  formatCoords(pos.latitude, pos.longitude),
+          } : undefined,
         } as OsmMarker;
       })
       .filter((m): m is OsmMarker => m !== null);
-  }, [vehicles, livePositions, alarmsByVehicle]);
+  }, [vehicles, livePositions, alarmsByVehicle, selectedId, dailyDistance]);
 
-  // KM parcourus aujourd'hui pour le véhicule sélectionné (placeholder)
-  const kmToday = 0;
+  // Ajoute la position du téléphone comme pastille "vous êtes ici" (id: 'user')
+  const markersWithUser = useMemo(() => {
+    const m = [...mapMarkers];
+    if (userLoc) {
+      m.push({
+        id: 'user',
+        latitude: userLoc.latitude,
+        longitude: userLoc.longitude,
+        color: Colors.danger,
+        icon: 'user',
+      });
+    }
+    return m;
+  }, [mapMarkers, userLoc]);
+
+  useEffect(() => {
+    const loadDailyDistance = async () => {
+      if (!selectedId) return;
+      try {
+        const report = await vehicleService.getDailyReport(selectedId, new Date().toISOString().split('T')[0]);
+        setDailyDistance(report?.distanceTotaleKm ?? 0);
+      } catch {
+        setDailyDistance(0);
+      }
+    };
+
+    loadDailyDistance();
+  }, [selectedId]);
+
+  const mapRef = useRef<OsmMapViewHandle | null>(null);
 
   const handleMarkerPress = (vehicleId: string) => {
     setSelectedId(vehicleId);
-    setModalVisible(true);
+    const pos = livePositions[vehicleId];
+    if (pos && mapRef.current) {
+      mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, 14);
+    }
+    // La popup ne peut s'ouvrir qu'une fois le marqueur du véhicule sélectionné
+    // resynchronisé avec ses données (voir mapMarkers) — un court délai suffit
+    // pour laisser le message "updateMarkers" atteindre la WebView avant "openPopup".
+    setTimeout(() => mapRef.current?.openPopup(vehicleId), 150);
   };
 
+  const handlePopupAction = (action: string, vehicleId: string) => {
+    if (action === 'detail') {
+      handleDetailPress();
+    } else if (action === 'replay') {
+      navigation.navigate('VehicleStack', { screen: 'Playback', params: { vehiculeId: vehicleId } });
+    }
+  };
+
+  // Selection via carousel scroll: met à jour selectedId quand un item devient visible
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const first = viewableItems[0];
+      if (first && first.item && first.item.id) {
+        setSelectedId(first.item.id);
+      }
+    }
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
   const handleDetailPress = () => {
-    setModalVisible(false);
     if (selectedId) {
       navigation.navigate('VehicleDetail', { vehiculeId: selectedId });
     }
   };
 
   // Région initiale centrée sur Yaoundé
+  useEffect(() => {
+    if (!selectedId && vehicles.length > 0) {
+      setSelectedId(vehicles[0].id);
+    }
+  }, [selectedId, vehicles]);
+
+  // Un autre onglet (ex: Dispositifs → "Position") a demandé le focus sur un véhicule précis.
+  useEffect(() => {
+    if (storeSelectedId && vehicles.some(v => v.id === storeSelectedId)) {
+      handleMarkerPress(storeSelectedId);
+      setStoreSelectedId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeSelectedId, vehicles]);
+
   const initialRegion = {
     latitude:       3.8480,
     longitude:      11.5021,
@@ -99,16 +184,19 @@ export default function DashboardScreen() {
 
       {/* ── CARTE PLEIN ÉCRAN ── */}
       <OsmMapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
         tileUrlTemplate={mapStyle === 'route' ? OSM_URL : SAT_URL}
-        markers={mapMarkers}
+        markers={markersWithUser}
+        selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
+        onPopupAction={handlePopupAction}
       />
 
       {/* ── TOPBAR ── */}
       <View style={styles.topbar}>
-        <Text style={styles.appName}>🦅 FAUCON</Text>
+        <Logo tone="white" size={22} />
 
         {/* Toggle carte / satellite */}
         <View style={styles.mapToggle}>
@@ -153,11 +241,21 @@ export default function DashboardScreen() {
       {isLoading && (
         <View style={styles.loader}>
           <ActivityIndicator color={Colors.primary} size="small" />
-          <Text style={styles.loaderText}>Chargement des véhicules...</Text>
+          <Text style={styles.loaderText}>Chargement des dispositifs...</Text>
         </View>
       )}
 
-      {/* ── CAROUSEL VÉHICULES (bas) ── */}
+      {/* ── ERREUR POSITION TÉLÉPHONE ── */}
+      {!isLoading && locationError && (
+        <View style={styles.locationBanner}>
+          <Ionicons name="location-outline" size={14} color={Colors.warning} />
+          <Text style={styles.locationBannerText}>
+            Votre position n'est pas affichée : {locationError}
+          </Text>
+        </View>
+      )}
+
+      {/* ── CAROUSEL DISPOSITIFS (bas) ── */}
       {vehicles.length > 0 && (
         <View style={styles.carouselContainer}>
           <FlatList
@@ -166,6 +264,8 @@ export default function DashboardScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.carousel}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
             renderItem={({ item }) => {
               const pos      = livePositions[item.id];
               const hasAlarm = alarmsByVehicle[item.id];
@@ -201,22 +301,6 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── MODAL INFOS VÉHICULE ── */}
-      {selectedVehicle && selectedPos && (
-        <VehicleInfoModal
-          visible={modalVisible}
-          vehicleName={selectedVehicle.nom}
-          livePosition={selectedPos}
-          userLocation={userLoc}
-          kmToday={kmToday}
-          onClose={() => {
-            setModalVisible(false);
-            setSelectedId(null);
-          }}
-          onDetail={handleDetailPress}
-        />
-      )}
-
     </View>
   );
 }
@@ -240,12 +324,6 @@ const styles = StyleSheet.create({
     paddingBottom:   12,
     paddingHorizontal: 16,
     backgroundColor: 'rgba(0,122,61,0.92)',
-  },
-  appName: {
-    fontSize:   16,
-    fontWeight: '700',
-    color:      Colors.white,
-    letterSpacing: 1,
   },
   mapToggle: {
     flexDirection:   'row',
@@ -312,6 +390,30 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     fontSize: 13,
+    color:    Colors.textSecondary,
+  },
+
+  // BANNIÈRE LOCALISATION
+  locationBanner: {
+    position:        'absolute',
+    top:             120,
+    left:            16,
+    right:           16,
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             8,
+    backgroundColor: Colors.white,
+    borderRadius:    10,
+    paddingHorizontal: 12,
+    paddingVertical:   8,
+    shadowColor:     '#000',
+    shadowOpacity:   0.1,
+    shadowRadius:    4,
+    elevation:       3,
+  },
+  locationBannerText: {
+    flex:     1,
+    fontSize: 11,
     color:    Colors.textSecondary,
   },
 

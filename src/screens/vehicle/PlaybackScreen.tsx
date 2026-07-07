@@ -3,7 +3,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import MapView, { Polyline, Marker, UrlTile,} from 'react-native-maps';
+import OsmMapView, { OsmPolyline, OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -14,7 +14,7 @@ import { formatTime, formatSpeed, formatDistance } from '../../utils/formatters'
 
 
 
-type RouteParams = { vehiculeId: string };
+type RouteParams = { vehiculeId: string; date?: string };
 
 const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SPEEDS  = [1, 2, 5, 10];
@@ -22,15 +22,15 @@ const SPEEDS  = [1, 2, 5, 10];
 export default function PlaybackScreen() {
   const route      = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation<any>();
-  const { vehiculeId } = route.params;
+  const { vehiculeId, date } = route.params;
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<OsmMapViewHandle | null>(null);
 
   // Données
   const [positions,    setPositions]    = useState<Position[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
+    date ?? new Date().toISOString().split('T')[0]
   );
 
   // Playback state
@@ -55,12 +55,9 @@ export default function PlaybackScreen() {
 
       // Centrer la carte sur le premier point
       if (data.length > 0 && mapRef.current) {
-        mapRef.current.animateToRegion({
-          latitude:       data[0].latitude,
-          longitude:      data[0].longitude,
-          latitudeDelta:  0.05,
-          longitudeDelta: 0.05,
-        }, 500);
+        const delta = 0.05;
+        const zoom = Math.round(Math.log2(360 / delta));
+        mapRef.current.animateToCoordinate(data[0].latitude, data[0].longitude, zoom);
       }
     } catch (err) {
       console.error('[PlaybackScreen]', err);
@@ -89,12 +86,9 @@ export default function PlaybackScreen() {
 
         // Centrer la carte sur la nouvelle position
         if (mapRef.current && positions[next]) {
-          mapRef.current.animateToRegion({
-            latitude:       positions[next].latitude,
-            longitude:      positions[next].longitude,
-            latitudeDelta:  0.02,
-            longitudeDelta: 0.02,
-          }, 300);
+          const delta = 0.02;
+          const zoom = Math.round(Math.log2(360 / delta));
+          mapRef.current.animateToCoordinate(positions[next].latitude, positions[next].longitude, zoom);
         }
         return next;
       });
@@ -116,12 +110,9 @@ export default function PlaybackScreen() {
     setIsPlaying(false);
     setCurrentIdx(0);
     if (positions[0] && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude:       positions[0].latitude,
-        longitude:      positions[0].longitude,
-        latitudeDelta:  0.05,
-        longitudeDelta: 0.05,
-      }, 500);
+      const delta = 0.05;
+      const zoom = Math.round(Math.log2(360 / delta));
+      mapRef.current.animateToCoordinate(positions[0].latitude, positions[0].longitude, zoom);
     }
   };
 
@@ -130,12 +121,9 @@ export default function PlaybackScreen() {
     setCurrentIdx(idx);
     setIsPlaying(false);
     if (positions[idx] && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude:       positions[idx].latitude,
-        longitude:      positions[idx].longitude,
-        latitudeDelta:  0.02,
-        longitudeDelta: 0.02,
-      }, 200);
+        const delta = 0.02;
+        const zoom = Math.round(Math.log2(360 / delta));
+        mapRef.current.animateToCoordinate(positions[idx].latitude, positions[idx].longitude, zoom);
     }
   };
 
@@ -161,6 +149,19 @@ export default function PlaybackScreen() {
     d.setDate(d.getDate() - i);
     return d.toISOString().split('T')[0];
   });
+
+  // build markers and polylines for OsmMapView
+  const pastCoordsList = pastCoords.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+  const futureCoordsList = futureCoords.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+
+  const polylines: OsmPolyline[] = [];
+  if (pastCoordsList.length > 1) polylines.push({ id: 'past', coords: pastCoordsList, color: Colors.primary, weight: 3 });
+  if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4] });
+
+  const markers: OsmMarker[] = [];
+  if (positions.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: '#007A3D', label: 'A' });
+  if (positions.length > 1) markers.push({ id: 'end', latitude: futureCoordsList[futureCoordsList.length - 1].latitude, longitude: futureCoordsList[futureCoordsList.length - 1].longitude, color: Colors.warning, label: 'B' });
+  if (currentPos) markers.push({ id: 'current', latitude: currentPos.latitude, longitude: currentPos.longitude, color: Colors.primary, label: '' });
 
   return (
     <View style={styles.container}>
@@ -196,7 +197,7 @@ export default function PlaybackScreen() {
 
       {/* CARTE */}
       <View style={styles.mapContainer}>
-        <MapView
+        <OsmMapView
           ref={mapRef}
           style={StyleSheet.absoluteFill}
           initialRegion={{
@@ -205,61 +206,10 @@ export default function PlaybackScreen() {
             latitudeDelta:  0.1,
             longitudeDelta: 0.1,
           }}
-        >
-          <UrlTile urlTemplate={OSM_URL} maximumZ={19} flipY={false} />
-
-          {/* Tracé passé — cyan plein */}
-          {pastCoords.length > 1 && (
-            <Polyline
-              coordinates={pastCoords}
-              strokeColor={Colors.primary}
-              strokeWidth={3}
-            />
-          )}
-
-          {/* Tracé futur — grisé */}
-          {futureCoords.length > 1 && (
-            <Polyline
-              coordinates={futureCoords}
-              strokeColor={Colors.border}
-              strokeWidth={2}
-              lineDashPattern={[6, 4]}
-            />
-          )}
-
-          {/* Point de départ */}
-          {positions.length > 0 && (
-            <Marker coordinate={pastCoords[0]} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.startMarker}>
-                <Text style={styles.startMarkerText}>A</Text>
-              </View>
-            </Marker>
-          )}
-
-          {/* Point d'arrivée */}
-          {positions.length > 1 && (
-            <Marker
-              coordinate={futureCoords[futureCoords.length - 1]}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={[styles.startMarker, { backgroundColor: Colors.warning }]}>
-                <Text style={styles.startMarkerText}>B</Text>
-              </View>
-            </Marker>
-          )}
-
-          {/* Marqueur véhicule animé */}
-          {currentPos && (
-            <Marker
-              coordinate={{ latitude: currentPos.latitude, longitude: currentPos.longitude }}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.vehicleMarker}>
-                <Text style={{ fontSize: 16 }}>🚛</Text>
-              </View>
-            </Marker>
-          )}
-        </MapView>
+          tileUrlTemplate={OSM_URL}
+          markers={markers}
+          polylines={polylines}
+        />
 
         {/* Loader */}
         {loading && (

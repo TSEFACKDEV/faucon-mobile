@@ -1,14 +1,18 @@
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Switch, Alert,
+  TouchableOpacity, TextInput, Alert,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import BrandBar from '../../components/ui/BrandBar';
+import Button from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
+import { useVehicleStore } from '../../store/vehicleStore';
 import { useSocket } from '../../hooks/useSocket';
+import { authService } from '../../services/authService';
 import { RootStackParamList } from '../../navigation/MainNavigator';
 
 interface SettingRowProps {
@@ -39,14 +43,42 @@ const SettingRow = ({ icon, label, onPress, rightElement, danger }: SettingRowPr
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, logout } = useAuthStore();
-  const { disconnect }   = useSocket([]);
+  const { user, logout, setUser } = useAuthStore();
+  const { vehicles } = useVehicleStore();
+  const { disconnect } = useSocket([]);
 
-  const [notifZone,     setNotifZone]     = useState(true);
-  const [notifVitesse,  setNotifVitesse]  = useState(true);
-  const [notifDecolle,  setNotifDecolle]  = useState(true);
-  const [notifBatterie, setNotifBatterie] = useState(true);
-  const [mapDefault,    setMapDefault]    = useState<'route' | 'satellite'>('route');
+  const [nom,       setNom]       = useState(user?.userName ?? '');
+  const [email,     setEmail]     = useState(user?.email ?? '');
+  const [telephone, setTelephone] = useState(user?.telephone ?? '');
+  const [saving,    setSaving]    = useState(false);
+
+  useEffect(() => {
+    setNom(user?.userName ?? '');
+    setEmail(user?.email ?? '');
+    setTelephone(user?.telephone ?? '');
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!nom.trim() || !email.trim()) {
+      Alert.alert('Champs requis', 'Le nom et l\'email sont obligatoires.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await authService.updateProfile({
+        userName: nom.trim(),
+        email: email.trim(),
+        telephone: telephone.trim(),
+      });
+      setUser(updated);
+      Alert.alert('Profil mis à jour', 'Vos informations ont été enregistrées.');
+    } catch (error: any) {
+      const message = error?.response?.data?.message ?? "Impossible d'enregistrer les modifications.";
+      Alert.alert('Erreur', message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -66,16 +98,7 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Supprimer le compte',
-      'Cette action est irréversible. Toutes vos données seront supprimées.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => {} },
-      ]
-    );
-  };
+  const showStaticInfo = (title: string, message: string) => Alert.alert(title, message);
 
   // Initiales de l'utilisateur
   const initials = user?.userName
@@ -87,6 +110,8 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+
+      <BrandBar />
 
       {/* HEADER */}
       <View style={styles.header}>
@@ -102,126 +127,83 @@ export default function ProfileScreen() {
         <Text style={styles.userEmail}>{user?.email}</Text>
       </View>
 
+      {/* INFORMATIONS PERSONNELLES */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>INFORMATIONS PERSONNELLES</Text>
+        <View style={[styles.sectionCard, { padding: 16, gap: 14 }]}>
+          <View>
+            <Text style={styles.fieldLabel}>NOM</Text>
+            <TextInput style={styles.fieldInput} value={nom} onChangeText={setNom} autoCapitalize="words" />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>EMAIL</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>TÉLÉPHONE</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={telephone}
+              onChangeText={setTelephone}
+              keyboardType="phone-pad"
+              placeholder="+237 6XX XX XX XX"
+              placeholderTextColor={Colors.textMuted}
+            />
+          </View>
+          <Button label="Enregistrer" onPress={handleSave} loading={saving} />
+        </View>
+      </View>
+
       {/* SECTION COMPTE */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>COMPTE</Text>
         <View style={styles.sectionCard}>
           <SettingRow
-            icon="person-outline"
-            label="Modifier le nom"
-            onPress={() => {}}
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            icon="mail-outline"
-            label="Modifier l'email"
-            onPress={() => {}}
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            icon="lock-closed-outline"
-            label="Modifier le mot de passe"
-            onPress={() => {}}
-          />
-          <View style={styles.divider} />
-          <SettingRow
             icon="cube-outline"
-            label="Gérer mes appareils"
-            onPress={() => navigation.navigate('AddDeviceFromProfile')}
+            label="Dispositifs"
+            onPress={() => navigation.navigate('Tabs', { screen: 'Dispositifs' } as any)}
+            rightElement={<Text style={styles.rowValue}>{vehicles.length} enregistrés</Text>}
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="language-outline"
+            label="Langue"
+            rightElement={<Text style={styles.rowValue}>Français</Text>}
           />
         </View>
       </View>
 
-      {/* SECTION NOTIFICATIONS */}
+      {/* SECTION ASSISTANCE */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
+        <Text style={styles.sectionTitle}>ASSISTANCE</Text>
         <View style={styles.sectionCard}>
           <SettingRow
-            icon="location-outline"
-            label="Alertes de zone"
-            rightElement={
-              <Switch
-                value={notifZone}
-                onValueChange={setNotifZone}
-                trackColor={{ true: Colors.primary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            }
+            icon="shield-checkmark-outline"
+            label="Politique de confidentialité"
+            onPress={() => showStaticInfo(
+              'Politique de confidentialité',
+              "FAUCON collecte uniquement les données de localisation de vos dispositifs et de votre compte pour assurer le suivi de vos équipements. Aucune donnée n'est partagée avec des tiers."
+            )}
           />
           <View style={styles.divider} />
           <SettingRow
-            icon="speedometer-outline"
-            label="Limite de vitesse"
-            rightElement={
-              <Switch
-                value={notifVitesse}
-                onValueChange={setNotifVitesse}
-                trackColor={{ true: Colors.primary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            }
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            icon="warning-outline"
-            label="Décollement traceur"
-            rightElement={
-              <Switch
-                value={notifDecolle}
-                onValueChange={setNotifDecolle}
-                trackColor={{ true: Colors.primary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            }
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            icon="battery-dead-outline"
-            label="Batterie faible"
-            rightElement={
-              <Switch
-                value={notifBatterie}
-                onValueChange={setNotifBatterie}
-                trackColor={{ true: Colors.primary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            }
+            icon="help-buoy-outline"
+            label="Aide et support"
+            onPress={() => showStaticInfo(
+              'Aide et support',
+              'Besoin d\'aide ? Contactez notre équipe à support@faucon.app.'
+            )}
           />
         </View>
       </View>
 
-      {/* SECTION CARTE */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>CARTE</Text>
-        <View style={styles.sectionCard}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingIcon}>
-              <Ionicons name="map-outline" size={18} color={Colors.primary} />
-            </View>
-            <Text style={styles.settingLabel}>Style par défaut</Text>
-            <View style={styles.mapPill}>
-              <TouchableOpacity
-                style={[styles.pillBtn, mapDefault === 'route' && styles.pillBtnActive]}
-                onPress={() => setMapDefault('route')}
-              >
-                <Text style={[styles.pillText, mapDefault === 'route' && styles.pillTextActive]}>
-                  Routes
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.pillBtn, mapDefault === 'satellite' && styles.pillBtnActive]}
-                onPress={() => setMapDefault('satellite')}
-              >
-                <Text style={[styles.pillText, mapDefault === 'satellite' && styles.pillTextActive]}>
-                  Satellite
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* SECTION DANGER */}
+      {/* SESSION */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>SESSION</Text>
         <View style={styles.sectionCard}>
@@ -229,13 +211,6 @@ export default function ProfileScreen() {
             icon="log-out-outline"
             label="Se déconnecter"
             onPress={handleLogout}
-            danger
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            icon="trash-outline"
-            label="Supprimer le compte"
-            onPress={handleDeleteAccount}
             danger
           />
         </View>
@@ -253,7 +228,7 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor:   Colors.primary,
-    paddingTop:        56,
+    paddingTop:        18,
     paddingBottom:     16,
     paddingHorizontal: 20,
   },
@@ -299,6 +274,18 @@ const styles = StyleSheet.create({
     elevation:       1,
   },
 
+  fieldLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.5, marginBottom: 6 },
+  fieldInput: {
+    borderWidth:       1,
+    borderColor:       Colors.border,
+    borderRadius:      10,
+    paddingHorizontal: 12,
+    height:            46,
+    fontSize:          14,
+    color:             Colors.textPrimary,
+    backgroundColor:   Colors.offWhite,
+  },
+
   settingRow: {
     flexDirection:   'row',
     alignItems:      'center',
@@ -317,24 +304,8 @@ const styles = StyleSheet.create({
   settingIconDanger: { backgroundColor: '#FEE2E2' },
   settingLabel:      { flex: 1, fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
   settingLabelDanger:{ color: Colors.danger },
+  rowValue:          { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
   divider:           { height: 1, backgroundColor: Colors.border, marginLeft: 64 },
-
-  mapPill: {
-    flexDirection:   'row',
-    backgroundColor: Colors.offWhite,
-    borderRadius:    16,
-    padding:         2,
-    borderWidth:     1,
-    borderColor:     Colors.border,
-  },
-  pillBtn: {
-    paddingHorizontal: 10,
-    paddingVertical:    4,
-    borderRadius:      14,
-  },
-  pillBtnActive: { backgroundColor: Colors.primary },
-  pillText:      { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
-  pillTextActive:{ color: Colors.white, fontWeight: '700' },
 
   version: {
     textAlign:  'center',

@@ -5,7 +5,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Circle, UrlTile } from 'react-native-maps';
+import OsmMapView, { OsmMarker } from '../../components/map/OsmMapView';
 import { Colors } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
@@ -14,6 +14,7 @@ import { formatSpeed, formatBattery, formatCoords, formatTime } from '../../util
 import ModeSelector from '../../components/vehicle/ModeSelector';
 import SpeedLimitConfig from '../../components/vehicle/SpeedLimitConfig';
 import GeofenceConfig from '../../components/vehicle/GeofenceConfig';
+import DailyReportPanel from '../../components/vehicle/DailyReportPanel';
 
 type RouteParams = { vehiculeId: string };
 
@@ -28,7 +29,7 @@ export default function VehicleDetailScreen() {
 
   const [vehicle,   setVehicle]   = useState<Vehicle | null>(null);
   const [loading,   setLoading]   = useState(true);
-  const [activeTab, setActiveTab] = useState<'infos' | 'mode' | 'vitesse' | 'zone'>('infos');
+  const [activeTab, setActiveTab] = useState<'infos' | 'mode' | 'vitesse' | 'zone' | 'rapport'>('infos');
 
   const livePos = livePositions[vehiculeId] ?? null;
 
@@ -69,7 +70,7 @@ export default function VehicleDetailScreen() {
   if (!vehicle) {
     return (
       <View style={styles.centered}>
-        <Text style={{ color: Colors.textSecondary }}>Véhicule introuvable</Text>
+        <Text style={{ color: Colors.textSecondary }}>Dispositif introuvable</Text>
       </View>
     );
   }
@@ -106,39 +107,23 @@ export default function VehicleDetailScreen() {
       {/* ── CARTE MINI ── */}
       {livePos ? (
         <View style={styles.mapContainer}>
-          <MapView
+          <OsmMapView
             style={StyleSheet.absoluteFill}
-            region={{
+            initialRegion={{
               latitude:       livePos.latitude,
               longitude:      livePos.longitude,
               latitudeDelta:  0.02,
               longitudeDelta: 0.02,
             }}
-            scrollEnabled={false}
-            zoomEnabled={false}
-          >
-            <UrlTile urlTemplate={OSM_URL} maximumZ={19} flipY={false} />
-            <Marker
-              coordinate={{ latitude: livePos.latitude, longitude: livePos.longitude }}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.mapMarker}>
-                <Text style={{ fontSize: 16 }}>🚛</Text>
-              </View>
-            </Marker>
-            {vehicle.perimetreGeofence && (
-              <Circle
-                center={{
-                  latitude:  vehicle.perimetreGeofence.centreLat,
-                  longitude: vehicle.perimetreGeofence.centreLon,
-                }}
-                radius={vehicle.perimetreGeofence.rayonMetres}
-                fillColor="rgba(0,122,61,0.1)"
-                strokeColor={Colors.primary}
-                strokeWidth={2}
-              />
-            )}
-          </MapView>
+            tileUrlTemplate={OSM_URL}
+            markers={[{
+              id: vehicle.id,
+              latitude: livePos.latitude,
+              longitude: livePos.longitude,
+              color: '#007A3D',
+              label: vehicle.nom,
+            } as OsmMarker]}
+          />
 
           {/* Overlay infos sur la carte */}
           <View style={styles.mapOverlay}>
@@ -195,6 +180,7 @@ export default function VehicleDetailScreen() {
           { key: 'mode',    label: 'Mode',      icon: 'radio-outline'             },
           { key: 'vitesse', label: 'Vitesse',   icon: 'speedometer-outline'       },
           { key: 'zone',    label: 'Zone',      icon: 'location-outline'          },
+          { key: 'rapport', label: 'Rapport',   icon: 'bar-chart-outline'         },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -230,12 +216,14 @@ export default function VehicleDetailScreen() {
             <InfoRow label="Nom"          value={vehicle.nom} />
             <InfoRow label="Mode actuel"  value={vehicle.modeActuel} />
             <InfoRow label="Batterie"     value={formatBattery(vehicle.niveauBatterie)} />
+            <InfoRow label="Dernière communication" value={vehicle.derniereCommunication ? formatTime(vehicle.derniereCommunication) : 'Aucune'} />
             {livePos && (
               <>
-                <InfoRow label="Latitude"  value={String(livePos.latitude)}  mono />
-                <InfoRow label="Longitude" value={String(livePos.longitude)} mono />
+                <InfoRow label="Latitude"  value={String(livePos.latitude.toFixed(6))}  mono />
+                <InfoRow label="Longitude" value={String(livePos.longitude.toFixed(6))} mono />
                 <InfoRow label="Vitesse"   value={formatSpeed(livePos.vitesse)} />
                 <InfoRow label="Cap"       value={`${Math.round(livePos.cap)}°`} />
+                <InfoRow label="Source" value={livePos.source ?? 'tcp'} />
               </>
             )}
             {/* {vehicle.limiteVitesse && (
@@ -283,6 +271,11 @@ export default function VehicleDetailScreen() {
               prev ? { ...prev, perimetreGeofence: geofence } : prev
             )}
           />
+        )}
+
+        {/* RAPPORT */}
+        {activeTab === 'rapport' && (
+          <DailyReportPanel vehiculeId={vehiculeId} />
         )}
 
       </ScrollView>

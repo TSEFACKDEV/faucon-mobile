@@ -5,10 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "backgroundColor": "#007A3D"
-    },
     "ios": {
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
@@ -21,13 +17,28 @@
         "ACCESS_COARSE_LOCATION",
         "INTERNET"
       ],
-      "package": "com.faucon.tracking"
+      "package": "com.faucon.tracking",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#F8FAF9"
+      }
     },
     "plugins": [
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "FAUCON utilise votre position pour calculer la distance avec vos équipements."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F8FAF9"
         }
       ]
     ]

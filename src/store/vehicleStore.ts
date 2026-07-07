@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Vehicle, Position, Alarme } from '../types';
+import { Device, Position, Alarme } from '../types';
 
 interface LivePosition {
   vehiculeId:  string;
@@ -9,23 +9,24 @@ interface LivePosition {
   cap:         number;
   battery:     number;
   horodatage:  string;
+  source?:     string;
 }
 
-interface VehicleState {
-  vehicles:       Vehicle[];
+interface DeviceState {
+  vehicles:       Device[];
   livePositions:  Record<string, LivePosition>;
   activeAlarms:   Alarme[];
   selectedId:     string | null;
   isLoading:      boolean;
 
-  setVehicles:        (vehicles: Vehicle[]) => void;
+  setVehicles:        (vehicles: Device[]) => void;
   updateLivePosition: (data: LivePosition) => void;
   addAlarm:           (alarm: Alarme) => void;
   setSelectedId:      (id: string | null) => void;
   setLoading:         (v: boolean) => void;
 }
 
-export const useVehicleStore = create<VehicleState>((set) => ({
+export const useVehicleStore = create<DeviceState>((set) => ({
   vehicles:      [],
   livePositions: {},
   activeAlarms:  [],

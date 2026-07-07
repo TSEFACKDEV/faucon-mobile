@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Formik, FormikHelpers } from 'formik';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { addDeviceSchema } from '../../utils/validationSchemas';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import Logo from '../../components/ui/Logo';
 import { useNavigation } from '@react-navigation/native';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'AddDevice'>;
@@ -34,6 +36,7 @@ export default function AddDeviceScreen() {
   ) => {
     try {
       await authService.addDevice(values.imei, values.nom);
+      Alert.alert('Appareil connecté', 'Votre dispositif est prêt à être suivi.');
       setIsAuthenticated(true);
     } catch (error: any) {
       const message = error?.response?.data?.message ?? 'IMEI invalide ou déjà enregistré';
@@ -58,7 +61,7 @@ export default function AddDeviceScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>🦅 FAUCON</Text>
+          <Logo tone="white" size={36} />
         </View>
 
         <View style={styles.flagStripe}>
@@ -74,8 +77,13 @@ export default function AddDeviceScreen() {
 
           <Text style={styles.title}>Ajouter votre appareil</Text>
           <Text style={styles.subtitle}>
-            Connectez votre traceur GPS FAUCON en saisissant son identifiant unique (IMEI).
+            Connectez votre traceur GPS FAUCON en saisissant son identifiant unique inscrit sur le boîtier.
           </Text>
+
+          <View style={styles.statusCard}>
+            <Ionicons name="pulse-outline" size={16} color={Colors.primary} />
+            <Text style={styles.statusText}>Le suivi démarre dès que l’appareil est enregistré.</Text>
+          </View>
 
           <Formik
             initialValues={initialValues}
@@ -84,7 +92,7 @@ export default function AddDeviceScreen() {
           >
             {({ handleSubmit, isSubmitting }) => (
               <View>
-                <InputField name="imei" label="IMEI de l'appareil" icon="barcode-outline" placeholder="15 chiffres" keyboardType="numeric" maxLength={15} />
+                <InputField name="imei" label="ID du traceur ou IMEI" icon="barcode-outline" placeholder="Ex: TRACKER-001 ou 15 chiffres" />
                 <InputField name="nom" label="Nom de l'appareil" icon="cube-outline" placeholder="ex: Camion A" />
 
                 <View style={styles.infoBox}>
@@ -110,13 +118,14 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.offWhite },
   scroll: { flexGrow: 1 },
   header: { backgroundColor: Colors.primary, paddingTop: 56, paddingBottom: 20, alignItems: 'center' },
-  logo: { fontSize: 22, fontWeight: '700', color: Colors.white, letterSpacing: 2 },
   flagStripe: { flexDirection: 'row', height: 5 },
   stripe: { flex: 1 },
   body: { padding: 24, flex: 1 },
   deviceIllustration: { width: 88, height: 88, borderRadius: 44, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 8, marginBottom: 20 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 28 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 16 },
+  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 10, marginBottom: 20 },
+  statusText: { flex: 1, fontSize: 12, color: Colors.primary, fontWeight: '600' },
   infoBox: { flexDirection: 'row', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 8, padding: 12, marginBottom: 20, alignItems: 'flex-start' },
   infoText: { flex: 1, fontSize: 12, color: Colors.primary, lineHeight: 18 },
   submitBtn: { marginTop: 4 },

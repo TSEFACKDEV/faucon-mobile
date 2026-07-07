@@ -127,11 +127,9 @@ export default function AddDeviceFromProfileScreen() {
                 <View style={{ gap: 4 }}>
                   <InputField
                     name="imei"
-                    label="IMEI de l'appareil (15 chiffres)"
+                    label="ID du traceur ou IMEI"
                     icon="barcode-outline"
-                    placeholder="Ex: 358000000000001"
-                    keyboardType="numeric"
-                    maxLength={15}
+                    placeholder="Ex: TRACKER-001 ou 358000000000001"
                   />
                   <InputField
                     name="nom"
@@ -167,11 +165,11 @@ export default function AddDeviceFromProfileScreen() {
             </Formik>
           </View>
 
-          {/* APPAREILS EXISTANTS */}
+          {/* DISPOSITIFS EXISTANTS */}
           {vehicles.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>
-                APPAREILS CONNECTÉS ({vehicles.length})
+                DISPOSITIFS CONNECTÉS ({vehicles.length})
               </Text>
               <View style={styles.deviceList}>
                 {vehicles.map(v => (

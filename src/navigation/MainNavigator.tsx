@@ -4,8 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import AddDeviceFromProfileScreen from '../screens/profile/AddDeviceFromProfileScreen'
 import DashboardScreen      from '../screens/dashboard/DashboardScreen';
+import DevicesScreen        from '../screens/devices/DevicesScreen';
+import HistoryScreen        from '../screens/history/HistoryScreen';
 import AlertsScreen         from '../screens/alerts/AlertsScreen';
-import ReportsScreen        from '../screens/reports/ReportsScreen';
 import ProfileScreen        from '../screens/profile/ProfileScreen';
 import VehicleDetailScreen  from '../screens/vehicle/VehicleDetailScreen';
 import PlaybackScreen       from '../screens/vehicle/PlaybackScreen';
@@ -52,19 +53,21 @@ const TabNavigator = () => (
       },
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-          Carte:    focused ? 'map'           : 'map-outline',
-          Alertes:  focused ? 'notifications' : 'notifications-outline',
-          Rapports: focused ? 'bar-chart'     : 'bar-chart-outline',
-          Profil:   focused ? 'person'        : 'person-outline',
+          Carte:       focused ? 'map'           : 'map-outline',
+          Dispositifs: focused ? 'cube'          : 'cube-outline',
+          Historique:  focused ? 'time'          : 'time-outline',
+          Alertes:     focused ? 'notifications' : 'notifications-outline',
+          Profil:      focused ? 'person'        : 'person-outline',
         };
         return <Ionicons name={icons[route.name]} size={size} color={color} />;
       },
     })}
   >
-    <Tab.Screen name="Carte"    component={DashboardScreen} />
-    <Tab.Screen name="Alertes"  component={AlertsScreen}   />
-    <Tab.Screen name="Rapports" component={ReportsScreen}  />
-    <Tab.Screen name="Profil"   component={ProfileScreen}  />
+    <Tab.Screen name="Carte"       component={DashboardScreen} />
+    <Tab.Screen name="Dispositifs" component={DevicesScreen}   />
+    <Tab.Screen name="Historique"  component={HistoryScreen}   />
+    <Tab.Screen name="Alertes"     component={AlertsScreen}    />
+    <Tab.Screen name="Profil"      component={ProfileScreen}   />
   </Tab.Navigator>
 );
 

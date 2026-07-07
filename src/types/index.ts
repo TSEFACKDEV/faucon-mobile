@@ -2,9 +2,10 @@ export interface User {
   id: string;
   userName: string;
   email: string;
+  telephone?: string | null;
 }
 
-export interface Vehicle {
+export interface Device {
   id: string;
   imei: string;
   nom: string;
@@ -13,10 +14,10 @@ export interface Vehicle {
   niveauBatterie: number;
   estActif: boolean;
   derniereCommunication?: string;
-  limiteVitesse: {
+  limiteVitesse?: {
     seuilKmh: number;
     estActif: boolean;
-  };
+  } | null;
   geofence?: {
     nom: string;
     centreLat: number;
@@ -24,14 +25,16 @@ export interface Vehicle {
     rayonMetres: number;
     estActif: boolean;
   };
-  perimetreGeofence:{
+  perimetreGeofence?: {
     nom: string;
     centreLat: number;
     centreLon: number;
     rayonMetres: number;
     estActif: boolean;
-  }
+  } | null;
 }
+
+export type Vehicle = Device;
 
 export interface Position {
   id: number;
@@ -45,10 +48,24 @@ export interface Position {
   horodatage: string;
 }
 
+export type DevicePosition = Position;
+
+export interface LivePositionPayload {
+  vehiculeId: string;
+  latitude: number;
+  longitude: number;
+  vitesse: number;
+  cap: number;
+  battery: number;
+  horodatage: string;
+  source?: string;
+  eventType?: string;
+}
+
 export interface Alarme {
   id: string;
   vehiculeId: string;
-  vehicule?: Pick<Vehicle, 'nom' | 'imei'>;
+  vehicule?: Pick<Device, 'nom' | 'imei'>;
   typeAlarme: TypeAlarme;
   latitude: number;
   longitude: number;
@@ -57,6 +74,8 @@ export interface Alarme {
   estAcquittee: boolean;
   horodatage: string;
 }
+
+export type DeviceAlarm = Alarme;
 
 export type TypeAlarme =
   | 'SORTIE_ZONE'

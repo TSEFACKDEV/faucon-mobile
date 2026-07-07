@@ -31,8 +31,15 @@ export const loginSchema = Yup.object({
 
 export const addDeviceSchema = Yup.object({
   imei: Yup.string()
-    .matches(/^\d{15}$/, 'L\'IMEI doit contenir exactement 15 chiffres')
-    .required('IMEI requis'),
+    .required('ID du traceur requis')
+    .test(
+      'imei-or-tracker-id',
+      'L\'IMEI ou l\'ID du traceur est invalide',
+      (value) => {
+        if (!value) return false;
+        return /^\d{15}$/.test(value) || /^[A-Z0-9-]{5,30}$/i.test(value);
+      }
+    ),
 
   nom: Yup.string()
     .min(2, 'Au moins 2 caractères')

@@ -5,6 +5,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import BrandBar from '../../components/ui/BrandBar';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { Alarme, TypeAlarme } from '../../types';
@@ -30,16 +31,16 @@ const ALARM_CONFIG: Record<TypeAlarme, {
     bg:    '#FEF3C7',
   },
   DECOLLEMENT_TRACEUR: {
-    label: 'Décollement traceur',
-    icon:  'warning-outline',
+    label: 'Retrait dispositif',
+    icon:  'alert-circle-outline',
     color: Colors.danger,
     bg:    '#FEE2E2',
   },
   NON_MOUVEMENT: {
-    label: 'Non-mouvement',
+    label: 'Immobilisation',
     icon:  'pause-circle-outline',
-    color: Colors.textSecondary,
-    bg:  '#E5E7EB',
+    color: '#D97706',
+    bg:    '#FEF3C7',
   },
   BATTERIE_FAIBLE: {
     label: 'Batterie faible',
@@ -69,6 +70,7 @@ export default function AlertsScreen() {
   const [refreshing,  setRefreshing]  = useState(false);
   const [loading,     setLoading]     = useState(true);
   const [acquitting,  setAcquitting]  = useState<string | null>(null);
+  const [acquittingAll, setAcquittingAll] = useState(false);
 
   // Charger les alarmes de tous les véhicules
   const loadAlarmes = useCallback(async () => {
@@ -138,6 +140,23 @@ export default function AlertsScreen() {
     }
   };
 
+  const handleAcquitAll = async () => {
+    const toAcquit = allAlarmes.filter(a => !a.estAcquittee);
+    if (toAcquit.length === 0) return;
+    setAcquittingAll(true);
+    try {
+      await Promise.allSettled(
+        toAcquit.map(a => vehicleService.acquitAlarme(a.vehiculeId, a.id))
+      );
+      const ids = new Set(toAcquit.map(a => a.id));
+      setAllAlarmes(prev => prev.map(a => (ids.has(a.id) ? { ...a, estAcquittee: true } : a)));
+    } catch (err) {
+      console.error('[acquitterTout]', err);
+    } finally {
+      setAcquittingAll(false);
+    }
+  };
+
   // Filtrage
   const filtered = allAlarmes.filter(a =>
     filter === 'TOUTES' || a.typeAlarme === filter
@@ -159,6 +178,20 @@ export default function AlertsScreen() {
 
   return (
     <View style={styles.container}>
+
+      <BrandBar
+        right={
+          nbNonLues > 0 ? (
+            <TouchableOpacity onPress={handleAcquitAll} disabled={acquittingAll}>
+              {acquittingAll ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Text style={styles.markAllText}>Tout lire</Text>
+              )}
+            </TouchableOpacity>
+          ) : null
+        }
+      />
 
       {/* HEADER */}
       <View style={styles.header}>
@@ -306,7 +339,7 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor:  Colors.primary,
-    paddingTop:       56,
+    paddingTop:       18,
     paddingBottom:    16,
     paddingHorizontal: 20,
     flexDirection:    'row',
@@ -315,6 +348,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.white },
   headerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  markAllText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   countBadge: {
     backgroundColor: Colors.danger,
     borderRadius:    16,

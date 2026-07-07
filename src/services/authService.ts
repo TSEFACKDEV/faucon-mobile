@@ -1,6 +1,12 @@
 import api from './api';
 import { AuthTokens, User } from '../types';
 
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 interface RegisterPayload {
   userName: string;
   email: string;
@@ -12,36 +18,45 @@ interface LoginPayload {
   password: string;
 }
 
-interface AuthData {
+interface RegisterResponse {
   user: User;
   tokens: AuthTokens;
 }
 
-// Format standard renvoyé par le backend (sendSuccess / sendError)
-interface ApiEnvelope<T> {
-  success: boolean;
-  message: string;
-  data: T;
+interface LoginResponse {
+  user: User;
+  tokens: AuthTokens;
 }
 
 export const authService = {
 
-  register: async (payload: RegisterPayload): Promise<AuthData> => {
-    const { data } = await api.post<ApiEnvelope<AuthData>>('/auth/register', payload);
+  register: async (payload: RegisterPayload): Promise<RegisterResponse> => {
+    const { data } = await api.post<ApiResponse<RegisterResponse>>('/auth/register', payload);
     return data.data;
   },
 
-  login: async (payload: LoginPayload): Promise<AuthData> => {
-    const { data } = await api.post<ApiEnvelope<AuthData>>('/auth/login', payload);
+  login: async (payload: LoginPayload): Promise<LoginResponse> => {
+    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/login', payload);
     return data.data;
   },
 
-  addDevice: async (imei: string, nom: string): Promise<void> => {
-    await api.post('/vehicles', { imei, nom });
+  addDevice: async (identifier: string, nom: string): Promise<void> => {
+    const payload: any = { nom };
+    if (/^\d{15}$/.test(identifier)) {
+      payload.imei = identifier;
+    } else {
+      payload.trackerId = identifier;
+    }
+    await api.post('/vehicles', payload);
   },
 
   me: async (): Promise<User> => {
-    const { data } = await api.get<ApiEnvelope<User>>('/auth/me');
+    const { data } = await api.get<ApiResponse<User>>('/auth/me');
+    return data.data;
+  },
+
+  updateProfile: async (changes: { userName?: string; email?: string; telephone?: string }): Promise<User> => {
+    const { data } = await api.patch<ApiResponse<User>>('/auth/me', changes);
     return data.data;
   },
 

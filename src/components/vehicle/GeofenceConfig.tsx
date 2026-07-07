@@ -4,6 +4,8 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import MapView, { Circle, Marker, UrlTile, MapPressEvent } from 'react-native-maps';
+import { UIManager } from 'react-native';
+import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
@@ -77,43 +79,60 @@ export default function GeofenceConfig({
 
       {/* CARTE INTERACTIVE */}
       <View style={styles.mapWrapper}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          region={{
-            latitude:       center.latitude,
-            longitude:      center.longitude,
-            latitudeDelta:  (rayon / 111000) * 4,
-            longitudeDelta: (rayon / 111000) * 4,
-          }}
-          onPress={handleMapPress}
-        >
-          <UrlTile urlTemplate={OSM_URL} maximumZ={19} flipY={false} />
+        { (UIManager as any).getViewManagerConfig && (UIManager as any).getViewManagerConfig('AIRMap') ? (
+          <MapView
+            style={StyleSheet.absoluteFill}
+            region={{
+              latitude:       center.latitude,
+              longitude:      center.longitude,
+              latitudeDelta:  (rayon / 111000) * 4,
+              longitudeDelta: (rayon / 111000) * 4,
+            }}
+            onPress={handleMapPress}
+          >
+            <UrlTile urlTemplate={OSM_URL} maximumZ={19} flipY={false} />
 
-          {/* Cercle géofence */}
-          <Circle
-            center={center}
-            radius={rayon}
-            fillColor="rgba(0,122,61,0.12)"
-            strokeColor={Colors.primary}
-            strokeWidth={2}
-          />
+            {/* Cercle géofence */}
+            <Circle
+              center={center}
+              radius={rayon}
+              fillColor="rgba(0,122,61,0.12)"
+              strokeColor={Colors.primary}
+              strokeWidth={2}
+            />
 
-          {/* Centre géofence */}
-          <Marker coordinate={center} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={styles.centerMarker}>
-              <Ionicons name="location" size={20} color={Colors.primary} />
-            </View>
-          </Marker>
-
-          {/* Position véhicule */}
-          {vehiclePosition && (
-            <Marker coordinate={vehiclePosition} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.vehicleMarker}>
-                <Text style={{ fontSize: 14 }}>🚛</Text>
+            {/* Centre géofence */}
+            <Marker coordinate={center} anchor={{ x: 0.5, y: 0.5 }}>
+              <View style={styles.centerMarker}>
+                <Ionicons name="location" size={20} color={Colors.primary} />
               </View>
             </Marker>
-          )}
-        </MapView>
+
+            {/* Position véhicule */}
+            {vehiclePosition && (
+              <Marker coordinate={vehiclePosition} anchor={{ x: 0.5, y: 0.5 }}>
+                <View style={styles.vehicleMarker}>
+                  <Text style={{ fontSize: 14 }}>🚛</Text>
+                </View>
+              </Marker>
+            )}
+          </MapView>
+        ) : (
+          <OsmMapView
+            style={StyleSheet.absoluteFill}
+            initialRegion={{
+              latitude:       center.latitude,
+              longitude:      center.longitude,
+              latitudeDelta:  (rayon / 111000) * 4,
+              longitudeDelta: (rayon / 111000) * 4,
+            }}
+            tileUrlTemplate={OSM_URL}
+            markers={[
+              { id: 'center', latitude: center.latitude, longitude: center.longitude, color: Colors.primary, label: 'Centre' },
+              ...(vehiclePosition ? [{ id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.primary, label: 'Véhicule' }] : []),
+            ]}
+          />
+        )}
 
         {/* Badge mode édition */}
         <View style={styles.editBadge}>

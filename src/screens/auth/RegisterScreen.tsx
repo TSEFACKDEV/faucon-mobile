@@ -16,6 +16,7 @@ import { registerSchema } from '../../utils/validationSchemas';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import Logo from '../../components/ui/Logo';
 import { useNavigation } from '@react-navigation/native';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
@@ -67,7 +68,7 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>🦅 FAUCON</Text>
+          <Logo tone="white" size={40} />
           <Text style={styles.tagline}>Voir · Surveiller · Contrôler</Text>
         </View>
 
@@ -114,7 +115,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.offWhite },
   scroll: { flexGrow: 1 },
   header: { backgroundColor: Colors.primary, paddingTop: 60, paddingBottom: 28, alignItems: 'center' },
-  logo: { fontSize: 26, fontWeight: '700', color: Colors.white, letterSpacing: 2 },
   tagline: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   flagStripe: { flexDirection: 'row', height: 5 },
   stripe: { flex: 1 },
