@@ -9,6 +9,7 @@ import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
+import { ROUTE_TILE_URL, ROUTE_TILE_URL_NATIVE } from '../../constants/mapTiles';
 
 interface GeofenceData {
   nom:         string;
@@ -24,8 +25,6 @@ interface Props {
   vehiclePosition:  { latitude: number; longitude: number } | null;
   onUpdated:        (geofence: GeofenceData) => void;
 }
-
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const RAYON_PRESETS = [100, 250, 500, 1000, 2000, 5000];
 
@@ -90,7 +89,7 @@ export default function GeofenceConfig({
             }}
             onPress={handleMapPress}
           >
-            <UrlTile urlTemplate={OSM_URL} maximumZ={19} flipY={false} />
+            <UrlTile urlTemplate={ROUTE_TILE_URL_NATIVE} maximumZ={19} flipY={false} />
 
             {/* Cercle géofence */}
             <Circle
@@ -126,7 +125,7 @@ export default function GeofenceConfig({
               latitudeDelta:  (rayon / 111000) * 4,
               longitudeDelta: (rayon / 111000) * 4,
             }}
-            tileUrlTemplate={OSM_URL}
+            tileUrlTemplate={ROUTE_TILE_URL}
             markers={[
               { id: 'center', latitude: center.latitude, longitude: center.longitude, color: Colors.primary, label: 'Centre' },
               ...(vehiclePosition ? [{ id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.primary, label: 'Véhicule' }] : []),

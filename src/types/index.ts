@@ -16,7 +16,7 @@ export interface Device {
   derniereCommunication?: string;
   limiteVitesse?: {
     seuilKmh: number;
-    estActif: boolean;
+    estActive: boolean;
   } | null;
   geofence?: {
     nom: string;

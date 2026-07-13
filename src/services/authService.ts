@@ -40,13 +40,14 @@ export const authService = {
     return data.data;
   },
 
-  addDevice: async (identifier: string, nom: string): Promise<void> => {
+  addDevice: async (identifier: string, nom: string, pin?: string): Promise<void> => {
     const payload: any = { nom };
     if (/^\d{15}$/.test(identifier)) {
       payload.imei = identifier;
     } else {
       payload.trackerId = identifier;
     }
+    if (pin) payload.pin = pin;
     await api.post('/vehicles', payload);
   },
 

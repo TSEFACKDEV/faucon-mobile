@@ -15,10 +15,9 @@ import ModeSelector from '../../components/vehicle/ModeSelector';
 import SpeedLimitConfig from '../../components/vehicle/SpeedLimitConfig';
 import GeofenceConfig from '../../components/vehicle/GeofenceConfig';
 import DailyReportPanel from '../../components/vehicle/DailyReportPanel';
+import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string };
-
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 export default function VehicleDetailScreen() {
   const route     = useRoute<RouteProp<Record<string, RouteParams>, string>>();
@@ -77,11 +76,11 @@ export default function VehicleDetailScreen() {
 
   const statusColor =
     vehicle.niveauBatterie < 20 ? Colors.danger :
-    livePos?.vitesse > 5 ? Colors.primary :
+    (livePos != null && livePos.vitesse > 5) ? Colors.primary :
     Colors.warning;
 
   const statusLabel =
-    livePos?.vitesse > 5 ? 'EN MOUVEMENT' :
+    (livePos != null && livePos.vitesse > 5) ? 'EN MOUVEMENT' :
     livePos ? 'ARRÊTÉ' : 'HORS LIGNE';
 
   return (
@@ -226,12 +225,12 @@ export default function VehicleDetailScreen() {
                 <InfoRow label="Source" value={livePos.source ?? 'tcp'} />
               </>
             )}
-            {/* {vehicle.limiteVitesse && (
+            {vehicle.limiteVitesse && (
               <InfoRow
                 label="Limite configurée"
                 value={`${vehicle.limiteVitesse.seuilKmh} km/h (${vehicle.limiteVitesse.estActive ? 'active' : 'inactive'})`}
               />
-            )} */}
+            )}
             {vehicle.perimetreGeofence && (
               <InfoRow
                 label="Zone de sécurité"
@@ -251,7 +250,7 @@ export default function VehicleDetailScreen() {
         )}
 
         {/* VITESSE */}
-        {/* {activeTab === 'vitesse' && (
+        {activeTab === 'vitesse' && (
           <SpeedLimitConfig
             vehiculeId={vehiculeId}
             current={vehicle.limiteVitesse ?? null}
@@ -259,7 +258,7 @@ export default function VehicleDetailScreen() {
               prev ? { ...prev, limiteVitesse: limit } : prev
             )}
           />
-        )} */}
+        )}
 
         {/* ZONE */}
         {activeTab === 'zone' && (

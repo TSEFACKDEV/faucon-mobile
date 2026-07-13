@@ -41,6 +41,13 @@ export const addDeviceSchema = Yup.object({
       }
     ),
 
+  pin: Yup.string()
+    .notRequired()
+    .matches(/^[A-Z0-9]{6}$/i, {
+      message: 'Le code d\'activation fait 6 caractères',
+      excludeEmptyString: true,
+    }),
+
   nom: Yup.string()
     .min(2, 'Au moins 2 caractères')
     .max(50, 'Maximum 50 caractères')

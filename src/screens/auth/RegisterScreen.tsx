@@ -42,14 +42,13 @@ export default function RegisterScreen() {
       email: values.email,
       password: values.password,
     });
-    console.log('REGISTER RAW RESPONSE:', JSON.stringify(response, null, 2));
 
     const { user, tokens } = response;
     await setTokens(tokens.accessToken, tokens.refreshToken);
     setUser(user);
     navigation.navigate('AddDevice');
   } catch (error: any) {
-    console.log('REGISTER ERROR:', error?.message, error?.response?.data, error?.stack);
+    console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
     const message = error?.response?.data?.message ?? 'Erreur lors de l\'inscription';
     setFieldError('email', message);
   } finally {

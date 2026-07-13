@@ -2,7 +2,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, Share, Modal, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -10,6 +10,7 @@ import BrandBar from '../../components/ui/BrandBar';
 import Button from '../../components/ui/Button';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
+import { useVehicles } from '../../hooks/useVehicles';
 import { Vehicle } from '../../types';
 import { formatTime } from '../../utils/formatters';
 
@@ -17,7 +18,8 @@ const displayId = (imei: string) => `FCN-${imei.slice(-4)}`;
 
 export default function DevicesScreen() {
   const navigation = useNavigation<any>();
-  const { vehicles, livePositions, setVehicles } = useVehicleStore();
+  const { livePositions } = useVehicleStore();
+  const { vehicles, refetch } = useVehicles();
 
   const [refreshing, setRefreshing] = useState(false);
   const [renaming,   setRenaming]   = useState<Vehicle | null>(null);
@@ -25,20 +27,15 @@ export default function DevicesScreen() {
   const [saving,     setSaving]     = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const refetch = useCallback(async () => {
+  const handleRefresh = async () => {
+    setRefreshing(true);
     try {
-      const data = await vehicleService.getVehicles();
-      setVehicles(data);
+      await refetch();
     } catch (err) {
       console.error('[DevicesScreen]', err);
     } finally {
       setRefreshing(false);
     }
-  }, [setVehicles]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    refetch();
   };
 
   const handleHistorique = (vehiculeId: string) => {

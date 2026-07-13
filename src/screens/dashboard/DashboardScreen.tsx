@@ -14,9 +14,7 @@ import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from '../../hooks/useLocation';
 import { formatTime, formatCoords } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
-
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const SAT_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+import { ROUTE_TILE_URL as OSM_URL, SATELLITE_TILE_URL as SAT_URL } from '../../constants/mapTiles';
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();

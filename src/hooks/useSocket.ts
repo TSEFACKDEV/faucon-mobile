@@ -27,6 +27,14 @@ export const useSocket = (vehiculeIds: string[]) => {
         return;
       }
 
+      // Une instance précédente existe mais n'est pas (ou plus) connectée :
+      // on la déconnecte proprement avant d'en créer une nouvelle, pour
+      // éviter les connexions fantômes qui continueraient de pousser des données.
+      if (socketInstance) {
+        socketInstance.disconnect();
+        socketInstance = null;
+      }
+
       const socket = io(Config.SOCKET_URL, {
         auth:             { token },
         transports:       ['websocket'],

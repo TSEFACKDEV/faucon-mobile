@@ -8,42 +8,25 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { Formik, FormikHelpers } from 'formik';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
-import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
-import { addDeviceSchema } from '../../utils/validationSchemas';
-import InputField from '../../components/ui/InputField';
-import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
 import Logo from '../../components/ui/Logo';
 import { useNavigation } from '@react-navigation/native';
+import AddDeviceForm from '../../components/forms/AddDeviceForm';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'AddDevice'>;
-
-const initialValues = { imei: '', nom: '' };
 
 export default function AddDeviceScreen() {
   const navigation = useNavigation<Nav>();
   // Assurez-vous d'avoir une action setIsAuthenticated dans votre store
   const { setIsAuthenticated } = useAuthStore();
 
-  const handleAddDevice = async (
-    values: typeof initialValues,
-    { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
-  ) => {
-    try {
-      await authService.addDevice(values.imei, values.nom);
-      Alert.alert('Appareil connecté', 'Votre dispositif est prêt à être suivi.');
-      setIsAuthenticated(true);
-    } catch (error: any) {
-      const message = error?.response?.data?.message ?? 'IMEI invalide ou déjà enregistré';
-      setFieldError('imei', message);
-    } finally {
-      setSubmitting(false);
-    }
+  const handleAddDeviceSuccess = () => {
+    Alert.alert('Appareil connecté', 'Votre dispositif est prêt à être suivi.');
+    setIsAuthenticated(true);
   };
 
   const handleSkip = () => {
@@ -85,25 +68,7 @@ export default function AddDeviceScreen() {
             <Text style={styles.statusText}>Le suivi démarre dès que l’appareil est enregistré.</Text>
           </View>
 
-          <Formik
-            initialValues={initialValues}
-            validationSchema={addDeviceSchema}
-            onSubmit={handleAddDevice}
-          >
-            {({ handleSubmit, isSubmitting }) => (
-              <View>
-                <InputField name="imei" label="ID du traceur ou IMEI" icon="barcode-outline" placeholder="Ex: TRACKER-001 ou 15 chiffres" />
-                <InputField name="nom" label="Nom de l'appareil" icon="cube-outline" placeholder="ex: Camion A" />
-
-                <View style={styles.infoBox}>
-                  <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.infoText}>L'IMEI est gravé sous votre traceur.</Text>
-                </View>
-
-                <Button label="CONNECTER L'APPAREIL" onPress={() => handleSubmit()} loading={isSubmitting} style={styles.submitBtn} />
-              </View>
-            )}
-          </Formik>
+          <AddDeviceForm onSuccess={handleAddDeviceSuccess} />
 
           <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
             <Text style={styles.skipText}>Ignorer pour l'instant →</Text>
@@ -126,9 +91,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 16 },
   statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 10, marginBottom: 20 },
   statusText: { flex: 1, fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  infoBox: { flexDirection: 'row', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 8, padding: 12, marginBottom: 20, alignItems: 'flex-start' },
-  infoText: { flex: 1, fontSize: 12, color: Colors.primary, lineHeight: 18 },
-  submitBtn: { marginTop: 4 },
   skipBtn: { marginTop: 16, alignItems: 'center', padding: 8 },
   skipText: { fontSize: 13, color: Colors.textMuted },
 });

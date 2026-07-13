@@ -10,14 +10,15 @@ import Slider from '@react-native-community/slider';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
 import { Position } from '../../types';
-import { formatTime, formatSpeed, formatDistance } from '../../utils/formatters';
-
-
+import { formatTime, formatSpeed, formatDistance, haversineKm } from '../../utils/formatters';
+import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string; date?: string };
 
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SPEEDS  = [1, 2, 5, 10];
+
+// Zoom OSM approximatif pour un delta de latitude/longitude donné
+const zoomForDelta = (delta: number): number => Math.round(Math.log2(360 / delta));
 
 export default function PlaybackScreen() {
   const route      = useRoute<RouteProp<Record<string, RouteParams>, string>>();
@@ -55,8 +56,7 @@ export default function PlaybackScreen() {
 
       // Centrer la carte sur le premier point
       if (data.length > 0 && mapRef.current) {
-        const delta = 0.05;
-        const zoom = Math.round(Math.log2(360 / delta));
+        const zoom = zoomForDelta(0.05);
         mapRef.current.animateToCoordinate(data[0].latitude, data[0].longitude, zoom);
       }
     } catch (err) {
@@ -86,8 +86,7 @@ export default function PlaybackScreen() {
 
         // Centrer la carte sur la nouvelle position
         if (mapRef.current && positions[next]) {
-          const delta = 0.02;
-          const zoom = Math.round(Math.log2(360 / delta));
+          const zoom = zoomForDelta(0.02);
           mapRef.current.animateToCoordinate(positions[next].latitude, positions[next].longitude, zoom);
         }
         return next;
@@ -110,8 +109,7 @@ export default function PlaybackScreen() {
     setIsPlaying(false);
     setCurrentIdx(0);
     if (positions[0] && mapRef.current) {
-      const delta = 0.05;
-      const zoom = Math.round(Math.log2(360 / delta));
+      const zoom = zoomForDelta(0.05);
       mapRef.current.animateToCoordinate(positions[0].latitude, positions[0].longitude, zoom);
     }
   };
@@ -121,19 +119,18 @@ export default function PlaybackScreen() {
     setCurrentIdx(idx);
     setIsPlaying(false);
     if (positions[idx] && mapRef.current) {
-        const delta = 0.02;
-        const zoom = Math.round(Math.log2(360 / delta));
+        const zoom = zoomForDelta(0.02);
         mapRef.current.animateToCoordinate(positions[idx].latitude, positions[idx].longitude, zoom);
     }
   };
 
-  // Calcul distance totale parcourue jusqu'à currentIdx
-  const distanceParcourue = positions
-    .slice(0, currentIdx)
-    .reduce((acc, _, i) => {
-      if (i === 0) return acc;
-      return acc; // simplifié — à compléter avec Haversine si besoin
-    }, 0);
+  // Calcul distance totale parcourue jusqu'à currentIdx (Haversine, en km)
+  const parcouru = positions.slice(0, currentIdx + 1);
+  const distanceParcourueKm = parcouru.reduce((acc, pos, i) => {
+    if (i === 0) return acc;
+    const prev = parcouru[i - 1];
+    return acc + haversineKm(prev.latitude, prev.longitude, pos.latitude, pos.longitude);
+  }, 0);
 
   // Coordonnées pour la polyline (tracé passé en opaque, futur en transparent)
   const pastCoords  = positions.slice(0, currentIdx + 1).map(p => ({
@@ -248,6 +245,10 @@ export default function PlaybackScreen() {
           <StatBox
             label="Batterie"
             value={currentPos ? `${currentPos.niveauBatterie}%` : '--'}
+          />
+          <StatBox
+            label="Distance"
+            value={positions.length > 0 ? formatDistance(distanceParcourueKm * 1000) : '--'}
           />
         </View>
 
