@@ -3,13 +3,11 @@ import {
   ActivityIndicator, TextInput,
 } from 'react-native';
 import { useState } from 'react';
-import MapView, { Circle, Marker, UrlTile, MapPressEvent } from 'react-native-maps';
-import { UIManager } from 'react-native';
 import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
-import { ROUTE_TILE_URL, ROUTE_TILE_URL_NATIVE } from '../../constants/mapTiles';
+import { ROUTE_TILE_URL } from '../../constants/mapTiles';
 
 interface GeofenceData {
   nom:         string;
@@ -40,15 +38,6 @@ export default function GeofenceConfig({
   });
   const [rayon,   setRayon]  = useState(current?.rayonMetres ?? 500);
   const [saving,  setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
-
-  const handleMapPress = (e: MapPressEvent) => {
-    if (!editing) return;
-    setCenter({
-      latitude:  e.nativeEvent.coordinate.latitude,
-      longitude: e.nativeEvent.coordinate.longitude,
-    });
-  };
 
   const handleSave = async () => {
     if (!nom.trim()) return;
@@ -61,7 +50,6 @@ export default function GeofenceConfig({
         nom, centreLat: center.latitude,
         centreLon: center.longitude, rayonMetres: rayon, estActif: true,
       });
-      setEditing(false);
     } catch (err) {
       console.error('[GeofenceConfig]', err);
     } finally {
@@ -78,76 +66,26 @@ export default function GeofenceConfig({
 
       {/* CARTE INTERACTIVE */}
       <View style={styles.mapWrapper}>
-        { (UIManager as any).getViewManagerConfig && (UIManager as any).getViewManagerConfig('AIRMap') ? (
-          <MapView
-            style={StyleSheet.absoluteFill}
-            region={{
-              latitude:       center.latitude,
-              longitude:      center.longitude,
-              latitudeDelta:  (rayon / 111000) * 4,
-              longitudeDelta: (rayon / 111000) * 4,
-            }}
-            onPress={handleMapPress}
-          >
-            <UrlTile urlTemplate={ROUTE_TILE_URL_NATIVE} maximumZ={19} flipY={false} />
+        <OsmMapView
+          style={StyleSheet.absoluteFill}
+          initialRegion={{
+            latitude:       center.latitude,
+            longitude:      center.longitude,
+            latitudeDelta:  (rayon / 111000) * 4,
+            longitudeDelta: (rayon / 111000) * 4,
+          }}
+          tileUrlTemplate={ROUTE_TILE_URL}
+          markers={vehiclePosition ? [
+            { id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.info, label: 'Véhicule' },
+          ] : []}
+          editableCircle={{ center, radiusMeters: rayon, color: Colors.primary }}
+          onCircleChange={(newCenter) => setCenter(newCenter)}
+        />
 
-            {/* Cercle géofence */}
-            <Circle
-              center={center}
-              radius={rayon}
-              fillColor="rgba(0,122,61,0.12)"
-              strokeColor={Colors.primary}
-              strokeWidth={2}
-            />
-
-            {/* Centre géofence */}
-            <Marker coordinate={center} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.centerMarker}>
-                <Ionicons name="location" size={20} color={Colors.primary} />
-              </View>
-            </Marker>
-
-            {/* Position véhicule */}
-            {vehiclePosition && (
-              <Marker coordinate={vehiclePosition} anchor={{ x: 0.5, y: 0.5 }}>
-                <View style={styles.vehicleMarker}>
-                  <Text style={{ fontSize: 14 }}>🚛</Text>
-                </View>
-              </Marker>
-            )}
-          </MapView>
-        ) : (
-          <OsmMapView
-            style={StyleSheet.absoluteFill}
-            initialRegion={{
-              latitude:       center.latitude,
-              longitude:      center.longitude,
-              latitudeDelta:  (rayon / 111000) * 4,
-              longitudeDelta: (rayon / 111000) * 4,
-            }}
-            tileUrlTemplate={ROUTE_TILE_URL}
-            markers={[
-              { id: 'center', latitude: center.latitude, longitude: center.longitude, color: Colors.primary, label: 'Centre' },
-              ...(vehiclePosition ? [{ id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.primary, label: 'Véhicule' }] : []),
-            ]}
-          />
-        )}
-
-        {/* Badge mode édition */}
-        <View style={styles.editBadge}>
-          <TouchableOpacity
-            style={[styles.editBtn, editing && styles.editBtnActive]}
-            onPress={() => setEditing(!editing)}
-          >
-            <Ionicons
-              name={editing ? 'checkmark' : 'pencil-outline'}
-              size={14}
-              color={editing ? Colors.white : Colors.primary}
-            />
-            <Text style={[styles.editBtnText, editing && { color: Colors.white }]}>
-              {editing ? 'Tap sur carte pour repositionner' : 'Modifier le centre'}
-            </Text>
-          </TouchableOpacity>
+        {/* Indication d'usage */}
+        <View style={styles.hintBadge}>
+          <Ionicons name="move-outline" size={13} color={Colors.primary} />
+          <Text style={styles.hintText}>Faites glisser le repère pour déplacer la zone</Text>
         </View>
       </View>
 
@@ -229,40 +167,14 @@ const styles = StyleSheet.create({
     borderWidth:     1,
     borderColor:     Colors.border,
   },
-  centerMarker: {
-    backgroundColor: Colors.white,
-    borderRadius:    16,
-    padding:         4,
-    shadowColor:     '#000',
-    shadowOpacity:   0.15,
-    shadowRadius:    4,
-    elevation:       3,
+  hintBadge: {
+    position: 'absolute', bottom: 8, left: 8, right: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.white, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+    alignSelf: 'flex-start',
   },
-  vehicleMarker: {
-    width:          32,
-    height:         32,
-    borderRadius:   16,
-    backgroundColor: Colors.primary,
-    borderWidth:    2,
-    borderColor:    Colors.white,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
-  editBadge: { position: 'absolute', bottom: 8, left: 8, right: 8 },
-  editBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             6,
-    backgroundColor: Colors.white,
-    borderRadius:    8,
-    paddingHorizontal: 10,
-    paddingVertical:   6,
-    alignSelf:       'flex-start',
-    borderWidth:     1,
-    borderColor:     Colors.primary,
-  },
-  editBtnActive:  { backgroundColor: Colors.primary },
-  editBtnText:    { fontSize: 11, color: Colors.primary, fontWeight: '600' },
+  hintText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
 
   field:      { gap: 6 },
   fieldLabel: { fontSize: 12, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },

@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BrandBar from '../../components/ui/BrandBar';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -194,11 +195,11 @@ export default function DevicesScreen() {
           </TouchableOpacity>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={56} color={Colors.border} />
-            <Text style={styles.emptyTitle}>Aucun dispositif</Text>
-            <Text style={styles.emptySub}>Ajoutez votre premier traceur GPS pour commencer.</Text>
-          </View>
+          <EmptyState
+            icon="cube-outline"
+            title="Aucun dispositif"
+            subtitle="Ajoutez votre premier traceur GPS pour commencer."
+          />
         }
         renderItem={renderCard}
       />
@@ -307,10 +308,6 @@ const styles = StyleSheet.create({
   },
   actionBtn:   { alignItems: 'center', gap: 4, flex: 1 },
   actionLabel: { fontSize: 10, color: Colors.primary, fontWeight: '600' },
-
-  empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary },
-  emptySub:   { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 32 },
 
   modalBackdrop: {
     flex:            1,

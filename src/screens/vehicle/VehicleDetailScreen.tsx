@@ -5,6 +5,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OsmMapView, { OsmMarker } from '../../components/map/OsmMapView';
 import { Colors } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -22,6 +23,7 @@ type RouteParams = { vehiculeId: string };
 export default function VehicleDetailScreen() {
   const route     = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { vehiculeId } = route.params;
 
   const { vehicles, livePositions } = useVehicleStore();
@@ -87,7 +89,7 @@ export default function VehicleDetailScreen() {
     <View style={styles.container}>
 
       {/* ── HEADER ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
@@ -119,7 +121,7 @@ export default function VehicleDetailScreen() {
               id: vehicle.id,
               latitude: livePos.latitude,
               longitude: livePos.longitude,
-              color: '#007A3D',
+              color: Colors.primary,
               label: vehicle.nom,
             } as OsmMarker]}
           />
@@ -139,7 +141,7 @@ export default function VehicleDetailScreen() {
         </View>
       ) : (
         <View style={styles.noGps}>
-          <Ionicons  size={32} color={Colors.textMuted} />
+          <Ionicons name="location-outline" size={32} color={Colors.textMuted} />
           <Text style={styles.noGpsText}>Aucune position reçue</Text>
         </View>
       )}
@@ -321,7 +323,6 @@ const styles = StyleSheet.create({
   // HEADER
   header: {
     backgroundColor:   Colors.primary,
-    paddingTop:        52,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',

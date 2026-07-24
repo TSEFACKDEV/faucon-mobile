@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import OsmMapView, { OsmPolyline, OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
@@ -23,6 +24,7 @@ const zoomForDelta = (delta: number): number => Math.round(Math.log2(360 / delta
 export default function PlaybackScreen() {
   const route      = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation<any>();
+  const insets     = useSafeAreaInsets();
   const { vehiculeId, date } = route.params;
 
   const mapRef = useRef<OsmMapViewHandle | null>(null);
@@ -156,7 +158,7 @@ export default function PlaybackScreen() {
   if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4] });
 
   const markers: OsmMarker[] = [];
-  if (positions.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: '#007A3D', label: 'A' });
+  if (positions.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: Colors.primary, label: 'A' });
   if (positions.length > 1) markers.push({ id: 'end', latitude: futureCoordsList[futureCoordsList.length - 1].latitude, longitude: futureCoordsList[futureCoordsList.length - 1].longitude, color: Colors.warning, label: 'B' });
   if (currentPos) markers.push({ id: 'current', latitude: currentPos.latitude, longitude: currentPos.longitude, color: Colors.primary, label: '' });
 
@@ -164,7 +166,7 @@ export default function PlaybackScreen() {
     <View style={styles.container}>
 
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
@@ -349,7 +351,6 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor:   Colors.primary,
-    paddingTop:        52,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',
@@ -393,28 +394,6 @@ const styles = StyleSheet.create({
     gap:             12,
   },
   mapLoaderText: { fontSize: 14, color: Colors.textSecondary },
-
-  startMarker: {
-    width:          26,
-    height:         26,
-    borderRadius:   13,
-    backgroundColor: Colors.primary,
-    borderWidth:    2,
-    borderColor:    Colors.white,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
-  startMarkerText: { color: Colors.white, fontSize: 10, fontWeight: '700' },
-  vehicleMarker: {
-    width:          36,
-    height:         36,
-    borderRadius:   18,
-    backgroundColor: Colors.primary,
-    borderWidth:    2.5,
-    borderColor:    Colors.white,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
 
   controls: {
     backgroundColor: Colors.white,

@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BrandBar from '../../components/ui/BrandBar';
+import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { Alarme, TypeAlarme } from '../../types';
@@ -27,8 +28,8 @@ const ALARM_CONFIG: Record<TypeAlarme, {
   VITESSE_EXCESSIVE: {
     label: 'Vitesse excessive',
     icon:  'speedometer-outline',
-    color: '#D97706',
-    bg:    '#FEF3C7',
+    color: Colors.accentDark,
+    bg:    Colors.accentLight,
   },
   DECOLLEMENT_TRACEUR: {
     label: 'Retrait dispositif',
@@ -39,14 +40,14 @@ const ALARM_CONFIG: Record<TypeAlarme, {
   NON_MOUVEMENT: {
     label: 'Immobilisation',
     icon:  'pause-circle-outline',
-    color: '#D97706',
-    bg:    '#FEF3C7',
+    color: Colors.accentDark,
+    bg:    Colors.accentLight,
   },
   BATTERIE_FAIBLE: {
     label: 'Batterie faible',
     icon:  'battery-dead-outline',
-    color: '#D97706',
-    bg:    '#FEF3C7',
+    color: Colors.accentDark,
+    bg:    Colors.accentLight,
   },
 };
 
@@ -252,13 +253,11 @@ export default function AlertsScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="checkmark-circle-outline" size={56} color={Colors.primary} />
-            <Text style={styles.emptyTitle}>Aucune alerte</Text>
-            <Text style={styles.emptySub}>
-              Tous vos équipements sont dans les limites définies.
-            </Text>
-          </View>
+          <EmptyState
+            icon="checkmark-circle-outline"
+            title="Aucune alerte"
+            subtitle="Tous vos équipements sont dans les limites définies."
+          />
         }
         renderItem={({ item }) => {
           const config = ALARM_CONFIG[item.typeAlarme];
@@ -435,7 +434,4 @@ const styles = StyleSheet.create({
     right:        10,
   },
 
-  empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary },
-  emptySub:   { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 32 },
 });

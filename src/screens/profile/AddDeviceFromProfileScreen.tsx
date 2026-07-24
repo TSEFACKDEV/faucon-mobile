@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
@@ -12,6 +13,7 @@ import AddDeviceForm, { AddDeviceFormValues } from '../../components/forms/AddDe
 
 export default function AddDeviceFromProfileScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { vehicles, setVehicles } = useVehicleStore();
 
   const handleAddSuccess = async (values: AddDeviceFormValues) => {
@@ -20,7 +22,7 @@ export default function AddDeviceFromProfileScreen() {
     setVehicles(updated);
 
     Alert.alert(
-      '✅ Appareil ajouté',
+      'Appareil ajouté',
       `${values.nom} a été connecté avec succès.`,
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
@@ -37,7 +39,7 @@ export default function AddDeviceFromProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* HEADER */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
@@ -72,7 +74,7 @@ export default function AddDeviceFromProfileScreen() {
                 {vehicles.map(v => (
                   <View key={v.id} style={styles.deviceRow}>
                     <View style={styles.deviceIcon}>
-                      <Text style={{ fontSize: 18 }}>🚛</Text>
+                      <Ionicons name="hardware-chip-outline" size={18} color={Colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deviceName}>{v.nom}</Text>
@@ -105,7 +107,6 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: 40 },
   header: {
     backgroundColor:   Colors.primary,
-    paddingTop:        52,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',

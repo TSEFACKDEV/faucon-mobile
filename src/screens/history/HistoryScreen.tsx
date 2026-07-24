@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BrandBar from '../../components/ui/BrandBar';
+import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { formatCoords, formatTime, haversineKm } from '../../utils/formatters';
@@ -219,11 +220,11 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="map-outline" size={56} color={Colors.border} />
-              <Text style={styles.emptyTitle}>Aucun trajet</Text>
-              <Text style={styles.emptySub}>Aucun déplacement enregistré sur cette période.</Text>
-            </View>
+            <EmptyState
+              icon="map-outline"
+              title="Aucun trajet"
+              subtitle="Aucun déplacement enregistré sur cette période."
+            />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -334,7 +335,4 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
   footerDot:  { color: Colors.textMuted },
 
-  empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary },
-  emptySub:   { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 32 },
 });

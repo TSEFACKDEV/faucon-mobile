@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     position:          'absolute',
     top:               10,
     right:             10,
-    backgroundColor:   Colors.star,
+    backgroundColor:   Colors.accent,
     borderRadius:      6,
     paddingHorizontal: 7,
     paddingVertical:   2,

@@ -8,14 +8,18 @@
     "ios": {
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
-        "NSLocationAlwaysUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements."
-      }
+        "NSLocationAlwaysUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.faucon.tracking"
     },
     "android": {
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "INTERNET"
+        "INTERNET",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.faucon.tracking",
       "adaptiveIcon": {
@@ -40,7 +44,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#F8FAF9"
         }
-      ]
-    ]
+      ],
+      "expo-secure-store",
+      "expo-status-bar"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "17dcca0e-afb8-4f5e-8fa5-df4c1dd1f320"
+      }
+    }
   }
 }

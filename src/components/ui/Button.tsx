@@ -13,8 +13,15 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
   style?: ViewStyle;
 }
+
+const SIZES: Record<string, { height: number; fontSize: number; radius: number }> = {
+  sm: { height: 40, fontSize: 13, radius: 10 },
+  md: { height: 52, fontSize: 15, radius: 12 },
+  lg: { height: 58, fontSize: 16, radius: 14 },
+};
 
 export default function Button({
   label,
@@ -22,14 +29,17 @@ export default function Button({
   loading = false,
   disabled = false,
   variant = 'primary',
+  size = 'md',
   style,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const s = SIZES[size];
 
   return (
     <TouchableOpacity
       style={[
         styles.base,
+        { height: s.height, borderRadius: s.radius },
         styles[variant],
         isDisabled && styles.disabled,
         style,
@@ -44,7 +54,7 @@ export default function Button({
           size="small"
         />
       ) : (
-        <Text style={[styles.label, styles[`${variant}Label`]]}>
+        <Text style={[styles.label, { fontSize: s.fontSize }, styles[`${variant}Label`]]}>
           {label}
         </Text>
       )}
@@ -54,8 +64,6 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 52,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',

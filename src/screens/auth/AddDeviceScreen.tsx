@@ -1,36 +1,31 @@
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/AuthNavigator';
-import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
+import { Spacing, Radius } from '../../constants/spacing';
 import Logo from '../../components/ui/Logo';
-import { useNavigation } from '@react-navigation/native';
+import AppText from '../../components/ui/Typography';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AddDeviceForm from '../../components/forms/AddDeviceForm';
+import { useVehicles } from '../../hooks/useVehicles';
 
-type Nav = NativeStackNavigationProp<AuthStackParamList, 'AddDevice'>;
-
+// Écran racine (monté par RootNavigator, hors de tout Stack) tant que
+// l'utilisateur authentifié n'a aucun traceur connecté — pas de useNavigation
+// ici, il n'y a pas de navigateur parent à ce niveau.
 export default function AddDeviceScreen() {
-  const navigation = useNavigation<Nav>();
-  // Assurez-vous d'avoir une action setIsAuthenticated dans votre store
-  const { setIsAuthenticated } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { refetch } = useVehicles();
 
-  const handleAddDeviceSuccess = () => {
+  const handleAddDeviceSuccess = async () => {
+    await refetch();
     Alert.alert('Appareil connecté', 'Votre dispositif est prêt à être suivi.');
-    setIsAuthenticated(true);
-  };
-
-  const handleSkip = () => {
-    setIsAuthenticated(true);
   };
 
   return (
@@ -43,54 +38,70 @@ export default function AddDeviceScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Logo tone="white" size={36} />
+        <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Logo tone="white" size={36} />
+          </Animated.View>
         </View>
 
-        <View style={styles.flagStripe}>
-          <View style={[styles.stripe, { backgroundColor: '#007A3D' }]} />
-          <View style={[styles.stripe, { backgroundColor: '#CE1126' }]} />
-          <View style={[styles.stripe, { backgroundColor: '#FCD116' }]} />
-        </View>
-
-        <View style={styles.body}>
-          <View style={styles.deviceIllustration}>
+        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
+          <View style={styles.illustration}>
             <Ionicons name="hardware-chip-outline" size={48} color={Colors.primary} />
           </View>
 
-          <Text style={styles.title}>Ajouter votre appareil</Text>
-          <Text style={styles.subtitle}>
-            Connectez votre traceur GPS FAUCON en saisissant son identifiant unique inscrit sur le boîtier.
-          </Text>
+          <AppText variant="h1" style={styles.title}>Connectez votre traceur</AppText>
+          <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
+            Une dernière étape avant d'accéder à votre tableau de bord : saisissez l'identifiant unique inscrit sur le boîtier de votre traceur GPS FAUCON.
+          </AppText>
 
           <View style={styles.statusCard}>
             <Ionicons name="pulse-outline" size={16} color={Colors.primary} />
-            <Text style={styles.statusText}>Le suivi démarre dès que l’appareil est enregistré.</Text>
+            <AppText variant="caption" color={Colors.primary} style={styles.statusText}>
+              Le suivi démarre dès que l'appareil est enregistré.
+            </AppText>
           </View>
 
           <AddDeviceForm onSuccess={handleAddDeviceSuccess} />
-
-          <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
-            <Text style={styles.skipText}>Ignorer pour l'instant →</Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.offWhite },
+  flex: { flex: 1, backgroundColor: Colors.primary },
   scroll: { flexGrow: 1 },
-  header: { backgroundColor: Colors.primary, paddingTop: 56, paddingBottom: 20, alignItems: 'center' },
-  flagStripe: { flexDirection: 'row', height: 5 },
-  stripe: { flex: 1 },
-  body: { padding: 24, flex: 1 },
-  deviceIllustration: { width: 88, height: 88, borderRadius: 44, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 8, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 16 },
-  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 10, marginBottom: 20 },
-  statusText: { flex: 1, fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  skipBtn: { marginTop: 16, alignItems: 'center', padding: 8 },
-  skipText: { fontSize: 13, color: Colors.textMuted },
+  header: { paddingBottom: 40, alignItems: 'center' },
+  card: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    marginTop: -20,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
+  },
+  illustration: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: Spacing.lg,
+  },
+  title: { textAlign: 'center', marginBottom: Spacing.sm },
+  subtitle: { textAlign: 'center', lineHeight: 21, marginBottom: Spacing.lg },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  statusText: { flex: 1, fontWeight: '600' },
 });

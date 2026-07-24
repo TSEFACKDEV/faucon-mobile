@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, Alert } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../constants/colors';
 
 export type OsmMarkerPopup = {
   title:         string;
@@ -37,6 +38,12 @@ export type OsmPolyline = {
   dashArray?: number[]; // ex: [6,4]
 };
 
+export type OsmEditableCircle = {
+  center: { latitude: number; longitude: number };
+  radiusMeters: number;
+  color?: string;
+} | null;
+
 type Region = {
   latitude: number;
   longitude: number;
@@ -50,8 +57,10 @@ type Props = {
   tileUrlTemplate: string;     // ex: OSM_URL ou SAT_URL
   markers: OsmMarker[];
   polylines?: OsmPolyline[];
+  editableCircle?: OsmEditableCircle; // centre + rayon éditable par glisser-déposer
   onMarkerPress?: (id: string) => void;
   onPopupAction?: (action: string, id: string) => void;
+  onCircleChange?: (center: { latitude: number; longitude: number }, radiusMeters: number) => void;
   selectedId?: string;
 };
 
@@ -61,10 +70,24 @@ export type OsmMapViewHandle = {
   zoomIn: () => void;
   zoomOut: () => void;
   drawPolylines: (polylines: OsmPolyline[]) => void;
+  setEditableCircle: (circle: OsmEditableCircle) => void;
 };
 
+// Thème transmis à la WebView au démarrage (dérivé de Colors) — la feuille
+// de style et les appels à l'API Leaflet lisent tous cette même source,
+// pour éviter de coder des couleurs en dur à deux endroits différents.
+const buildTheme = () => ({
+  primary:       Colors.primary,
+  primaryLight:  Colors.primaryLight,
+  textPrimary:   Colors.textPrimary,
+  textSecondary: Colors.textSecondary,
+  textMuted:     Colors.textMuted,
+  info:          Colors.info,
+  bg:            Colors.offWhite,
+});
+
 // Construit le HTML une seule fois (statique). Les données dynamiques
-// (marqueurs, style de tuiles) sont poussées ensuite via postMessage,
+// (marqueurs, style de tuiles, thème) sont poussées ensuite via postMessage,
 // pour éviter de recharger toute la WebView à chaque update.
 const buildHtml = () => `
 <!DOCTYPE html>
@@ -73,6 +96,15 @@ const buildHtml = () => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
+    :root {
+      --color-primary: #0E5C36;
+      --color-primary-light: #E7F1EC;
+      --color-text: #111827;
+      --color-text-secondary: #3F4A45;
+      --color-text-muted: #6B7670;
+      --color-info: #3B82F6;
+      --color-bg: #F8FAF9;
+    }
     html, body, #map { height: 100%; margin: 0; padding: 0; background: #eee; }
     .leaflet-tile-pane   { z-index: 200; }
     .leaflet-overlay-pane{ z-index: 400; }
@@ -110,7 +142,6 @@ const buildHtml = () => `
       width: 32px; height: 32px; border-radius: 16px;
       border: 2.5px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
     }
     .veh-label {
       margin-top: 4px; font-size: 9px; font-weight: 700;
@@ -130,6 +161,11 @@ const buildHtml = () => `
       width: 14px; height: 14px; border-radius: 7px;
       border: 2.5px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.4);
     }
+    .geo-handle {
+      width: 24px; height: 24px; border-radius: 12px;
+      border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      cursor: grab;
+    }
 
     /* Popup FAUCON */
     .leaflet-popup-content-wrapper { padding: 0; border-radius: 14px; overflow: hidden; }
@@ -137,28 +173,28 @@ const buildHtml = () => `
     .pop-card { font-family: -apple-system, Roboto, sans-serif; }
     .pop-header {
       display: flex; align-items: center; justify-content: space-between;
-      background: #007A3D; padding: 10px 12px;
+      background: var(--color-primary); padding: 10px 12px;
     }
     .pop-title { color: #fff; font-size: 13px; font-weight: 700; }
     .pop-status { font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 8px; }
     .pop-body { padding: 10px 12px; }
     .pop-row {
       display: flex; align-items: center; gap: 6px;
-      font-size: 11px; color: #6B7280; margin-bottom: 8px;
+      font-size: 11px; color: var(--color-text-secondary); margin-bottom: 8px;
     }
     .pop-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;
     }
-    .pop-stat { background: #F8FAF9; border-radius: 8px; padding: 6px 8px; }
-    .pop-stat-label { font-size: 9px; color: #9CA3AF; text-transform: uppercase; }
-    .pop-stat-value { font-size: 13px; font-weight: 700; color: #111827; }
-    .pop-coords { font-size: 10px; color: #007A3D; background: #E8F5EE; border-radius: 6px; padding: 5px 7px; margin-bottom: 10px; }
+    .pop-stat { background: var(--color-bg); border-radius: 8px; padding: 6px 8px; }
+    .pop-stat-label { font-size: 9px; color: var(--color-text-muted); text-transform: uppercase; }
+    .pop-stat-value { font-size: 13px; font-weight: 700; color: var(--color-text); }
+    .pop-coords { font-size: 10px; color: var(--color-primary); background: var(--color-primary-light); border-radius: 6px; padding: 5px 7px; margin-bottom: 10px; }
     .pop-actions { display: flex; gap: 8px; }
     .pop-btn {
       flex: 1; text-align: center; font-size: 12px; font-weight: 700;
-      padding: 8px; border-radius: 8px; border: 1.5px solid #007A3D; color: #007A3D;
+      padding: 8px; border-radius: 8px; border: 1.5px solid var(--color-primary); color: var(--color-primary);
     }
-    .pop-btn-primary { background: #007A3D; color: #fff; }
+    .pop-btn-primary { background: var(--color-primary); color: #fff; }
   </style>
 </head>
 <body>
@@ -178,10 +214,32 @@ const buildHtml = () => `
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
    try {
+    // Valeurs par défaut (alignées sur constants/colors.ts) — écrasées dès
+    // réception du thème transmis par le message 'init'.
+    var THEME = {
+      primary: '#0E5C36', primaryLight: '#E7F1EC', textPrimary: '#111827',
+      textSecondary: '#3F4A45', textMuted: '#6B7670', info: '#3B82F6', bg: '#F8FAF9'
+    };
+
+    function applyTheme(theme) {
+      if (!theme) return;
+      Object.assign(THEME, theme);
+      var root = document.documentElement.style;
+      if (theme.primary)       root.setProperty('--color-primary', theme.primary);
+      if (theme.primaryLight)  root.setProperty('--color-primary-light', theme.primaryLight);
+      if (theme.textPrimary)   root.setProperty('--color-text', theme.textPrimary);
+      if (theme.textSecondary) root.setProperty('--color-text-secondary', theme.textSecondary);
+      if (theme.textMuted)     root.setProperty('--color-text-muted', theme.textMuted);
+      if (theme.info)          root.setProperty('--color-info', theme.info);
+      if (theme.bg)            root.setProperty('--color-bg', theme.bg);
+    }
+
     var map = L.map('map', { zoomControl: false, attributionControl: false });
     var tileLayer = null;
     var markersById = {};
     var polylinesById = {};
+    var editableCircleLayer = null;
+    var editableCircleMarker = null;
 
     function setInitialRegion(r) {
       map.setView([r.latitude, r.longitude], regionToZoom(r));
@@ -205,21 +263,28 @@ const buildHtml = () => `
       });
     }
 
+    // Glyphe vectoriel générique (flèche de navigation) — remplace l'ancien
+    // émoji, cohérent quel que soit l'équipement suivi (pas seulement des camions).
+    var NAV_ARROW_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="white">'
+      + '<path d="M12 2L4 20l8-5 8 5z"/></svg>';
+    var CLOCK_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">'
+      + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+
     function makeIcon(m) {
       if (m.icon === 'user') {
-        var uc = m.color || '#3B82F6';
+        var uc = m.color || THEME.info;
         var uhtml = '<div class="user-wrapper">'
           + '<div class="user-halo" style="background:' + uc + ';"></div>'
           + '<div class="user-dot" style="background:' + uc + ';"></div>'
           + '</div>';
         return L.divIcon({ html: uhtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
       }
-      var color = m.color || '#007A3D';
+      var color = m.color || THEME.primary;
       var html = '<div class="veh-icon">'
         + '<div class="veh-wrapper">'
         + (m.selected ? '<div class="veh-select-ring" style="border-color:' + color + ';"></div>' : '')
         + (m.hasAlarm ? '<div class="veh-pulse" style="border-color:' + color + ';"></div>' : '')
-        + '<div class="veh-dot" style="background:' + color + ';">🚛</div>'
+        + '<div class="veh-dot" style="background:' + color + ';">' + NAV_ARROW_SVG + '</div>'
         + '</div>'
         + (m.label ? '<div class="veh-label" style="color:' + color + '; border-color:' + color + ';">' + escapeHtml(m.label) + '</div>' : '')
         + '</div>';
@@ -233,7 +298,7 @@ const buildHtml = () => `
         + '<div class="pop-header"><span class="pop-title">' + escapeHtml(p.title) + '</span>'
         + '<span class="pop-status" style="color:' + p.statusColor + ';">' + escapeHtml(p.statusLabel) + '</span></div>'
         + '<div class="pop-body">'
-        +   '<div class="pop-row">🕒&nbsp;' + escapeHtml(p.updatedLabel) + '</div>'
+        +   '<div class="pop-row">' + CLOCK_SVG + '&nbsp;' + escapeHtml(p.updatedLabel) + '</div>'
         +   '<div class="pop-grid">'
         +     '<div class="pop-stat"><div class="pop-stat-label">Vitesse</div><div class="pop-stat-value">' + escapeHtml(p.speedLabel) + '</div></div>'
         +     '<div class="pop-stat"><div class="pop-stat-label">Batterie</div><div class="pop-stat-value" style="color:' + p.batteryColor + ';">' + escapeHtml(p.batteryLabel) + '</div></div>'
@@ -287,7 +352,7 @@ const buildHtml = () => `
         seen[p.id] = true;
         var existing = polylinesById[p.id];
         var latlngs = p.coords.map(function(c){ return [c.latitude, c.longitude]; });
-        var options = { color: p.color || '#007A3D', weight: p.weight || 3 };
+        var options = { color: p.color || THEME.primary, weight: p.weight || 3 };
         if (p.dashArray && Array.isArray(p.dashArray)) options.dashArray = p.dashArray.join(',');
         if (existing) {
           existing.setLatLngs(latlngs);
@@ -302,6 +367,48 @@ const buildHtml = () => `
           map.removeLayer(polylinesById[id]);
           delete polylinesById[id];
         }
+      });
+    }
+
+    // Cercle de géorepérage éditable : un cercle Leaflet + un marqueur natif
+    // 'draggable' en son centre. Le drag est géré entièrement par Leaflet
+    // (aucune gestion tactile custom) ; seul le résultat final (dragend) est
+    // renvoyé côté React Native via postMessage, comme markerPress/popupAction.
+    function setEditableCircle(circle) {
+      if (editableCircleLayer) { map.removeLayer(editableCircleLayer); editableCircleLayer = null; }
+      if (editableCircleMarker) { map.removeLayer(editableCircleMarker); editableCircleMarker = null; }
+      if (!circle) return;
+
+      var color = circle.color || THEME.primary;
+      var center = [circle.center.latitude, circle.center.longitude];
+
+      editableCircleLayer = L.circle(center, {
+        radius: circle.radiusMeters,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.12,
+        weight: 2,
+      }).addTo(map);
+
+      editableCircleMarker = L.marker(center, {
+        icon: L.divIcon({
+          html: '<div class="geo-handle" style="background:' + color + ';"></div>',
+          className: '', iconSize: [24, 24], iconAnchor: [12, 12],
+        }),
+        draggable: true,
+      }).addTo(map);
+
+      editableCircleMarker.on('drag', function (e) {
+        editableCircleLayer.setLatLng(e.target.getLatLng());
+      });
+
+      editableCircleMarker.on('dragend', function (e) {
+        var ll = e.target.getLatLng();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'circleChanged',
+          center: { latitude: ll.lat, longitude: ll.lng },
+          radiusMeters: circle.radiusMeters,
+        }));
       });
     }
 
@@ -323,14 +430,18 @@ const buildHtml = () => `
     function onMessage(event) {
       var data = JSON.parse(event.data);
       if (data.type === 'init') {
+        applyTheme(data.theme);
         setInitialRegion(data.region);
         setTileLayer(data.tileUrlTemplate);
         syncMarkers(data.markers);
         if (data.polylines) syncPolylines(data.polylines);
+        if (data.editableCircle) setEditableCircle(data.editableCircle);
       } else if (data.type === 'updateMarkers') {
         syncMarkers(data.markers);
       } else if (data.type === 'updatePolylines') {
           syncPolylines(data.polylines);
+        } else if (data.type === 'setEditableCircle') {
+          setEditableCircle(data.circle);
         } else if (data.type === 'zoomIn') {
           try { map.zoomIn(); } catch (e) {}
         } else if (data.type === 'zoomOut') {
@@ -357,13 +468,14 @@ const buildHtml = () => `
 `;
 
 const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
-  { style, initialRegion, tileUrlTemplate, markers, polylines, onMarkerPress, onPopupAction, selectedId },
+  { style, initialRegion, tileUrlTemplate, markers, polylines, editableCircle, onMarkerPress, onPopupAction, onCircleChange, selectedId },
   ref
 ) {
   const webviewRef = useRef<WebView>(null);
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const html = useMemo(() => buildHtml(), []);
+  const theme = useMemo(() => buildTheme(), []);
 
   // Si la WebView ne signale jamais "ready" (ex: CDN Leaflet injoignable),
   // on l'affiche clairement plutôt que de laisser une carte vide sans explication.
@@ -390,6 +502,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     zoomIn: () => post({ type: 'zoomIn' }),
     zoomOut: () => post({ type: 'zoomOut' }),
     drawPolylines: (polylines) => post({ type: 'updatePolylines', polylines }),
+    setEditableCircle: (circle) => post({ type: 'setEditableCircle', circle }),
   }));
 
   const handleMessage = (event: WebViewMessageEvent) => {
@@ -402,6 +515,8 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
         onMarkerPress?.(data.id);
       } else if (data.type === 'popupAction') {
         onPopupAction?.(data.action, data.id);
+      } else if (data.type === 'circleChanged') {
+        onCircleChange?.(data.center, data.radiusMeters);
       } else if (data.type === 'mapError') {
         console.warn('OsmMapView error', data.message);
         setLoadError(data.message ?? 'Erreur inconnue lors du chargement de la carte.');
@@ -411,10 +526,10 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     }
   };
 
-  // Init une fois la WebView prête (envoie région + tuiles + marqueurs initiaux)
+  // Init une fois la WebView prête (envoie thème, région, tuiles, marqueurs initiaux)
   useEffect(() => {
     if (isReady) {
-      post({ type: 'init', region: initialRegion, tileUrlTemplate, markers, polylines });
+      post({ type: 'init', theme, region: initialRegion, tileUrlTemplate, markers, polylines, editableCircle });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
@@ -434,6 +549,14 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, polylines]);
+
+  // Met à jour le cercle éditable (géorepérage) si fourni
+  useEffect(() => {
+    if (isReady && editableCircle !== undefined) {
+      post({ type: 'setEditableCircle', circle: editableCircle });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, editableCircle]);
 
   // Met à jour les tuiles quand on bascule Routes/Satellite
   useEffect(() => {
@@ -525,7 +648,7 @@ const styles = StyleSheet.create({
     flexDirection:   'row',
     alignItems:      'center',
     gap:             8,
-    backgroundColor: 'rgba(206,17,38,0.92)',
+    backgroundColor: 'rgba(220,38,38,0.92)',
     paddingHorizontal: 14,
     paddingVertical:   10,
   },

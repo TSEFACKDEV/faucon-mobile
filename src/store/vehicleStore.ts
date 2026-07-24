@@ -31,7 +31,10 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   livePositions: {},
   activeAlarms:  [],
   selectedId:    null,
-  isLoading:     false,
+  // true par défaut : avant même le premier fetch, on considère qu'on charge —
+  // évite qu'un utilisateur avec des traceurs existants ne voie un flash de
+  // "Aucun appareil" le temps que la requête initiale se termine.
+  isLoading:     true,
 
   setVehicles: (vehicles) => set({ vehicles }),
 

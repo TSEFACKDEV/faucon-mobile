@@ -1,6 +1,5 @@
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -15,9 +14,13 @@ import { useAuthStore } from '../../store/authStore';
 import { registerSchema } from '../../utils/validationSchemas';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/colors';
+import AppText from '../../components/ui/Typography';
 import Logo from '../../components/ui/Logo';
+import { Colors } from '../../constants/colors';
+import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -30,31 +33,34 @@ const initialValues = {
 
 export default function RegisterScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { setUser, setTokens } = useAuthStore();
 
- const handleRegister = async (
-  values: typeof initialValues,
-  { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
-) => {
-  try {
-    const response = await authService.register({
-      userName: values.userName,
-      email: values.email,
-      password: values.password,
-    });
+  const handleRegister = async (
+    values: typeof initialValues,
+    { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
+  ) => {
+    try {
+      const response = await authService.register({
+        userName: values.userName,
+        email: values.email,
+        password: values.password,
+      });
 
-    const { user, tokens } = response;
-    await setTokens(tokens.accessToken, tokens.refreshToken);
-    setUser(user);
-    navigation.navigate('AddDevice');
-  } catch (error: any) {
-    console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
-    const message = error?.response?.data?.message ?? 'Erreur lors de l\'inscription';
-    setFieldError('email', message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+      const { user, tokens } = response;
+      await setTokens(tokens.accessToken, tokens.refreshToken);
+      // Le passage à l'écran "Connecter un traceur" est géré automatiquement
+      // par RootNavigator dès que isAuthenticated passe à true (voir
+      // AuthenticatedGate) — pas de navigation manuelle ici.
+      setUser(user);
+    } catch (error: any) {
+      console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
+      const message = error?.response?.data?.message ?? 'Erreur lors de l\'inscription';
+      setFieldError('email', message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -66,20 +72,20 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Logo tone="white" size={40} />
-          <Text style={styles.tagline}>Voir · Surveiller · Contrôler</Text>
+        <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
+            <Logo tone="white" size={44} />
+            <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
+              Voir · Surveiller · Contrôler
+            </AppText>
+          </Animated.View>
         </View>
 
-        <View style={styles.flagStripe}>
-          <View style={[styles.stripe, { backgroundColor: '#007A3D' }]} />
-          <View style={[styles.stripe, { backgroundColor: '#CE1126' }]} />
-          <View style={[styles.stripe, { backgroundColor: '#FCD116' }]} />
-        </View>
-
-        <View style={styles.form}>
-          <Text style={styles.title}>Créer un compte</Text>
-          <Text style={styles.subtitle}>Inscrivez-vous pour commencer le suivi</Text>
+        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
+          <AppText variant="h1" style={styles.title}>Créer un compte</AppText>
+          <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
+            Inscrivez-vous pour commencer le suivi
+          </AppText>
 
           <Formik
             initialValues={initialValues}
@@ -93,35 +99,41 @@ export default function RegisterScreen() {
                 <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Min. 6 caractères" isPassword autoComplete="new-password" />
                 <InputField name="confirmPassword" label="Confirmer le mot de passe" icon="shield-checkmark-outline" placeholder="Répéter le mot de passe" isPassword />
 
-                <Button label="S'INSCRIRE" onPress={() => handleSubmit()} loading={isSubmitting} style={styles.submitBtn} />
+                <Button label="S'inscrire" onPress={() => handleSubmit()} loading={isSubmitting} size="lg" style={styles.submitBtn} />
               </View>
             )}
           </Formik>
 
           <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Déjà un compte ? </Text>
+            <AppText variant="body" color={Colors.textSecondary}>Déjà un compte ? </AppText>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Se connecter</Text>
+              <AppText variant="bodyBold" color={Colors.accentDark}>Se connecter</AppText>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.offWhite },
+  flex: { flex: 1, backgroundColor: Colors.primary },
   scroll: { flexGrow: 1 },
-  header: { backgroundColor: Colors.primary, paddingTop: 60, paddingBottom: 28, alignItems: 'center' },
-  tagline: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
-  flagStripe: { flexDirection: 'row', height: 5 },
-  stripe: { flex: 1 },
-  form: { padding: 24, flex: 1 },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 28 },
-  submitBtn: { marginTop: 8 },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  loginText: { fontSize: 14, color: Colors.textSecondary },
-  loginLink: { fontSize: 14, fontWeight: '600', color: Colors.action },
+  header: { paddingBottom: 64, alignItems: 'center' },
+  headerContent: { alignItems: 'center', gap: Spacing.sm },
+  tagline: { letterSpacing: 0.5 },
+  card: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    marginTop: -40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
+  },
+  title: { marginBottom: Spacing.xs },
+  subtitle: { marginBottom: Spacing.xl },
+  submitBtn: { marginTop: Spacing.sm },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.xl },
 });

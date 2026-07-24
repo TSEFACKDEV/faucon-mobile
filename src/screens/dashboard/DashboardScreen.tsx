@@ -3,10 +3,12 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 import Logo from '../../components/ui/Logo';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -18,6 +20,7 @@ import { ROUTE_TILE_URL as OSM_URL, SATELLITE_TILE_URL as SAT_URL } from '../../
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   // State local
   const [mapStyle,      setMapStyle]      = useState<'route' | 'satellite'>('route');
@@ -54,8 +57,8 @@ export default function DashboardScreen() {
         if (!pos) return null;
         const hasAlarm = alarmsByVehicle[vehicle.id] ?? false;
         const isSelected = vehicle.id === selectedId;
-        // Device color: blue by default, red if alarm
-        const statusColor = hasAlarm ? Colors.danger : Colors.blue;
+        // Couleur du marqueur : vert (OK) par défaut, rouge si alarme active.
+        const statusColor = hasAlarm ? Colors.danger : Colors.primary;
 
         return {
           id: vehicle.id,
@@ -94,7 +97,7 @@ export default function DashboardScreen() {
         id: 'user',
         latitude: userLoc.latitude,
         longitude: userLoc.longitude,
-        color: Colors.danger,
+        color: Colors.info,
         icon: 'user',
       });
     }
@@ -193,7 +196,7 @@ export default function DashboardScreen() {
       />
 
       {/* ── TOPBAR ── */}
-      <View style={styles.topbar}>
+      <View style={[styles.topbar, { paddingTop: insets.top + Spacing.sm }]}>
         <Logo tone="white" size={22} />
 
         {/* Toggle carte / satellite */}
@@ -318,10 +321,9 @@ const styles = StyleSheet.create({
     flexDirection:   'row',
     alignItems:      'center',
     justifyContent:  'space-between',
-    paddingTop:      52,
     paddingBottom:   12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(0,122,61,0.92)',
+    backgroundColor: 'rgba(14,92,54,0.92)',
   },
   mapToggle: {
     flexDirection:   'row',
