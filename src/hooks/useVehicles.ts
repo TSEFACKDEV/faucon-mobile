@@ -39,7 +39,17 @@ export const useVehicles = () => {
   }, []);
 
   useEffect(() => {
-    fetchVehicles();
+    // `isLoading`/`vehicles` sont un état global (zustand) : ce hook est monté
+    // à la fois par AuthenticatedGate (gate de navigation) et par
+    // DashboardScreen (affichage). Sans cette garde, le montage de
+    // DashboardScreen relance un fetch qui repasse isLoading à true, ce qui
+    // démonte DashboardScreen via AuthenticatedGate, qui le remonte une fois
+    // le fetch terminé — boucle infinie. On ne fetch automatiquement que si
+    // aucun véhicule n'est encore chargé ; le rafraîchissement explicite
+    // (pull-to-refresh, après ajout d'appareil, etc.) passe par `refetch()`.
+    if (vehicles.length === 0) {
+      fetchVehicles();
+    }
   }, []);
 
   return { vehicles, isLoading, refetch: fetchVehicles };
