@@ -7,9 +7,10 @@ interface LogoProps {
   showWordmark?: boolean;
 }
 
-// Mark unique (vert + ambre) — pour un usage sur fond sombre, on affiche
-// le mark dans un chip blanc plutôt que de générer un asset monochrome séparé.
-const MARK = require('../../../assets/Logos/Sans fond/Green.png');
+// Mark géométrique (chevron/aile, ton primary600) — pour un usage sur fond
+// sombre, on affiche le mark dans un chip blanc plutôt que de générer un
+// asset monochrome séparé.
+const MARK = require('../../../assets/mark.png');
 
 export default function Logo({ tone = 'color', size = 28, showWordmark = true }: LogoProps) {
   return (

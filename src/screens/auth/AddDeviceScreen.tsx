@@ -45,8 +45,10 @@ export default function AddDeviceScreen() {
         </View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
-          <View style={styles.illustration}>
-            <Ionicons name="hardware-chip-outline" size={48} color={Colors.primary} />
+          <View style={styles.illustrationRing}>
+            <View style={styles.illustration}>
+              <Ionicons name="hardware-chip-outline" size={40} color={Colors.primary} />
+            </View>
           </View>
 
           <AppText variant="h1" style={styles.title}>Connectez votre traceur</AppText>
@@ -74,7 +76,7 @@ const styles = StyleSheet.create({
   header: { paddingBottom: 40, alignItems: 'center' },
   card: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.offWhite,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     marginTop: -20,
@@ -82,15 +84,23 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xxl,
     paddingBottom: Spacing.xl,
   },
-  illustration: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.primaryLight,
+  illustrationRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Colors.primary50,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginBottom: Spacing.lg,
+  },
+  illustration: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: { textAlign: 'center', marginBottom: Spacing.sm },
   subtitle: { textAlign: 'center', lineHeight: 21, marginBottom: Spacing.lg },

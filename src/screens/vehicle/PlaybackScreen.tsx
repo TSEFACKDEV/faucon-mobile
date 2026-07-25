@@ -167,7 +167,7 @@ export default function PlaybackScreen() {
 
       {/* HEADER */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rejouer le trajet</Text>
@@ -185,6 +185,7 @@ export default function PlaybackScreen() {
               key={d}
               style={[styles.dateChip, isActive && styles.dateChipActive]}
               onPress={() => setSelectedDate(d)}
+              hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
             >
               <Text style={[styles.dateChipText, isActive && styles.dateChipTextActive]}>
                 {isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
@@ -308,6 +309,7 @@ export default function PlaybackScreen() {
                 key={s}
                 style={[styles.speedBtn, speed === s && styles.speedBtnActive]}
                 onPress={() => setSpeed(s)}
+                hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
               >
                 <Text style={[styles.speedText, speed === s && styles.speedTextActive]}>
                   x{s}

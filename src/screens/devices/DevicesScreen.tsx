@@ -13,13 +13,11 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { useVehicles } from '../../hooks/useVehicles';
 import { Vehicle } from '../../types';
-import { formatTime } from '../../utils/formatters';
-
-const displayId = (imei: string) => `FCN-${imei.slice(-4)}`;
+import { formatTime, displayDeviceId } from '../../utils/formatters';
 
 export default function DevicesScreen() {
   const navigation = useNavigation<any>();
-  const { livePositions } = useVehicleStore();
+  const { livePositions, activeVehicleId, setActiveVehicleId } = useVehicleStore();
   const { vehicles, refetch } = useVehicles();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -44,8 +42,13 @@ export default function DevicesScreen() {
   };
 
   const handlePosition = (vehicle: Vehicle) => {
+    setActiveVehicleId(vehicle.id);
     useVehicleStore.getState().setSelectedId(vehicle.id);
     navigation.navigate('Carte');
+  };
+
+  const handleConfig = (vehiculeId: string) => {
+    navigation.navigate('VehicleStack', { screen: 'VehicleDetail', params: { vehiculeId } });
   };
 
   const handlePartager = async (vehicle: Vehicle) => {
@@ -53,9 +56,10 @@ export default function DevicesScreen() {
     const posText = pos
       ? `Dernière position : ${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)} (${formatTime(pos.horodatage)})`
       : 'Aucune position récente disponible.';
+    const idLine = vehicle.imei ? `IMEI ${vehicle.imei}` : `Traceur ${vehicle.trackerId ?? 'inconnu'}`;
     try {
       await Share.share({
-        message: `${vehicle.nom} — ${displayId(vehicle.imei)} (IMEI ${vehicle.imei})\n${posText}`,
+        message: `${vehicle.nom} — ${displayDeviceId(vehicle)} (${idLine})\n${posText}`,
       });
     } catch (err) {
       console.error('[Partager]', err);
@@ -112,14 +116,22 @@ export default function DevicesScreen() {
     const pos = livePositions[item.id];
     const isMoving = !!pos && pos.vitesse > 5;
     const statusLabel = isMoving ? 'En mouvement' : pos ? 'Immobilisé' : 'Hors ligne';
-    const statusColor = isMoving ? Colors.primary : pos ? Colors.warning : Colors.textMuted;
+    const statusColor = isMoving ? Colors.successStrong : pos ? Colors.warningStrong : Colors.textMuted;
+    // Icône distincte en plus de la couleur pour chaque statut — la couleur seule
+    // ne doit jamais être le seul signal (accessibilité, daltonisme).
+    const statusIcon = isMoving ? 'navigate' : pos ? 'pause-circle' : 'cloud-offline-outline';
     const batteryColor =
-      item.niveauBatterie < 20 ? Colors.danger :
-      item.niveauBatterie < 50 ? Colors.warning :
-      Colors.primary;
+      item.niveauBatterie < 20 ? Colors.dangerStrong :
+      item.niveauBatterie < 50 ? Colors.warningStrong :
+      Colors.successStrong;
+    const batteryIcon =
+      item.niveauBatterie < 20 ? 'battery-dead-outline' :
+      item.niveauBatterie < 50 ? 'battery-half-outline' :
+      'battery-full-outline';
+    const isTracked = item.id === activeVehicleId;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, isTracked && styles.cardTracked]}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <View style={styles.nameRow}>
@@ -127,17 +139,25 @@ export default function DevicesScreen() {
               <TouchableOpacity onPress={() => openRename(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="pencil" size={14} color={Colors.textMuted} />
               </TouchableOpacity>
+              {isTracked && (
+                <View style={styles.trackedBadge}>
+                  <Ionicons name="navigate" size={10} color={Colors.white} />
+                  <Text style={styles.trackedBadgeText}>Suivi</Text>
+                </View>
+              )}
             </View>
-            <Text style={styles.subtitle}>
-              ID {displayId(item.imei)} · <Text style={{ color: statusColor, fontWeight: '600' }}>{statusLabel}</Text>
-            </Text>
+            <View style={styles.subtitleRow}>
+              <Text style={styles.subtitle}>ID {displayDeviceId(item)} · </Text>
+              <Ionicons name={statusIcon} size={11} color={statusColor} />
+              <Text style={[styles.subtitle, { color: statusColor, fontWeight: '600' }]}> {statusLabel}</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>
-              <Ionicons name="battery-half-outline" size={12} color={Colors.textMuted} />  BATTERIE
+              <Ionicons name={batteryIcon} size={12} color={batteryColor} />  BATTERIE
             </Text>
             <View style={styles.batteryTrack}>
               <View style={[styles.batteryFill, { width: `${item.niveauBatterie}%`, backgroundColor: batteryColor }]} />
@@ -156,6 +176,7 @@ export default function DevicesScreen() {
           <ActionButton icon="time-outline" label="Historique" onPress={() => handleHistorique(item.id)} />
           <ActionButton icon="share-social-outline" label="Partager" onPress={() => handlePartager(item)} />
           <ActionButton icon="location-outline" label="Position" onPress={() => handlePosition(item)} />
+          <ActionButton icon="options-outline" label="Config" onPress={() => handleConfig(item.id)} />
           {deletingId === item.id ? (
             <View style={styles.actionBtn}>
               <ActivityIndicator size="small" color={Colors.danger} />
@@ -171,11 +192,14 @@ export default function DevicesScreen() {
 
   return (
     <View style={styles.container}>
-      <BrandBar right={<Text style={styles.total}>{vehicles.length} total</Text>} />
-
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mes dispositifs</Text>
-      </View>
+      <BrandBar
+        title="Mes dispositifs"
+        right={
+          <View style={styles.totalPill}>
+            <Text style={styles.total}>{vehicles.length}</Text>
+          </View>
+        }
+      />
 
       <FlatList
         data={vehicles}
@@ -245,14 +269,15 @@ const ActionButton = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
-  total:     { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-
-  header: {
-    backgroundColor:   Colors.primary,
-    paddingVertical:   16,
-    paddingHorizontal: 20,
+  totalPill: {
+    backgroundColor:   'rgba(255,255,255,0.18)',
+    borderRadius:      12,
+    minWidth:          26,
+    paddingHorizontal: 8,
+    paddingVertical:   3,
+    alignItems:        'center',
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.white },
+  total: { fontSize: 13, fontWeight: '700', color: Colors.white },
 
   list: { padding: 16, gap: 12, paddingBottom: 32 },
 
@@ -276,15 +301,35 @@ const styles = StyleSheet.create({
     borderRadius:    14,
     padding:         16,
     gap:             14,
+    borderWidth:     1.5,
+    borderColor:     'transparent',
     shadowColor:     '#000',
     shadowOpacity:   0.05,
     shadowRadius:    6,
     elevation:       2,
   },
+  cardTracked: {
+    borderColor: Colors.primary,
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   nameRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  trackedBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               3,
+    backgroundColor:   Colors.primary,
+    borderRadius:      8,
+    paddingHorizontal: 6,
+    paddingVertical:   2,
+  },
+  trackedBadgeText: {
+    fontSize:   9,
+    fontWeight: '700',
+    color:      Colors.white,
+  },
   name:       { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  subtitle:   { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  subtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  subtitle:    { fontSize: 12, color: Colors.textMuted },
 
   statsRow: { flexDirection: 'row', gap: 10 },
   statBox: {

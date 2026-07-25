@@ -1,8 +1,9 @@
 import {
   View, Text, StyleSheet, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator,
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BrandBar from '../../components/ui/BrandBar';
@@ -23,31 +24,31 @@ const ALARM_CONFIG: Record<TypeAlarme, {
     label: 'Sortie de zone',
     icon:  'location-outline',
     color: Colors.danger,
-    bg:    '#FEE2E2',
+    bg:    Colors.dangerTint,
   },
   VITESSE_EXCESSIVE: {
     label: 'Vitesse excessive',
     icon:  'speedometer-outline',
-    color: Colors.accentDark,
-    bg:    Colors.accentLight,
+    color: Colors.warningStrong,
+    bg:    Colors.warningTint,
   },
   DECOLLEMENT_TRACEUR: {
     label: 'Retrait dispositif',
     icon:  'alert-circle-outline',
     color: Colors.danger,
-    bg:    '#FEE2E2',
+    bg:    Colors.dangerTint,
   },
   NON_MOUVEMENT: {
     label: 'Immobilisation',
     icon:  'pause-circle-outline',
-    color: Colors.accentDark,
-    bg:    Colors.accentLight,
+    color: Colors.warningStrong,
+    bg:    Colors.warningTint,
   },
   BATTERIE_FAIBLE: {
     label: 'Batterie faible',
     icon:  'battery-dead-outline',
-    color: Colors.accentDark,
-    bg:    Colors.accentLight,
+    color: Colors.warningStrong,
+    bg:    Colors.warningTint,
   },
 };
 
@@ -63,6 +64,15 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: 'NON_MOUVEMENT',       label: 'Inactif'    },
 ];
 
+// Pulsation douce (opacité 1 → 0.35 → 1, ~1.4s, ease-in-out) — le repère visuel
+// d'une alerte non acquittée doit rester vivant, pas un simple point statique.
+const PulseDot = ({ color }: { color: string }) => {
+  const opacity = useSharedValue(1);
+  opacity.value = withRepeat(withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }), -1, true);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Reanimated.View style={[styles.unreadDot, { backgroundColor: color }, style]} />;
+};
+
 export default function AlertsScreen() {
   const { vehicles, activeAlarms, addAlarm } = useVehicleStore();
 
@@ -72,6 +82,7 @@ export default function AlertsScreen() {
   const [loading,     setLoading]     = useState(true);
   const [acquitting,  setAcquitting]  = useState<string | null>(null);
   const [acquittingAll, setAcquittingAll] = useState(false);
+  const [deletingId,  setDeletingId]  = useState<string | null>(null);
 
   // Charger les alarmes de tous les véhicules
   const loadAlarmes = useCallback(async () => {
@@ -141,6 +152,32 @@ export default function AlertsScreen() {
     }
   };
 
+  const handleDeleteAlarme = (alarme: Alarme) => {
+    Alert.alert(
+      'Supprimer cette alerte',
+      'Cette alerte sera définitivement supprimée.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(alarme.id);
+            try {
+              await vehicleService.deleteAlarme(alarme.vehiculeId, alarme.id);
+              setAllAlarmes(prev => prev.filter(a => a.id !== alarme.id));
+            } catch (err) {
+              console.error('[supprimerAlarme]', err);
+              Alert.alert('Erreur', "Impossible de supprimer cette alerte pour le moment.");
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleAcquitAll = async () => {
     const toAcquit = allAlarmes.filter(a => !a.estAcquittee);
     if (toAcquit.length === 0) return;
@@ -181,35 +218,28 @@ export default function AlertsScreen() {
     <View style={styles.container}>
 
       <BrandBar
+        title="Alertes"
         right={
           nbNonLues > 0 ? (
-            <TouchableOpacity onPress={handleAcquitAll} disabled={acquittingAll}>
-              {acquittingAll ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
-              ) : (
-                <Text style={styles.markAllText}>Tout lire</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={handleAcquitAll}
+                disabled={acquittingAll}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {acquittingAll ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.markAllText}>Tout lire</Text>
+                )}
+              </TouchableOpacity>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{nbNonLues}</Text>
+              </View>
+            </View>
           ) : null
         }
       />
-
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Alertes</Text>
-          {nbNonLues > 0 && (
-            <Text style={styles.headerSub}>
-              {nbNonLues} non acquittée{nbNonLues > 1 ? 's' : ''}
-            </Text>
-          )}
-        </View>
-        {nbNonLues > 0 && (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{nbNonLues}</Text>
-          </View>
-        )}
-      </View>
 
       {/* FILTRES */}
       <View style={styles.filterWrapper}>
@@ -226,6 +256,7 @@ export default function AlertsScreen() {
                 filter === item.key && styles.filterChipActive,
               ]}
               onPress={() => setFilter(item.key)}
+              hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
             >
               <Text style={[
                 styles.filterText,
@@ -278,9 +309,22 @@ export default function AlertsScreen() {
               <View style={styles.cardBody}>
                 <View style={styles.cardTopRow}>
                   <Text style={styles.cardType}>{config.label}</Text>
-                  <Text style={styles.cardTime}>
-                    {formatTime(item.horodatage)}
-                  </Text>
+                  <View style={styles.cardTopRight}>
+                    <Text style={styles.cardTime}>
+                      {formatTime(item.horodatage)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteAlarme(item)}
+                      disabled={deletingId === item.id}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      {deletingId === item.id ? (
+                        <ActivityIndicator size="small" color={Colors.textMuted} />
+                      ) : (
+                        <Ionicons name="trash-outline" size={15} color={Colors.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <Text style={styles.cardVehicle}>
@@ -302,28 +346,27 @@ export default function AlertsScreen() {
                 {/* Bouton acquitter */}
                 {!item.estAcquittee ? (
                   <TouchableOpacity
-                    style={styles.acquitBtn}
+                    style={[styles.acquitBtn, { borderColor: config.color }]}
                     onPress={() => handleAcquitter(item)}
                     disabled={isAcquitting}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     {isAcquitting ? (
-                      <ActivityIndicator size="small" color={Colors.danger} />
+                      <ActivityIndicator size="small" color={config.color} />
                     ) : (
-                      <Text style={styles.acquitBtnText}>Acquitter</Text>
+                      <Text style={[styles.acquitBtnText, { color: config.color }]}>Acquitter</Text>
                     )}
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.acquittedRow}>
-                    <Ionicons name="checkmark-circle" size={13} color={Colors.primary} />
+                    <Ionicons name="checkmark-circle" size={13} color={Colors.successStrong} />
                     <Text style={styles.acquittedText}>Acquittée</Text>
                   </View>
                 )}
               </View>
 
               {/* Pulse non lu */}
-              {!item.estAcquittee && (
-                <View style={[styles.unreadDot, { backgroundColor: config.color }]} />
-              )}
+              {!item.estAcquittee && <PulseDot color={config.color} />}
             </View>
           );
         }}
@@ -336,28 +379,18 @@ const styles = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.offWhite },
   centered:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  header: {
-    backgroundColor:  Colors.primary,
-    paddingTop:       18,
-    paddingBottom:    16,
-    paddingHorizontal: 20,
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'space-between',
-  },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.white },
-  headerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-  markAllText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  markAllText: { fontSize: 13, fontWeight: '700', color: Colors.white },
   countBadge: {
-    backgroundColor: Colors.danger,
-    borderRadius:    16,
-    minWidth:        32,
-    height:          32,
-    alignItems:      'center',
-    justifyContent:  'center',
-    paddingHorizontal: 8,
+    backgroundColor:   Colors.dangerStrong,
+    borderRadius:      12,
+    minWidth:          24,
+    height:            24,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 6,
   },
-  countBadgeText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
+  countBadgeText: { color: Colors.white, fontWeight: '700', fontSize: 12 },
 
   filterWrapper: {
     backgroundColor: Colors.white,
@@ -406,6 +439,7 @@ const styles = StyleSheet.create({
   },
   cardBody:   { flex: 1 },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardTopRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardType:   { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   cardTime:   { fontSize: 11, color: Colors.textMuted },
   cardVehicle:{ fontSize: 12, color: Colors.primary, fontWeight: '500', marginTop: 2 },
@@ -415,15 +449,14 @@ const styles = StyleSheet.create({
     marginTop:   8,
     alignSelf:   'flex-start',
     borderWidth: 1,
-    borderColor: Colors.danger,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical:    4,
   },
-  acquitBtnText: { fontSize: 12, color: Colors.danger, fontWeight: '600' },
+  acquitBtnText: { fontSize: 12, fontWeight: '600' },
 
   acquittedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  acquittedText: { fontSize: 11, color: Colors.primary },
+  acquittedText: { fontSize: 11, color: Colors.successStrong, fontWeight: '600' },
 
   unreadDot: {
     width:        8,

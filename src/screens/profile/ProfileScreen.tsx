@@ -111,12 +111,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
-      <BrandBar />
-
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profil</Text>
-      </View>
+      <BrandBar title="Profil" />
 
       {/* AVATAR + NOM */}
       <View style={styles.profileCard}>
@@ -226,14 +221,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
 
-  header: {
-    backgroundColor:   Colors.primary,
-    paddingTop:        18,
-    paddingBottom:     16,
-    paddingHorizontal: 20,
-  },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.white },
-
   profileCard: {
     backgroundColor: Colors.primary,
     alignItems:      'center',
@@ -301,9 +288,9 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  settingIconDanger: { backgroundColor: '#FEE2E2' },
+  settingIconDanger: { backgroundColor: Colors.dangerTint },
   settingLabel:      { flex: 1, fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
-  settingLabelDanger:{ color: Colors.danger },
+  settingLabelDanger:{ color: Colors.dangerStrong },
   rowValue:          { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
   divider:           { height: 1, backgroundColor: Colors.border, marginLeft: 64 },
 

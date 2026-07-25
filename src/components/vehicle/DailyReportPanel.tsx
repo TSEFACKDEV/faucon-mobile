@@ -104,14 +104,14 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
 
           {report.nbAlarmes > 0 ? (
             <View style={styles.alarmStrip}>
-              <Ionicons name="warning-outline" size={14} color={Colors.danger} />
+              <Ionicons name="warning-outline" size={14} color={Colors.dangerStrong} />
               <Text style={styles.alarmStripText}>
                 {report.nbAlarmes} alarme{report.nbAlarmes > 1 ? 's' : ''} déclenchée{report.nbAlarmes > 1 ? 's' : ''}
               </Text>
             </View>
           ) : (
             <View style={styles.okStrip}>
-              <Ionicons name="checkmark-circle-outline" size={14} color={Colors.primary} />
+              <Ionicons name="checkmark-circle-outline" size={14} color={Colors.successStrong} />
               <Text style={styles.okStripText}>Aucune alarme</Text>
             </View>
           )}
@@ -168,20 +168,20 @@ const styles = StyleSheet.create({
     flexDirection:   'row',
     alignItems:      'center',
     gap:             6,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.dangerTint,
     borderRadius:    8,
     padding:         10,
   },
-  alarmStripText: { fontSize: 12, color: Colors.danger, fontWeight: '600' },
+  alarmStripText: { fontSize: 12, color: Colors.dangerStrong, fontWeight: '600' },
   okStrip: {
     flexDirection:   'row',
     alignItems:      'center',
     gap:             6,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.successTint,
     borderRadius:    8,
     padding:         10,
   },
-  okStripText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+  okStripText: { fontSize: 12, color: Colors.successStrong, fontWeight: '600' },
 
   empty:     { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 13, color: Colors.textMuted },

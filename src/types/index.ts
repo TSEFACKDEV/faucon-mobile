@@ -7,7 +7,8 @@ export interface User {
 
 export interface Device {
   id: string;
-  imei: string;
+  imei?: string | null;
+  trackerId?: string | null;
   nom: string;
   image?: string;
   modeActuel: 'WORK' | 'MOVE' | 'STANDBY';

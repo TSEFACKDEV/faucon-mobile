@@ -36,8 +36,10 @@ function Slide({ item, index, scrollX, width }: SlideProps) {
 
   return (
     <View style={[styles.slide, { width }]}>
-      <Animated.View style={[styles.iconWrap, animatedStyle]}>
-        <Ionicons name={item.icon} size={56} color={Colors.primary} />
+      <Animated.View style={[styles.iconRing, animatedStyle]}>
+        <View style={styles.iconWrap}>
+          <Ionicons name={item.icon} size={48} color={Colors.primary} />
+        </View>
       </Animated.View>
       <Animated.View style={animatedStyle}>
         <AppText variant="h1" style={styles.title}>{item.title}</AppText>
@@ -94,8 +96,8 @@ export default function OnboardingScreen() {
       <View style={styles.topBar}>
         <Logo tone="color" size={22} showWordmark={false} />
         {!isLast && (
-          <TouchableOpacity onPress={markSeen} hitSlop={8}>
-            <AppText variant="bodyBold" color={Colors.textMuted}>Passer</AppText>
+          <TouchableOpacity onPress={markSeen} style={styles.skipBtn} hitSlop={8}>
+            <AppText variant="bodyBold" color={Colors.textSecondary}>Passer</AppText>
           </TouchableOpacity>
         )}
       </View>
@@ -130,7 +132,7 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
+  container: { flex: 1, backgroundColor: Colors.offWhite },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -144,14 +146,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.xxl,
   },
-  iconWrap: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.primaryLight,
+  // Anneau à deux tons (plus "soft" qu'un disque plat) : anneau extérieur pâle,
+  // disque intérieur légèrement plus saturé, icône de marque au centre.
+  iconRing: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: Colors.primary50,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,
+  },
+  iconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: 999,
+    backgroundColor: Colors.neutral50,
   },
   title: { textAlign: 'center', marginBottom: Spacing.sm },
   subtitle: { textAlign: 'center', lineHeight: 22 },

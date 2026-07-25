@@ -29,6 +29,7 @@ export default function InputField({
     useFormikContext<Record<string, string>>();
 
   const [showPassword, setShowPassword] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const value    = getIn(values, name) ?? '';
   const error    = getIn(errors, name);
@@ -39,12 +40,16 @@ export default function InputField({
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
 
-      <View style={[styles.inputRow, hasError && styles.inputError]}>
+      <View style={[
+        styles.inputRow,
+        isFocused && styles.inputFocused,
+        hasError && styles.inputError,
+      ]}>
         {icon && (
           <Ionicons
             name={icon}
             size={18}
-            color={hasError ? Colors.danger : Colors.primary}
+            color={hasError ? Colors.dangerStrong : isFocused ? Colors.primary : Colors.textMuted}
             style={styles.icon}
           />
         )}
@@ -53,7 +58,8 @@ export default function InputField({
           style={styles.input}
           value={value}
           onChangeText={handleChange(name)}
-          onBlur={handleBlur(name)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={(e) => { setIsFocused(false); handleBlur(name)(e); }}
           secureTextEntry={isPassword && !showPassword}
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="none"
@@ -96,14 +102,19 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.neutral50,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 52,
   },
+  inputFocused: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.primary300,
+  },
   inputError: {
+    backgroundColor: Colors.white,
     borderColor: Colors.danger,
   },
   icon: {
@@ -116,7 +127,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 11,
-    color: Colors.danger,
+    color: Colors.dangerStrong,
     marginTop: 4,
     marginLeft: 4,
   },

@@ -1,11 +1,12 @@
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
 import OsmMapView, { OsmMarker } from '../../components/map/OsmMapView';
 import { Colors } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -77,9 +78,10 @@ export default function VehicleDetailScreen() {
   }
 
   const statusColor =
-    vehicle.niveauBatterie < 20 ? Colors.danger :
-    (livePos != null && livePos.vitesse > 5) ? Colors.primary :
-    Colors.warning;
+    vehicle.niveauBatterie < 20 ? Colors.dangerStrong :
+    (livePos != null && livePos.vitesse > 5) ? Colors.successStrong :
+    livePos ? Colors.warningStrong :
+    Colors.textMuted;
 
   const statusLabel =
     (livePos != null && livePos.vitesse > 5) ? 'EN MOUVEMENT' :
@@ -90,7 +92,7 @@ export default function VehicleDetailScreen() {
 
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -158,7 +160,9 @@ export default function VehicleDetailScreen() {
           icon="battery-half-outline"
           label="Batterie"
           value={formatBattery(vehicle.niveauBatterie)}
-          valueColor={vehicle.niveauBatterie < 20 ? Colors.danger : Colors.primary}
+          valueColor={vehicle.niveauBatterie < 20 ? Colors.dangerStrong
+                    : vehicle.niveauBatterie < 50 ? Colors.warningStrong
+                    : Colors.successStrong}
         />
         <View style={styles.statDivider} />
         <QuickStat
@@ -204,7 +208,11 @@ export default function VehicleDetailScreen() {
       </View>
 
       {/* ── CONTENU ONGLET ── */}
-      <ScrollView
+      {/* key=activeTab : un fondu doux (200ms) accompagne chaque changement
+          d'onglet au lieu d'un rendu instantané. */}
+      <Reanimated.ScrollView
+        key={activeTab}
+        entering={FadeIn.duration(200)}
         style={styles.tabContent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
@@ -213,7 +221,8 @@ export default function VehicleDetailScreen() {
         {/* INFOS */}
         {activeTab === 'infos' && (
           <View style={{ gap: 12 }}>
-            <InfoRow label="IMEI"         value={vehicle.imei} mono />
+            {vehicle.trackerId && <InfoRow label="ID Traceur" value={vehicle.trackerId} mono />}
+            {vehicle.imei      && <InfoRow label="IMEI"       value={vehicle.imei}      mono />}
             <InfoRow label="Nom"          value={vehicle.nom} />
             <InfoRow label="Mode actuel"  value={vehicle.modeActuel} />
             <InfoRow label="Batterie"     value={formatBattery(vehicle.niveauBatterie)} />
@@ -279,7 +288,7 @@ export default function VehicleDetailScreen() {
           <DailyReportPanel vehiculeId={vehiculeId} />
         )}
 
-      </ScrollView>
+      </Reanimated.ScrollView>
     </View>
   );
 }

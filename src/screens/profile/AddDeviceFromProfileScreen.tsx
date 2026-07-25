@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
+import { displayDeviceId } from '../../utils/formatters';
 import AddDeviceForm, { AddDeviceFormValues } from '../../components/forms/AddDeviceForm';
 
 export default function AddDeviceFromProfileScreen() {
@@ -40,7 +41,7 @@ export default function AddDeviceFromProfileScreen() {
       >
         {/* HEADER */}
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Ajouter un appareil</Text>
@@ -50,8 +51,10 @@ export default function AddDeviceFromProfileScreen() {
         <View style={styles.body}>
           {/* ILLUSTRATION */}
           <View style={styles.illustration}>
-            <View style={styles.illustrationInner}>
-              <Ionicons name="hardware-chip-outline" size={44} color={Colors.primary} />
+            <View style={styles.illustrationRing}>
+              <View style={styles.illustrationInner}>
+                <Ionicons name="hardware-chip-outline" size={36} color={Colors.primary} />
+              </View>
             </View>
             <Text style={styles.illustrationTitle}>Connecter un traceur GPS</Text>
             <Text style={styles.illustrationSub}>
@@ -78,15 +81,15 @@ export default function AddDeviceFromProfileScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deviceName}>{v.nom}</Text>
-                      <Text style={styles.deviceImei}>{v.imei}</Text>
+                      <Text style={styles.deviceImei}>{displayDeviceId(v)}</Text>
                     </View>
                     <View style={[
                       styles.deviceStatus,
-                      { backgroundColor: v.estActif ? Colors.primaryLight : Colors.border },
+                      { backgroundColor: v.estActif ? Colors.successTint : Colors.neutral100 },
                     ]}>
                       <Text style={[
                         styles.deviceStatusText,
-                        { color: v.estActif ? Colors.primary : Colors.textMuted },
+                        { color: v.estActif ? Colors.successStrong : Colors.textMuted },
                       ]}>
                         {v.estActif ? 'Actif' : 'Inactif'}
                       </Text>
@@ -117,10 +120,15 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white },
   body: { padding: 20, gap: 24 },
   illustration: { alignItems: 'center', gap: 8, paddingVertical: 8 },
-  illustrationInner: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.primaryLight, alignItems: 'center',
+  illustrationRing: {
+    width: 92, height: 92, borderRadius: 46,
+    backgroundColor: Colors.primary50, alignItems: 'center',
     justifyContent: 'center', marginBottom: 4,
+  },
+  illustrationInner: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: Colors.primary100, alignItems: 'center',
+    justifyContent: 'center',
   },
   illustrationTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   illustrationSub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },

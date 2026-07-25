@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  FlatList, ActivityIndicator,
+  ActivityIndicator, Animated, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
 import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +15,9 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from '../../hooks/useLocation';
-import { formatTime, formatCoords } from '../../utils/formatters';
+import { formatTime, formatRelativeTime, isRecentlyConnected } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
+import { reverseGeocode } from '../../services/geocoding';
 import { ROUTE_TILE_URL as OSM_URL, SATELLITE_TILE_URL as SAT_URL } from '../../constants/mapTiles';
 
 export default function DashboardScreen() {
@@ -24,11 +26,18 @@ export default function DashboardScreen() {
 
   // State local
   const [mapStyle,      setMapStyle]      = useState<'route' | 'satellite'>('route');
-  const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const [dailyDistance, setDailyDistance] = useState<number | null>(null);
+  const [address,       setAddress]       = useState<string | null>(null);
+  const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
 
-  // Store
-  const { livePositions, activeAlarms, vehicles, selectedId: storeSelectedId, setSelectedId: setStoreSelectedId } = useVehicleStore();
+  // Store — activeVehicleId est partagé (DevicesScreen peut savoir quel
+  // dispositif est actuellement suivi) ; selectedId reste un signal ponctuel
+  // "va afficher celui-ci" utilisé par la navigation croisée (voir plus bas).
+  const {
+    livePositions, activeAlarms, vehicles,
+    selectedId: storeSelectedId, setSelectedId: setStoreSelectedId,
+    activeVehicleId: selectedId, setActiveVehicleId: setSelectedId,
+  } = useVehicleStore();
 
   // Hooks
   const { isLoading }                    = useVehicles();
@@ -77,17 +86,29 @@ export default function DashboardScreen() {
             statusLabel:  hasAlarm ? 'ALARME' : pos.vitesse > 5 ? 'EN MOUVEMENT' : 'ARRÊTÉ',
             statusColor:  '#fff',
             updatedLabel: `Mis à jour à ${formatTime(pos.horodatage)}`,
+            // "Connecté" = communication reçue récemment (vs simplement "a déjà eu
+            // une position un jour") — dérivé de la vraie dernière communication,
+            // pas fabriqué.
+            connectionOk:    isRecentlyConnected(vehicle.derniereCommunication),
+            connectionLabel: isRecentlyConnected(vehicle.derniereCommunication) ? 'En ligne' : 'Hors ligne',
+            lastActivityLabel: vehicle.derniereCommunication
+              ? formatRelativeTime(vehicle.derniereCommunication)
+              : formatRelativeTime(pos.horodatage),
             speedLabel:   `${Math.round(pos.vitesse)} km/h`,
-            batteryLabel: `${vehicle.niveauBatterie}%`,
-            batteryColor: vehicle.niveauBatterie < 20 ? Colors.danger : Colors.primary,
-            headingLabel: `${Math.round(pos.cap ?? 0)}°`,
             kmTodayLabel: `${(dailyDistance ?? 0).toFixed(1)} km`,
-            coordsLabel:  formatCoords(pos.latitude, pos.longitude),
+            batteryPercent: vehicle.niveauBatterie,
+            batteryColor: vehicle.niveauBatterie < 20 ? Colors.dangerStrong
+                        : vehicle.niveauBatterie < 50 ? Colors.warningStrong
+                        : Colors.successStrong,
+            batteryStateLabel: vehicle.niveauBatterie < 20 ? 'Critique'
+                              : vehicle.niveauBatterie < 50 ? 'Faible'
+                              : 'Bon',
+            addressLabel: isSelected ? (address ?? 'Recherche de l\'adresse...') : undefined,
           } : undefined,
         } as OsmMarker;
       })
       .filter((m): m is OsmMarker => m !== null);
-  }, [vehicles, livePositions, alarmsByVehicle, selectedId, dailyDistance]);
+  }, [vehicles, livePositions, alarmsByVehicle, selectedId, dailyDistance, address]);
 
   // Ajoute la position du téléphone comme pastille "vous êtes ici" (id: 'user')
   const markersWithUser = useMemo(() => {
@@ -118,7 +139,31 @@ export default function DashboardScreen() {
     loadDailyDistance();
   }, [selectedId]);
 
+  // Adresse lisible du véhicule sélectionné (géocodage inverse, asynchrone).
+  // Ne redéclenche que si la position a réellement changé (le cache interne
+  // de reverseGeocode évite déjà les appels réseau redondants pour une
+  // position quasi identique).
+  const selectedPos = selectedId ? livePositions[selectedId] : undefined;
+  useEffect(() => {
+    if (!selectedPos) { setAddress(null); return; }
+    let cancelled = false;
+    reverseGeocode(selectedPos.latitude, selectedPos.longitude).then(label => {
+      if (!cancelled) setAddress(label);
+    });
+    return () => { cancelled = true; };
+  }, [selectedPos?.latitude, selectedPos?.longitude]);
+
   const mapRef = useRef<OsmMapViewHandle | null>(null);
+
+  // Anneau natif qui s'étend et s'estompe autour du bouton Scan au clic —
+  // retour tactile immédiat, en plus (pas à la place) du balayage animé sur
+  // la carte elle-même (voir OsmMapView.scan()).
+  const scanPulse = useRef(new Animated.Value(0)).current;
+  const handleScanPress = () => {
+    scanPulse.setValue(0);
+    Animated.timing(scanPulse, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+    mapRef.current?.scan();
+  };
 
   const handleMarkerPress = (vehicleId: string) => {
     setSelectedId(vehicleId);
@@ -140,16 +185,7 @@ export default function DashboardScreen() {
     }
   };
 
-  // Selection via carousel scroll: met à jour selectedId quand un item devient visible
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      const first = viewableItems[0];
-      if (first && first.item && first.item.id) {
-        setSelectedId(first.item.id);
-      }
-    }
-  }).current;
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const selectedVehicle = vehicles.find(v => v.id === selectedId);
 
   const handleDetailPress = () => {
     if (selectedId) {
@@ -193,48 +229,120 @@ export default function DashboardScreen() {
         selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
         onPopupAction={handlePopupAction}
+        floatingControls={{
+          mapStyle,
+          onToggleMapStyle: () => setMapStyle(s => (s === 'route' ? 'satellite' : 'route')),
+        }}
       />
 
       {/* ── TOPBAR ── */}
       <View style={[styles.topbar, { paddingTop: insets.top + Spacing.sm }]}>
-        <Logo tone="white" size={22} />
+        <View style={styles.topbarRow}>
+          <Logo tone="white" size={20} showWordmark={false} />
 
-        {/* Toggle carte / satellite */}
-        <View style={styles.mapToggle}>
+          {/* Sélecteur de dispositif : remplace le carrousel — le dispositif suivi
+              est affiché ici, changer de dispositif se fait depuis ce menu. */}
           <TouchableOpacity
-            style={[styles.toggleBtn, mapStyle === 'route' && styles.toggleActive]}
-            onPress={() => setMapStyle('route')}
+            style={styles.deviceSelector}
+            activeOpacity={0.8}
+            onPress={() => setDeviceMenuOpen(true)}
           >
-            <Text style={[styles.toggleText, mapStyle === 'route' && styles.toggleActiveText]}>
-              Routes
-            </Text>
+            {/* key=selectedId : un fondu doux (200ms) accompagne chaque
+                changement de dispositif suivi, au lieu d'un changement sec. */}
+            <Reanimated.View key={selectedId} entering={FadeIn.duration(200)} style={styles.deviceSelectorInner}>
+              <View style={[
+                styles.deviceDot,
+                { backgroundColor: selectedVehicle
+                    ? (alarmsByVehicle[selectedVehicle.id] ? Colors.danger : Colors.success)
+                    : 'rgba(255,255,255,0.5)' },
+              ]} />
+              <Text style={styles.deviceSelectorText} numberOfLines={1}>
+                {selectedVehicle ? selectedVehicle.nom : 'Sélectionner un dispositif'}
+              </Text>
+            </Reanimated.View>
+            <Ionicons name="chevron-down" size={16} color={Colors.white} />
           </TouchableOpacity>
+
+          {/* Raccourci vers la configuration des alarmes (seuils vitesse/zone) —
+              pas une liste de notifications, d'où une icône de réglages plutôt
+              qu'une cloche, qui laissait croire à tort qu'on ouvrait des notifs. */}
           <TouchableOpacity
-            style={[styles.toggleBtn, mapStyle === 'satellite' && styles.toggleActive]}
-            onPress={() => setMapStyle('satellite')}
+            style={styles.bellBtn}
+            onPress={() => navigation.navigate('VehicleStack', {
+              screen:  'VehicleDetail',
+              params:  { vehiculeId: selectedId },
+            })}
           >
-            <Text style={[styles.toggleText, mapStyle === 'satellite' && styles.toggleActiveText]}>
-              Satellite
-            </Text>
+            <Ionicons name="options-outline" size={22} color={Colors.white} />
+            {activeAlarms.filter(a => !a.estAcquittee).length > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {activeAlarms.filter(a => !a.estAcquittee).length}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Cloche alertes */}
+      {/* ── MENU DE SÉLECTION DE DISPOSITIF ── */}
+      <Modal
+        visible={deviceMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeviceMenuOpen(false)}
+      >
         <TouchableOpacity
-          style={styles.bellBtn}
-          onPress={() => navigation.navigate('VehicleStack', {
-            screen:  'VehicleDetail',
-            params:  { vehiculeId: selectedId },
-          })}
+          style={styles.deviceModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setDeviceMenuOpen(false)}
         >
-          <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-          {activeAlarms.filter(a => !a.estAcquittee).length > 0 && (
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>
-                {activeAlarms.filter(a => !a.estAcquittee).length}
-              </Text>
-            </View>
-          )}
+          <View style={styles.deviceModalCard} onStartShouldSetResponder={() => true}>
+            <Text style={styles.deviceModalTitle}>Mes dispositifs</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {vehicles.map(v => {
+                const pos = livePositions[v.id];
+                const hasAlarm = alarmsByVehicle[v.id];
+                const isSelected = v.id === selectedId;
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.deviceRow, isSelected && styles.deviceRowSelected]}
+                    onPress={() => { handleMarkerPress(v.id); setDeviceMenuOpen(false); }}
+                  >
+                    <View style={[
+                      styles.deviceRowDot,
+                      { backgroundColor: hasAlarm ? Colors.danger : pos ? Colors.success : Colors.textMuted },
+                    ]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deviceRowName} numberOfLines={1}>{v.nom}</Text>
+                      <Text style={styles.deviceRowMeta}>
+                        {pos ? `${Math.round(pos.vitesse)} km/h · ${formatTime(pos.horodatage)}` : 'Hors ligne'}
+                      </Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── SCAN : coin supérieur gauche, juste sous le bouton calques de la carte ── */}
+      <View style={[styles.scanWrap, { top: insets.top + 128 }]} pointerEvents="box-none">
+        <TouchableOpacity style={styles.scanBtn} onPress={handleScanPress} activeOpacity={0.75}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.scanPulse,
+              {
+                opacity: scanPulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+                transform: [{ scale: scanPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
+              },
+            ]}
+          />
+          <Ionicons name="phone-portrait-outline" size={20} color={Colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -256,52 +364,6 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── CAROUSEL DISPOSITIFS (bas) ── */}
-      {vehicles.length > 0 && (
-        <View style={styles.carouselContainer}>
-          <FlatList
-            data={vehicles}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.carousel}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={onViewableItemsChanged}
-            renderItem={({ item }) => {
-              const pos      = livePositions[item.id];
-              const hasAlarm = alarmsByVehicle[item.id];
-              const isSelected = item.id === selectedId;
-
-              return (
-                <TouchableOpacity
-                  style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
-                  onPress={() => handleMarkerPress(item.id)}
-                >
-                  <View style={styles.cardLeft}>
-                    <View style={[
-                      styles.statusDot,
-                      { backgroundColor: hasAlarm ? Colors.danger : pos ? Colors.primary : Colors.warning }
-                    ]} />
-                    <Text style={styles.vehicleCardName} numberOfLines={1}>
-                      {item.nom}
-                    </Text>
-                  </View>
-
-                  <View style={styles.cardRight}>
-                    <Text style={styles.vehicleSpeed}>
-                      {pos ? `${Math.round(pos.vitesse)} km/h` : '--'}
-                    </Text>
-                    <Text style={styles.vehicleTime}>
-                      {pos ? formatTime(pos.horodatage) : 'Hors ligne'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-      )}
-
     </View>
   );
 }
@@ -318,35 +380,45 @@ const styles = StyleSheet.create({
     top:             0,
     left:            0,
     right:           0,
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'space-between',
     paddingBottom:   12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(14,92,54,0.92)',
+    backgroundColor: 'rgba(54,63,112,0.94)', // Colors.primary600 translucide
   },
-  mapToggle: {
-    flexDirection:   'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius:    20,
-    padding:         2,
+  topbarRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    gap:            8,
   },
-  toggleBtn: {
+  deviceSelector: {
+    flex:              1,
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               6,
+    marginHorizontal:  8,
+    paddingVertical:   7,
     paddingHorizontal: 12,
-    paddingVertical:    5,
-    borderRadius:      18,
+    borderRadius:      20,
+    backgroundColor:   'rgba(255,255,255,0.15)',
   },
-  toggleActive: {
-    backgroundColor: Colors.white,
+  deviceSelectorInner: {
+    flex:           1,
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            6,
   },
-  toggleText: {
-    fontSize:   12,
-    color:      'rgba(255,255,255,0.8)',
-    fontWeight: '500',
+  deviceDot: {
+    width:        8,
+    height:       8,
+    borderRadius: 4,
   },
-  toggleActiveText: {
-    color:      Colors.primary,
+  deviceSelectorText: {
+    color:      Colors.white,
+    fontSize:   14,
     fontWeight: '700',
+    flexShrink: 1,
   },
   bellBtn: {
     position: 'relative',
@@ -356,7 +428,7 @@ const styles = StyleSheet.create({
     position:        'absolute',
     top:             0,
     right:           0,
-    backgroundColor: Colors.danger,
+    backgroundColor: Colors.dangerStrong,
     borderRadius:    8,
     minWidth:        16,
     height:          16,
@@ -369,6 +441,33 @@ const styles = StyleSheet.create({
     fontSize:   9,
     color:      Colors.white,
     fontWeight: '700',
+  },
+
+  // SCAN — coin supérieur gauche, empilé sous le bouton calques de la carte
+  // (voir OsmMapView : layersWrap, top = insets.top + 72, 44px de haut).
+  scanWrap: {
+    position: 'absolute',
+    left:     16,
+  },
+  scanBtn: {
+    width:           44,
+    height:          44,
+    borderRadius:    22,
+    backgroundColor: Colors.accent,
+    alignItems:      'center',
+    justifyContent:  'center',
+    shadowColor:     Colors.accent700,
+    shadowOpacity:   0.3,
+    shadowRadius:    6,
+    shadowOffset:    { width: 0, height: 2 },
+    elevation:       4,
+  },
+  scanPulse: {
+    position:        'absolute',
+    width:           44,
+    height:          44,
+    borderRadius:    22,
+    backgroundColor: Colors.accent,
   },
 
   // LOADER
@@ -417,65 +516,52 @@ const styles = StyleSheet.create({
     color:    Colors.textSecondary,
   },
 
-  // CAROUSEL
-  carouselContainer: {
-    position: 'absolute',
-    bottom:   0,
-    left:     0,
-    right:    0,
-    paddingBottom: 80, // espace pour la tab bar
+  // MENU DE SÉLECTION DE DISPOSITIF
+  deviceModalBackdrop: {
+    flex:            1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent:  'flex-end',
   },
-  carousel: {
-    paddingHorizontal: 16,
-    gap:              10,
+  deviceModalCard: {
+    backgroundColor:      Colors.white,
+    borderTopLeftRadius:  20,
+    borderTopRightRadius: 20,
+    paddingHorizontal:    16,
+    paddingTop:           16,
+    paddingBottom:        28,
+    maxHeight:            '65%',
   },
-  vehicleCard: {
-    backgroundColor:  Colors.white,
-    borderRadius:     12,
-    padding:          12,
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'space-between',
-    width:            200,
-    borderWidth:      1.5,
-    borderColor:      Colors.border,
-    shadowColor:      '#000',
-    shadowOpacity:    0.06,
-    shadowRadius:     4,
-    elevation:        2,
+  deviceModalTitle: {
+    fontSize:     15,
+    fontWeight:   '700',
+    color:        Colors.textPrimary,
+    marginBottom: 10,
   },
-  vehicleCardSelected: {
-    borderColor: Colors.primary,
+  deviceRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               10,
+    paddingVertical:   12,
+    paddingHorizontal: 10,
+    borderRadius:      12,
+    marginBottom:      4,
   },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-    flex:          1,
+  deviceRowSelected: {
+    backgroundColor: Colors.primaryLight,
   },
-  statusDot: {
-    width:        8,
-    height:       8,
-    borderRadius: 4,
+  deviceRowDot: {
+    width:        9,
+    height:       9,
+    borderRadius: 5,
   },
-  vehicleCardName: {
-    fontSize:   13,
+  deviceRowName: {
+    fontSize:   14,
     fontWeight: '600',
     color:      Colors.textPrimary,
-    flex:       1,
   },
-  cardRight: {
-    alignItems: 'flex-end',
-  },
-  vehicleSpeed: {
-    fontSize:   14,
-    fontWeight: '700',
-    color:      Colors.primary,
-    fontVariant: ['tabular-nums'],
-  },
-  vehicleTime: {
-    fontSize: 10,
-    color:    Colors.textMuted,
+  deviceRowMeta: {
+    fontSize:  11,
+    color:     Colors.textMuted,
     marginTop: 2,
   },
 });

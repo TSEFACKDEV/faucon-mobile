@@ -26,7 +26,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#F8FAF9"
+        "backgroundColor": "#1F2544"
       }
     },
     "plugins": [
@@ -42,7 +42,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#F8FAF9"
+          "backgroundColor": "#FAF9F7"
         }
       ],
       "expo-secure-store",

@@ -17,12 +17,17 @@ interface DeviceState {
   livePositions:  Record<string, LivePosition>;
   activeAlarms:   Alarme[];
   selectedId:     string | null;
+  // Dispositif actuellement suivi sur le Dashboard — état partagé (contrairement
+  // à selectedId, qui est un signal ponctuel "va afficher celui-ci") pour que
+  // d'autres écrans (ex: Dispositifs) sachent lequel est actif sans y naviguer.
+  activeVehicleId: string | null;
   isLoading:      boolean;
 
   setVehicles:        (vehicles: Device[]) => void;
   updateLivePosition: (data: LivePosition) => void;
   addAlarm:           (alarm: Alarme) => void;
   setSelectedId:      (id: string | null) => void;
+  setActiveVehicleId: (id: string | null) => void;
   setLoading:         (v: boolean) => void;
 }
 
@@ -31,6 +36,7 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   livePositions: {},
   activeAlarms:  [],
   selectedId:    null,
+  activeVehicleId: null,
   // true par défaut : avant même le premier fetch, on considère qu'on charge —
   // évite qu'un utilisateur avec des traceurs existants ne voie un flash de
   // "Aucun appareil" le temps que la requête initiale se termine.
@@ -51,6 +57,7 @@ export const useVehicleStore = create<DeviceState>((set) => ({
       activeAlarms: [alarm, ...state.activeAlarms].slice(0, 100),
     })),
 
-  setSelectedId: (id) => set({ selectedId: id }),
-  setLoading:    (v)  => set({ isLoading: v }),
+  setSelectedId:      (id) => set({ selectedId: id }),
+  setActiveVehicleId: (id) => set({ activeVehicleId: id }),
+  setLoading:         (v)  => set({ isLoading: v }),
 }));

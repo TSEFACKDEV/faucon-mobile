@@ -34,6 +34,10 @@ export const vehicleService = {
     await api.patch(`/vehicles/${vehiculeId}/alarmes/${alarmeId}/acquit`);
   },
 
+  deleteAlarme: async (vehiculeId: string, alarmeId: string): Promise<void> => {
+    await api.delete(`/vehicles/${vehiculeId}/alarmes/${alarmeId}`);
+  },
+
   getDailyReport: async (id: string, date: string): Promise<RapportJournalier> => {
     const { data } = await api.get(`/vehicles/${id}/report/daily`, {
       params: { date },

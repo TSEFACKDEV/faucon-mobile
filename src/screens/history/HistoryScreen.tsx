@@ -150,11 +150,7 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <BrandBar />
-
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Historique des trajets</Text>
-      </View>
+      <BrandBar title="Historique des trajets" />
 
       <View style={styles.segmentWrapper}>
         {SEGMENTS.map(s => (
@@ -232,7 +228,11 @@ export default function HistoryScreen() {
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{item.vehicleName}</Text>
                 </View>
-                <TouchableOpacity style={styles.playBtn} onPress={() => handleRejouer(item)}>
+                <TouchableOpacity
+                  style={styles.playBtn}
+                  onPress={() => handleRejouer(item)}
+                  hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+                >
                   <Ionicons name="play" size={16} color={Colors.white} />
                 </TouchableOpacity>
               </View>
@@ -262,13 +262,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
   centered:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  header: {
-    backgroundColor:   Colors.primary,
-    paddingVertical:   16,
-    paddingHorizontal: 20,
-  },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.white },
 
   segmentWrapper: {
     flexDirection:     'row',

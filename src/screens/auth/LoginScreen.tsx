@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   tagline: { letterSpacing: 0.5 },
   card: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.offWhite,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     marginTop: -40,

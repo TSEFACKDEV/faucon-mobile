@@ -49,11 +49,11 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
     }
   };
 
-  // Indicateur couleur du seuil
+  // Indicateur couleur du seuil (gradient sémantique, pas la couleur de marque)
   const seuilColor =
-    seuil <= 50  ? Colors.primary :
-    seuil <= 90  ? Colors.warning :
-    Colors.danger;
+    seuil <= 50  ? Colors.successStrong :
+    seuil <= 90  ? Colors.warningStrong :
+    Colors.dangerStrong;
 
   return (
     <View style={styles.container}>

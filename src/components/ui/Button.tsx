@@ -1,11 +1,14 @@
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ButtonProps {
   label: string;
@@ -35,18 +38,27 @@ export default function Button({
   const isDisabled = disabled || loading;
   const s = SIZES[size];
 
+  // Micro-interaction "soft" : léger enfoncement au toucher (150ms, ease-out),
+  // plutôt qu'un simple fondu d'opacité — cohérent sur tous les boutons de l'app.
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const onPressIn  = () => { scale.value = withTiming(0.97, { duration: 120 }); };
+  const onPressOut = () => { scale.value = withTiming(1,    { duration: 150 }); };
+
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[
         styles.base,
         { height: s.height, borderRadius: s.radius },
         styles[variant],
         isDisabled && styles.disabled,
         style,
+        animatedStyle,
       ]}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={isDisabled}
-      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator
@@ -58,7 +70,7 @@ export default function Button({
           {label}
         </Text>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
