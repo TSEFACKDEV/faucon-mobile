@@ -40,6 +40,7 @@ export type OsmPolyline = {
   color?: string;
   weight?: number;
   dashArray?: number[]; // ex: [6,4]
+  animated?: boolean;   // les tirets "coulent" dans le sens du tracé (nécessite dashArray)
 };
 
 export type OsmEditableCircle = {
@@ -168,6 +169,27 @@ const buildHtml = () => `
       width: 32px; height: 32px; border-radius: 16px;
       border: 2.5px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.4);
       display: flex; align-items: center; justify-content: center;
+    }
+    /* Indicateur de cap : petite flèche qui tourne autour du marqueur selon
+       le cap GPS réel (pos.cap) — le camion lui-même reste toujours à
+       l'endroit (le glyphe est une vue de profil, le faire pivoter donnerait
+       un rendu incohérent selon la direction). */
+    .veh-heading {
+      position: absolute;
+      top: 0; left: 0; width: 32px; height: 32px;
+      transform-origin: 16px 16px;
+      pointer-events: none;
+    }
+    .veh-heading::before {
+      content: '';
+      position: absolute;
+      top: -7px; left: 50%;
+      margin-left: -5px;
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 8px solid currentColor;
+      filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.5));
     }
     .veh-label {
       margin-top: 4px; font-size: 9px; font-weight: 700;
@@ -366,10 +388,12 @@ const buildHtml = () => `
         return L.divIcon({ html: uhtml, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
       }
       var color = m.color || THEME.primary;
+      var heading = typeof m.heading === 'number' ? m.heading : null;
       var html = '<div class="veh-icon">'
         + '<div class="veh-wrapper">'
         + (m.selected ? '<div class="veh-select-ring" style="border-color:' + color + ';"></div>' : '')
         + (m.hasAlarm ? '<div class="veh-pulse" style="border-color:' + color + ';"></div>' : '')
+        + (heading !== null ? '<div class="veh-heading" style="color:' + color + '; transform: rotate(' + heading + 'deg);"></div>' : '')
         + '<div class="veh-dot" style="background:' + color + ';">' + TRUCK_SVG + '</div>'
         + '</div>'
         + (m.label ? '<div class="veh-label" style="color:' + color + '; border-color:' + color + ';">' + escapeHtml(m.label) + '</div>' : '')
@@ -417,6 +441,29 @@ const buildHtml = () => `
         + '</div>';
     }
 
+    // Glissement fluide entre l'ancienne et la nouvelle position au lieu
+    // d'un saut instantané — interpolation linéaire sur ~700ms via
+    // requestAnimationFrame. Annule toute animation en cours sur ce même
+    // marqueur si une nouvelle position arrive avant la fin (cas normal en
+    // suivi temps réel : les mises à jour peuvent arriver plus vite que
+    // la durée de l'animation).
+    function animateMarkerTo(marker, toLat, toLng, duration) {
+      if (marker.__animFrame) cancelAnimationFrame(marker.__animFrame);
+      var from = marker.getLatLng();
+      var fromLat = from.lat, fromLng = from.lng;
+      var start = null;
+      function step(ts) {
+        if (!start) start = ts;
+        var t = Math.min((ts - start) / duration, 1);
+        marker.setLatLng([
+          fromLat + (toLat - fromLat) * t,
+          fromLng + (toLng - fromLng) * t,
+        ]);
+        marker.__animFrame = t < 1 ? requestAnimationFrame(step) : null;
+      }
+      marker.__animFrame = requestAnimationFrame(step);
+    }
+
     function syncMarkers(markers) {
       var seen = {};
       markers.forEach(function (m) {
@@ -432,7 +479,7 @@ const buildHtml = () => `
           autoPanPaddingBottomRight: [16, 160],
         };
         if (existing) {
-          existing.setLatLng([m.latitude, m.longitude]);
+          animateMarkerTo(existing, m.latitude, m.longitude, 700);
           existing.setIcon(makeIcon(m));
           if (popupHtml) {
             if (existing.getPopup()) existing.setPopupContent(popupHtml);
@@ -457,6 +504,32 @@ const buildHtml = () => `
       });
     }
 
+    // Trajet animé ("qui coule" dans le sens du tracé, façon Google/Uber) :
+    // une seule boucle requestAnimationFrame partagée pour tous les tracés
+    // animés (pas une par polyligne), démarrée seulement quand au moins un
+    // tracé le demande — inutile de faire tourner ça en continu sinon.
+    var animatedPolylineIds = {};
+    var dashAnimFrame = null;
+    var dashOffset = 0;
+
+    function stepDashAnimation() {
+      dashOffset = (dashOffset - 1.2) % 1000;
+      Object.keys(animatedPolylineIds).forEach(function (id) {
+        var poly = polylinesById[id];
+        if (poly) poly.setStyle({ dashOffset: String(dashOffset) });
+      });
+      dashAnimFrame = requestAnimationFrame(stepDashAnimation);
+    }
+
+    function ensureDashAnimation() {
+      if (dashAnimFrame == null && Object.keys(animatedPolylineIds).length > 0) {
+        dashAnimFrame = requestAnimationFrame(stepDashAnimation);
+      } else if (Object.keys(animatedPolylineIds).length === 0 && dashAnimFrame != null) {
+        cancelAnimationFrame(dashAnimFrame);
+        dashAnimFrame = null;
+      }
+    }
+
     function syncPolylines(polylines) {
       var seen = {};
       polylines.forEach(function (p) {
@@ -465,6 +538,8 @@ const buildHtml = () => `
         var latlngs = p.coords.map(function(c){ return [c.latitude, c.longitude]; });
         var options = { color: p.color || THEME.primary, weight: p.weight || 3 };
         if (p.dashArray && Array.isArray(p.dashArray)) options.dashArray = p.dashArray.join(',');
+        if (p.animated && p.dashArray) animatedPolylineIds[p.id] = true;
+        else delete animatedPolylineIds[p.id];
         if (existing) {
           existing.setLatLngs(latlngs);
           existing.setStyle(options);
@@ -477,8 +552,10 @@ const buildHtml = () => `
         if (!seen[id]) {
           map.removeLayer(polylinesById[id]);
           delete polylinesById[id];
+          delete animatedPolylineIds[id];
         }
       });
+      ensureDashAnimation();
     }
 
     // Effet de balayage (bouton "Scan") : un anneau qui s'étend et s'estompe
@@ -648,6 +725,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
       color: Colors.accent,
       weight: 3,
       dashArray: [6, 4],
+      animated: true,
     }));
     // léger délai pour laisser la carte se recentrer visuellement
     setTimeout(() => post({ type: 'updatePolylines', polylines: lines }), 300);

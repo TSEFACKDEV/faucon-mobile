@@ -155,7 +155,7 @@ export default function PlaybackScreen() {
 
   const polylines: OsmPolyline[] = [];
   if (pastCoordsList.length > 1) polylines.push({ id: 'past', coords: pastCoordsList, color: Colors.primary, weight: 3 });
-  if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4] });
+  if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4], animated: true });
 
   const markers: OsmMarker[] = [];
   if (positions.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: Colors.primary, label: 'A' });

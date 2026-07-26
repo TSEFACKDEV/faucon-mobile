@@ -190,7 +190,11 @@ export default function DashboardScreen() {
 
   const handleDetailPress = () => {
     if (selectedId) {
-      navigation.navigate('VehicleDetail', { vehiculeId: selectedId });
+      // 'VehicleDetail' vit dans le navigateur imbriqué 'VehicleStack', pas
+      // à la racine — un navigate direct échoue silencieusement (ignoré par
+      // aucun navigateur). Voir les autres appels de ce fichier (cloche,
+      // popup carte) qui passent déjà correctement par ce wrapper.
+      navigation.navigate('VehicleStack', { screen: 'VehicleDetail', params: { vehiculeId: selectedId } });
     }
   };
 
