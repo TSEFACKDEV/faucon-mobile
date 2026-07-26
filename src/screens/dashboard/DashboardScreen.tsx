@@ -18,14 +18,23 @@ import { useLocation } from '../../hooks/useLocation';
 import { formatTime, formatRelativeTime, isRecentlyConnected } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
 import { reverseGeocode } from '../../services/geocoding';
-import { ROUTE_TILE_URL as OSM_URL, SATELLITE_TILE_URL as SAT_URL } from '../../constants/mapTiles';
+import { Config } from '../../constants/config';
+import { MAP_STYLES, MapStyleId } from '../../constants/mapTiles';
+
+// Clé configurée (ou non) pour chaque style qui en a besoin — un seul endroit
+// à relire si un nouveau fournisseur est ajouté au registre.
+const API_KEYS: Record<string, string> = {
+  MAPTILER: Config.MAPTILER_KEY,
+  STADIA:   Config.STADIA_KEY,
+  HERE:     Config.HERE_KEY,
+};
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
   // State local
-  const [mapType,       setMapType]       = useState<'route' | 'satellite'>('route');
+  const [mapStyleId,    setMapStyleId]    = useState<MapStyleId>('osm');
   const [dailyDistance, setDailyDistance] = useState<number | null>(null);
   const [address,       setAddress]       = useState<string | null>(null);
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
@@ -104,6 +113,15 @@ export default function DashboardScreen() {
             batteryStateLabel: vehicle.niveauBatterie < 20 ? 'Critique'
                               : vehicle.niveauBatterie < 50 ? 'Faible'
                               : 'Bon',
+            // Absents tant que le firmware ne les envoie pas — pas de valeur
+            // inventée, la tuile correspondante reste alors masquée (voir
+            // buildPopupHtml côté OsmMapView).
+            signalPercent: pos.signal,
+            signalColor: pos.signal === undefined ? undefined
+                       : pos.signal < 20 ? Colors.dangerStrong
+                       : pos.signal < 50 ? Colors.warningStrong
+                       : Colors.successStrong,
+            satelliteCount: pos.satellites,
             addressLabel: isSelected ? (address ?? 'Recherche de l\'adresse...') : undefined,
           } : undefined,
         } as OsmMarker;
@@ -221,6 +239,9 @@ export default function DashboardScreen() {
     longitudeDelta: 0.5,
   };
 
+  const activeMapStyle = MAP_STYLES.find(s => s.id === mapStyleId) ?? MAP_STYLES[0];
+  const activeMapKey = activeMapStyle.requiresKey ? API_KEYS[activeMapStyle.requiresKey] : undefined;
+
   return (
     <View style={styles.container}>
 
@@ -229,7 +250,8 @@ export default function DashboardScreen() {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
-        tileUrlTemplate={mapType === 'route' ? OSM_URL : SAT_URL}
+        tileUrlTemplate={activeMapStyle.buildUrl(activeMapKey)}
+        attribution={activeMapStyle.attribution}
         markers={markersWithUser}
         selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
@@ -348,23 +370,25 @@ export default function DashboardScreen() {
           />
           <Reanimated.View
             entering={SlideInLeft.duration(240)}
-            style={[styles.mapOptionsPanel, { paddingTop: insets.top + Spacing.lg }]}
+            style={[styles.mapOptionsPanel, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.lg }]}
           >
             <Text style={styles.mapOptionsTitle}>Fond de carte</Text>
-
-            <Text style={styles.mapOptionsSection}>TYPE</Text>
-            <MapOptionRow
-              icon="map-outline"
-              label="Plan"
-              selected={mapType === 'route'}
-              onPress={() => setMapType('route')}
-            />
-            <MapOptionRow
-              icon="globe-outline"
-              label="Satellite"
-              selected={mapType === 'satellite'}
-              onPress={() => setMapType('satellite')}
-            />
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {MAP_STYLES.map(styleOption => {
+                const hasKey = !styleOption.requiresKey || !!API_KEYS[styleOption.requiresKey];
+                return (
+                  <MapOptionRow
+                    key={styleOption.id}
+                    icon={styleOption.icon}
+                    label={styleOption.label}
+                    selected={mapStyleId === styleOption.id}
+                    disabled={!hasKey}
+                    subtitle={!hasKey ? 'Clé API requise' : undefined}
+                    onPress={() => setMapStyleId(styleOption.id)}
+                  />
+                );
+              })}
+            </ScrollView>
           </Reanimated.View>
         </View>
       </Modal>
@@ -409,22 +433,28 @@ export default function DashboardScreen() {
 }
 
 const MapOptionRow = ({
-  icon, label, selected, onPress,
+  icon, label, selected, disabled, subtitle, onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   selected: boolean;
+  disabled?: boolean;
+  subtitle?: string;
   onPress: () => void;
 }) => (
   <TouchableOpacity
-    style={[styles.optionRow, selected && styles.optionRowSelected]}
+    style={[styles.optionRow, selected && styles.optionRowSelected, disabled && styles.optionRowDisabled]}
     onPress={onPress}
+    disabled={disabled}
     activeOpacity={0.7}
   >
     <View style={[styles.optionIconWrap, selected && styles.optionIconWrapSelected]}>
       <Ionicons name={icon} size={18} color={selected ? Colors.white : Colors.primary} />
     </View>
-    <Text style={[styles.optionLabel, { flex: 1 }]}>{label}</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.optionLabel}>{label}</Text>
+      {subtitle && <Text style={styles.optionSubtitle}>{subtitle}</Text>}
+    </View>
     {selected && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
   </TouchableOpacity>
 );
@@ -628,6 +658,9 @@ const styles = StyleSheet.create({
   optionRowSelected: {
     backgroundColor: Colors.primaryLight,
   },
+  optionRowDisabled: {
+    opacity: 0.45,
+  },
   optionIconWrap: {
     width:           34,
     height:          34,
@@ -643,6 +676,11 @@ const styles = StyleSheet.create({
     fontSize:   14,
     fontWeight: '600',
     color:      Colors.textPrimary,
+  },
+  optionSubtitle: {
+    fontSize:  11,
+    color:     Colors.textMuted,
+    marginTop: 1,
   },
 
   // MENU DE SÉLECTION DE DISPOSITIF

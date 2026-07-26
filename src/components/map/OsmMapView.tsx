@@ -18,6 +18,12 @@ export type OsmMarkerPopup = {
   lastActivityLabel:  string;  // "il y a 3 min" — grille
   speedLabel:         string;
   kmTodayLabel:       string;
+  // Signal réseau (barres) et satellites GPS — absents tant que le firmware
+  // du traceur ne les envoie pas (champ optionnel côté trame), pas de valeur
+  // inventée : la tuile correspondante n'est simplement pas affichée.
+  signalPercent?:     number;  // 0-100, déjà normalisé côté firmware
+  signalColor?:       string;
+  satelliteCount?:    number;
   addressLabel?:      string;  // adresse géocodée (async) — absent tant que la résolution n'a pas abouti
 };
 
@@ -60,6 +66,10 @@ type Props = {
   style?: ViewStyle;
   initialRegion: Region;
   tileUrlTemplate: string;     // ex: OSM_URL ou SAT_URL
+  // Optionnel — attribution explicite (obligatoire pour certains fournisseurs,
+  // ex: "© MapTiler"). Sans cette prop, une attribution est devinée depuis
+  // l'URL (CARTO/Esri uniquement) — voir attributionFor plus bas.
+  attribution?: string;
   markers: OsmMarker[];
   polylines?: OsmPolyline[];
   editableCircle?: OsmEditableCircle; // centre + rayon éditable par glisser-déposer
@@ -365,6 +375,8 @@ const buildHtml = () => `
       + '<path d="M4 20L20 4"/></svg>';
     var BATTERY_OUTLINE_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
       + '<rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 10v4"/></svg>';
+    var SATELLITE_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M13 7l4 4-6 6-4-4z"/><path d="M11 9l4 4"/><path d="M4 20l3-3"/><path d="M17.5 3.5l3 3-3 3-3-3z"/></svg>';
 
     // Jauge batterie compacte (en-tête popup) : contour + remplissage
     // proportionnel au niveau réel, couleur alignée sur le seuil (danger/
@@ -376,6 +388,23 @@ const buildHtml = () => `
         + '<rect x="18" y="4" width="2" height="4" rx="1" fill="' + color + '"/>'
         + '<rect x="3" y="3" width="' + fillWidth + '" height="6" rx="1" fill="' + color + '"/>'
         + '</svg>';
+    }
+
+    // Barres de signal réseau (façon téléphone) : nombre de barres pleines
+    // proportionnel au %, les autres en gris atténué — couleur des barres
+    // pleines alignée sur le seuil (danger/warning/success) déjà calculé
+    // côté app, jamais devinée ici.
+    function signalBarsSvg(pct, color) {
+      var filled = Math.max(0, Math.min(4, Math.round((Math.min(100, Math.max(0, pct)) / 100) * 4)));
+      var heights = [4, 7, 10, 13];
+      var bars = '';
+      for (var i = 0; i < 4; i++) {
+        var h = heights[i];
+        var isFilled = i < filled;
+        bars += '<rect x="' + (i * 5) + '" y="' + (14 - h) + '" width="3" height="' + h + '" rx="1" '
+          + 'fill="' + (isFilled ? color : THEME.textMuted) + '" opacity="' + (isFilled ? '1' : '0.35') + '"/>';
+      }
+      return '<svg width="18" height="14" viewBox="0 0 18 14" fill="none">' + bars + '</svg>';
     }
 
     function makeIcon(m) {
@@ -429,6 +458,8 @@ const buildHtml = () => `
         +     '<div class="pop-stat"><span class="pop-stat-icon">' + SPEED_SVG + '</span><div><div class="pop-stat-label">Vitesse</div><div class="pop-stat-value">' + escapeHtml(p.speedLabel) + '</div></div></div>'
         +     '<div class="pop-stat"><span class="pop-stat-icon">' + ROUTE_SVG + '</span><div><div class="pop-stat-label">Aujourd\\'hui</div><div class="pop-stat-value">' + escapeHtml(p.kmTodayLabel) + '</div></div></div>'
         +     '<div class="pop-stat"><span class="pop-stat-icon" style="color:' + p.batteryColor + ';">' + BATTERY_OUTLINE_SVG + '</span><div><div class="pop-stat-label">Batterie</div><div class="pop-stat-value" style="color:' + p.batteryColor + ';">' + Math.round(p.batteryPercent) + '% · ' + escapeHtml(p.batteryStateLabel) + '</div></div></div>'
+        +     (p.signalPercent != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + signalBarsSvg(p.signalPercent, p.signalColor || THEME.primary) + '</span><div><div class="pop-stat-label">Signal</div><div class="pop-stat-value">' + Math.round(p.signalPercent) + '%</div></div></div>' : '')
+        +     (p.satelliteCount != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + SATELLITE_SVG + '</span><div><div class="pop-stat-label">Satellites</div><div class="pop-stat-value">' + p.satelliteCount + '</div></div></div>' : '')
         +   '</div>'
 
         +   (p.addressLabel ? '<div class="pop-address">' + escapeHtml(p.addressLabel) + '</div>' : '')
@@ -671,7 +702,7 @@ const buildHtml = () => `
 `;
 
 const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
-  { style, initialRegion, tileUrlTemplate, markers, polylines, editableCircle, onMarkerPress, onPopupAction, onCircleChange, selectedId, floatingControls },
+  { style, initialRegion, tileUrlTemplate, attribution, markers, polylines, editableCircle, onMarkerPress, onPopupAction, onCircleChange, selectedId, floatingControls },
   ref
 ) {
   const insets = useSafeAreaInsets();
@@ -779,7 +810,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     if (isReady) {
       post({
         type: 'init', theme, region: initialRegion, tileUrlTemplate,
-        attribution: attributionFor(tileUrlTemplate), markers, polylines, editableCircle,
+        attribution: attribution ?? attributionFor(tileUrlTemplate), markers, polylines, editableCircle,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -809,13 +840,13 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, editableCircle]);
 
-  // Met à jour les tuiles quand on bascule Plan/Satellite
+  // Met à jour les tuiles quand on change de style de carte
   useEffect(() => {
     if (isReady) {
-      post({ type: 'updateTiles', tileUrlTemplate, attribution: attributionFor(tileUrlTemplate) });
+      post({ type: 'updateTiles', tileUrlTemplate, attribution: attribution ?? attributionFor(tileUrlTemplate) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, tileUrlTemplate]);
+  }, [isReady, tileUrlTemplate, attribution]);
 
   return (
     <View style={[StyleSheet.absoluteFill, style]}>

@@ -45,6 +45,8 @@ export interface Position {
   vitesse: number;
   cap: number;
   niveauBatterie: number;
+  nbSatellites?: number | null;
+  niveauSignal?: number | null;
   statutACC: boolean;
   horodatage: string;
 }
@@ -58,6 +60,8 @@ export interface LivePositionPayload {
   vitesse: number;
   cap: number;
   battery: number;
+  satellites?: number;
+  signal?: number;
   horodatage: string;
   source?: string;
   eventType?: string;

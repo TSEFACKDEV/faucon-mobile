@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { User } from '../types';
+import { useVehicleStore } from './vehicleStore';
 
 interface AuthState {
   user: User | null;
@@ -34,5 +35,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.deleteItemAsync(Config.TOKEN_KEY);
     await SecureStore.deleteItemAsync(Config.REFRESH_KEY);
     set({ user: null, isAuthenticated: false });
+    // Sans ça, les traceurs du compte précédent restent en mémoire (zustand
+    // global) et un autre utilisateur connecté dans la même session les
+    // verrait, et sauterait AddDeviceScreen même s'il n'a lui-même aucun
+    // dispositif — fuite de données + contournement de la mesure de sécurité.
+    useVehicleStore.getState().reset();
   },
 }));

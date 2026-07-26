@@ -331,8 +331,10 @@ export default function AlertsScreen() {
                   {getVehicleName(item.vehiculeId)}
                 </Text>
 
-                {/* Valeur mesurée */}
-                {item.valeurMesuree != null && item.seuilConfigure != null && (
+                {/* Valeur mesurée — absente pour DECOLLEMENT_TRACEUR : le
+                    firmware envoie 0/0 en placeholder, pas une vraie mesure. */}
+                {item.typeAlarme !== 'DECOLLEMENT_TRACEUR' &&
+                  item.valeurMesuree != null && item.seuilConfigure != null && (
                   <Text style={styles.cardValue}>
                     {item.typeAlarme === 'VITESSE_EXCESSIVE'
                       ? `${item.valeurMesuree} km/h → seuil : ${item.seuilConfigure} km/h`

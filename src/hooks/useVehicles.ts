@@ -3,7 +3,10 @@ import { vehicleService } from '../services/vehicleService';
 import { useVehicleStore } from '../store/vehicleStore';
 
 export const useVehicles = () => {
-  const { vehicles, setVehicles, setLoading, isLoading, updateLivePosition } = useVehicleStore();
+  const {
+    vehicles, setVehicles, setLoading, isLoading, updateLivePosition,
+    hasFetchedOnce, setHasFetchedOnce,
+  } = useVehicleStore();
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -27,6 +30,8 @@ export const useVehicles = () => {
             vitesse:    pos.vitesse,
             cap:        pos.cap,
             battery:    pos.niveauBatterie,
+            satellites: pos.nbSatellites ?? undefined,
+            signal:     pos.niveauSignal ?? undefined,
             horodatage: pos.horodatage,
           });
         }
@@ -35,19 +40,22 @@ export const useVehicles = () => {
       console.error('[useVehicles]', err);
     } finally {
       setLoading(false);
+      setHasFetchedOnce(true);
     }
   }, []);
 
   useEffect(() => {
     // `isLoading`/`vehicles` sont un état global (zustand) : ce hook est monté
     // à la fois par AuthenticatedGate (gate de navigation) et par
-    // DashboardScreen (affichage). Sans cette garde, le montage de
-    // DashboardScreen relance un fetch qui repasse isLoading à true, ce qui
-    // démonte DashboardScreen via AuthenticatedGate, qui le remonte une fois
-    // le fetch terminé — boucle infinie. On ne fetch automatiquement que si
-    // aucun véhicule n'est encore chargé ; le rafraîchissement explicite
-    // (pull-to-refresh, après ajout d'appareil, etc.) passe par `refetch()`.
-    if (vehicles.length === 0) {
+    // DashboardScreen/AddDeviceScreen (affichage). Une garde sur
+    // `vehicles.length === 0` ne suffit pas : un utilisateur qui a
+    // réellement zéro dispositif garde cette condition vraie pour toujours,
+    // ce qui relance un fetch à chaque montage et fait boucler
+    // AuthenticatedGate <-> AddDeviceScreen indéfiniment. `hasFetchedOnce` ne
+    // dépend que du fait qu'un premier chargement a eu lieu, peu importe son
+    // résultat. Le rafraîchissement explicite (pull-to-refresh, après ajout
+    // d'appareil, etc.) passe par `refetch()`.
+    if (!hasFetchedOnce) {
       fetchVehicles();
     }
   }, []);
