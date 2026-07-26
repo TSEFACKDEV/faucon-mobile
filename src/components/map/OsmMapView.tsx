@@ -73,8 +73,7 @@ type Props = {
   // ce qui garantit qu'aucun des 3 autres écrans partageant ce composant
   // (Détail véhicule, Playback, Zone de sécurité) n'est affecté.
   floatingControls?: {
-    mapStyle: 'route' | 'satellite';
-    onToggleMapStyle: () => void;
+    onOpenMapOptions: () => void;
   };
 };
 
@@ -344,8 +343,6 @@ const buildHtml = () => `
       + '<path d="M4 20L20 4"/></svg>';
     var BATTERY_OUTLINE_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
       + '<rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 10v4"/></svg>';
-    var CONNECTION_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'
-      + '<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/></svg>';
 
     // Jauge batterie compacte (en-tête popup) : contour + remplissage
     // proportionnel au niveau réel, couleur alignée sur le seuil (danger/
@@ -426,32 +423,26 @@ const buildHtml = () => `
         seen[m.id] = true;
         var existing = markersById[m.id];
         var popupHtml = buildPopupHtml(m);
+        var popupOpts = {
+          closeButton: true, offset: [0, -8],
+          // Marge de recentrage auto généreuse en bas : la popup ne doit
+          // jamais se retrouver masquée par la barre d'actions flottante
+          // native (hors du monde Leaflet, qui l'ignorerait sinon).
+          autoPanPaddingTopLeft: [16, 90],
+          autoPanPaddingBottomRight: [16, 160],
+        };
         if (existing) {
           existing.setLatLng([m.latitude, m.longitude]);
           existing.setIcon(makeIcon(m));
           if (popupHtml) {
             if (existing.getPopup()) existing.setPopupContent(popupHtml);
-            else existing.bindPopup(popupHtml, {
-              closeButton: true, offset: [0, -8],
-              // Marge de recentrage auto généreuse en bas : la popup ne doit
-              // jamais se retrouver masquée par la barre d'actions flottante
-              // native (hors du monde Leaflet, qui l'ignorerait sinon).
-              autoPanPaddingTopLeft: [16, 90],
-              autoPanPaddingBottomRight: [16, 160],
-            });
+            else existing.bindPopup(popupHtml, popupOpts);
           } else if (existing.getPopup()) {
             existing.unbindPopup();
           }
         } else {
           var marker = L.marker([m.latitude, m.longitude], { icon: makeIcon(m) }).addTo(map);
-          if (popupHtml) marker.bindPopup(popupHtml, {
-              closeButton: true, offset: [0, -8],
-              // Marge de recentrage auto généreuse en bas : la popup ne doit
-              // jamais se retrouver masquée par la barre d'actions flottante
-              // native (hors du monde Leaflet, qui l'ignorerait sinon).
-              autoPanPaddingTopLeft: [16, 90],
-              autoPanPaddingBottomRight: [16, 160],
-            });
+          if (popupHtml) marker.bindPopup(popupHtml, popupOpts);
           marker.on('click', function () {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markerPress', id: m.id }));
           });
@@ -740,7 +731,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, editableCircle]);
 
-  // Met à jour les tuiles quand on bascule Routes/Satellite
+  // Met à jour les tuiles quand on bascule Plan/Satellite
   useEffect(() => {
     if (isReady) {
       post({ type: 'updateTiles', tileUrlTemplate, attribution: attributionFor(tileUrlTemplate) });
@@ -766,9 +757,9 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
 
       {floatingControls ? (
         <>
-          {/* Calques (Plan/Satellite) — coin supérieur gauche, unique bouton rond */}
+          {/* Options de carte (Plan/Satellite) — coin supérieur gauche, ouvre la sidebar */}
           <View style={[styles.layersWrap, { top: insets.top + 72 }]} pointerEvents="box-none">
-            <TouchableOpacity style={styles.roundBtn} onPress={floatingControls.onToggleMapStyle} activeOpacity={0.75}>
+            <TouchableOpacity style={styles.roundBtn} onPress={floatingControls.onOpenMapOptions} activeOpacity={0.75}>
               <Ionicons name="layers-outline" size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>

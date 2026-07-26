@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Animated, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Reanimated, { FadeIn } from 'react-native-reanimated';
+import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,10 +25,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
 
   // State local
-  const [mapStyle,      setMapStyle]      = useState<'route' | 'satellite'>('route');
+  const [mapType,       setMapType]       = useState<'route' | 'satellite'>('route');
   const [dailyDistance, setDailyDistance] = useState<number | null>(null);
   const [address,       setAddress]       = useState<string | null>(null);
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
+  const [mapOptionsOpen, setMapOptionsOpen] = useState(false);
 
   // Store — activeVehicleId est partagé (DevicesScreen peut savoir quel
   // dispositif est actuellement suivi) ; selectedId reste un signal ponctuel
@@ -224,14 +225,13 @@ export default function DashboardScreen() {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
-        tileUrlTemplate={mapStyle === 'route' ? OSM_URL : SAT_URL}
+        tileUrlTemplate={mapType === 'route' ? OSM_URL : SAT_URL}
         markers={markersWithUser}
         selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
         onPopupAction={handlePopupAction}
         floatingControls={{
-          mapStyle,
-          onToggleMapStyle: () => setMapStyle(s => (s === 'route' ? 'satellite' : 'route')),
+          onOpenMapOptions: () => setMapOptionsOpen(true),
         }}
       />
 
@@ -329,6 +329,42 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </Modal>
 
+      {/* ── SIDEBAR OPTIONS DE CARTE (fournisseur + type) ── */}
+      <Modal
+        visible={mapOptionsOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMapOptionsOpen(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.mapOptionsBackdrop}
+            activeOpacity={1}
+            onPress={() => setMapOptionsOpen(false)}
+          />
+          <Reanimated.View
+            entering={SlideInLeft.duration(240)}
+            style={[styles.mapOptionsPanel, { paddingTop: insets.top + Spacing.lg }]}
+          >
+            <Text style={styles.mapOptionsTitle}>Fond de carte</Text>
+
+            <Text style={styles.mapOptionsSection}>TYPE</Text>
+            <MapOptionRow
+              icon="map-outline"
+              label="Plan"
+              selected={mapType === 'route'}
+              onPress={() => setMapType('route')}
+            />
+            <MapOptionRow
+              icon="globe-outline"
+              label="Satellite"
+              selected={mapType === 'satellite'}
+              onPress={() => setMapType('satellite')}
+            />
+          </Reanimated.View>
+        </View>
+      </Modal>
+
       {/* ── SCAN : coin supérieur gauche, juste sous le bouton calques de la carte ── */}
       <View style={[styles.scanWrap, { top: insets.top + 128 }]} pointerEvents="box-none">
         <TouchableOpacity style={styles.scanBtn} onPress={handleScanPress} activeOpacity={0.75}>
@@ -367,6 +403,27 @@ export default function DashboardScreen() {
     </View>
   );
 }
+
+const MapOptionRow = ({
+  icon, label, selected, onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.optionRow, selected && styles.optionRowSelected]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.optionIconWrap, selected && styles.optionIconWrapSelected]}>
+      <Ionicons name={icon} size={18} color={selected ? Colors.white : Colors.primary} />
+    </View>
+    <Text style={[styles.optionLabel, { flex: 1 }]}>{label}</Text>
+    {selected && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
+  </TouchableOpacity>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -514,6 +571,74 @@ const styles = StyleSheet.create({
     flex:     1,
     fontSize: 11,
     color:    Colors.textSecondary,
+  },
+
+  // SIDEBAR OPTIONS DE CARTE
+  mapOptionsBackdrop: {
+    position:        'absolute',
+    top:             0,
+    left:            0,
+    right:           0,
+    bottom:          0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  mapOptionsPanel: {
+    position:          'absolute',
+    top:               0,
+    bottom:            0,
+    left:              0,
+    width:             '78%',
+    maxWidth:          300,
+    backgroundColor:   Colors.white,
+    paddingHorizontal: Spacing.lg,
+    borderTopRightRadius:    20,
+    borderBottomRightRadius: 20,
+    shadowColor:   '#000',
+    shadowOpacity: 0.2,
+    shadowRadius:  16,
+    shadowOffset:  { width: 4, height: 0 },
+    elevation:     8,
+  },
+  mapOptionsTitle: {
+    fontSize:     18,
+    fontWeight:   '700',
+    color:        Colors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  mapOptionsSection: {
+    fontSize:      11,
+    fontWeight:    '700',
+    color:         Colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom:  8,
+  },
+  optionRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               12,
+    paddingVertical:   10,
+    paddingHorizontal: 10,
+    borderRadius:      12,
+    marginBottom:      4,
+  },
+  optionRowSelected: {
+    backgroundColor: Colors.primaryLight,
+  },
+  optionIconWrap: {
+    width:           34,
+    height:          34,
+    borderRadius:    10,
+    backgroundColor: Colors.primaryLight,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  optionIconWrapSelected: {
+    backgroundColor: Colors.primary,
+  },
+  optionLabel: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      Colors.textPrimary,
   },
 
   // MENU DE SÉLECTION DE DISPOSITIF
