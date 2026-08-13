@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 interface SpeedLimitData {
   seuilKmh:  number;
@@ -44,6 +46,10 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
       onUpdated({ seuilKmh: seuil, estActive: true });
     } catch (err) {
       console.error('[SpeedLimitConfig]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, `Impossible d'appliquer la limitation de ${seuil} km/h. Réessayez dans un instant.`),
+        'danger'
+      );
     } finally {
       setSaving(false);
     }

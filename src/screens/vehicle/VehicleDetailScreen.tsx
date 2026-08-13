@@ -13,10 +13,14 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { Vehicle } from '../../types';
 import { formatSpeed, formatBattery, formatCoords, formatTime } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import ModeSelector from '../../components/vehicle/ModeSelector';
 import SpeedLimitConfig from '../../components/vehicle/SpeedLimitConfig';
 import GeofenceConfig from '../../components/vehicle/GeofenceConfig';
 import DailyReportPanel from '../../components/vehicle/DailyReportPanel';
+import RemoteActions from '../../components/vehicle/RemoteActions';
+import PhoneAlerteConfig from '../../components/vehicle/PhoneAlerteConfig';
 import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string };
@@ -31,17 +35,23 @@ export default function VehicleDetailScreen() {
 
   const [vehicle,   setVehicle]   = useState<Vehicle | null>(null);
   const [loading,   setLoading]   = useState(true);
-  const [activeTab, setActiveTab] = useState<'infos' | 'mode' | 'vitesse' | 'zone' | 'rapport'>('infos');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'infos' | 'mode' | 'vitesse' | 'zone' | 'rapport' | 'actions'>('infos');
 
   const livePos = livePositions[vehiculeId] ?? null;
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
         const data = await vehicleService.getVehicleById(vehiculeId);
         setVehicle(data);
       } catch (err) {
         console.error('[VehicleDetail]', err);
+        const message = getErrorMessage(err, 'Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.');
+        setLoadError(message);
+        useToastStore.getState().show(message, 'danger');
       } finally {
         setLoading(false);
       }
@@ -72,7 +82,33 @@ export default function VehicleDetailScreen() {
   if (!vehicle) {
     return (
       <View style={styles.centered}>
-        <Text style={{ color: Colors.textSecondary }}>Dispositif introuvable</Text>
+        <Ionicons
+          name={loadError ? 'cloud-offline-outline' : 'cube-outline'}
+          size={40}
+          color={loadError ? Colors.dangerStrong : Colors.textMuted}
+        />
+        <Text style={[styles.introuvableText, loadError && { color: Colors.dangerStrong }]}>
+          {loadError ?? 'Dispositif introuvable. Il a peut-être été supprimé de votre compte.'}
+        </Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => {
+            setLoading(true);
+            setLoadError(null);
+            vehicleService.getVehicleById(vehiculeId)
+              .then(setVehicle)
+              .catch(err => {
+                const message = getErrorMessage(err, 'Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.');
+                setLoadError(message);
+                useToastStore.getState().show(message, 'danger');
+              })
+              .finally(() => setLoading(false));
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="refresh" size={14} color={Colors.white} />
+          <Text style={styles.retryText}>Réessayer</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -174,7 +210,7 @@ export default function VehicleDetailScreen() {
         <QuickStat
           icon="navigate-outline"
           label="Cap"
-          value={livePos ? `${Math.round(livePos.cap)}°` : '--'}
+          value={livePos?.cap != null ? `${Math.round(livePos.cap)}°` : '--'}
         />
       </View>
 
@@ -186,6 +222,7 @@ export default function VehicleDetailScreen() {
           { key: 'vitesse', label: 'Vitesse',   icon: 'speedometer-outline'       },
           { key: 'zone',    label: 'Zone',      icon: 'location-outline'          },
           { key: 'rapport', label: 'Rapport',   icon: 'bar-chart-outline'         },
+          { key: 'actions', label: 'Actions',   icon: 'flash-outline'             },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -232,8 +269,16 @@ export default function VehicleDetailScreen() {
                 <InfoRow label="Latitude"  value={String(livePos.latitude.toFixed(6))}  mono />
                 <InfoRow label="Longitude" value={String(livePos.longitude.toFixed(6))} mono />
                 <InfoRow label="Vitesse"   value={formatSpeed(livePos.vitesse)} />
-                <InfoRow label="Cap"       value={`${Math.round(livePos.cap)}°`} />
+                {livePos.cap != null && (
+                  <InfoRow label="Cap" value={`${Math.round(livePos.cap)}°`} />
+                )}
                 <InfoRow label="Source" value={livePos.source ?? 'tcp'} />
+                {livePos.satellites != null && (
+                  <InfoRow label="Satellites GPS" value={String(livePos.satellites)} />
+                )}
+                {livePos.signal != null && (
+                  <InfoRow label="Signal réseau" value={`${livePos.signal}%`} />
+                )}
               </>
             )}
             {vehicle.limiteVitesse && (
@@ -288,6 +333,18 @@ export default function VehicleDetailScreen() {
           <DailyReportPanel vehiculeId={vehiculeId} />
         )}
 
+        {/* ACTIONS */}
+        {activeTab === 'actions' && (
+          <View style={{ gap: 28 }}>
+            <PhoneAlerteConfig
+              vehiculeId={vehiculeId}
+              current={vehicle.telephoneAlerte}
+              onUpdated={(telephone) => setVehicle(prev => prev ? { ...prev, telephoneAlerte: telephone } : prev)}
+            />
+            <RemoteActions vehiculeId={vehiculeId} />
+          </View>
+        )}
+
       </Reanimated.ScrollView>
     </View>
   );
@@ -327,7 +384,23 @@ const InfoRow = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
-  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, padding: 24 },
+  introuvableText: {
+    fontSize: 13,
+    color:    Colors.textSecondary,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical:   9,
+    borderRadius:      20,
+    marginTop:         4,
+  },
+  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
 
   // HEADER
   header: {

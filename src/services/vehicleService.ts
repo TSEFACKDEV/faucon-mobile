@@ -1,5 +1,5 @@
 import api from './api';
-import { Vehicle, Position, Alarme, RapportJournalier } from '../types';
+import { Vehicle, Position, Alarme, RapportJournalier, Commande, CodeCommande } from '../types';
 
 export const vehicleService = {
 
@@ -61,6 +61,20 @@ export const vehicleService = {
 
   setMode: async (id: string, mode: 'WORK' | 'MOVE' | 'STANDBY'): Promise<void> => {
     await api.put(`/vehicles/${id}/mode`, { mode });
+  },
+
+  setPhoneAlerte: async (id: string, telephone: string): Promise<void> => {
+    await api.put(`/vehicles/${id}/telephone-alerte`, { telephone });
+  },
+
+  sendCommande: async (id: string, codeCommande: CodeCommande, valeur?: string): Promise<Commande> => {
+    const { data } = await api.post(`/vehicles/${id}/commandes`, { codeCommande, valeur });
+    return data.data;
+  },
+
+  getCommandes: async (id: string): Promise<Commande[]> => {
+    const { data } = await api.get(`/vehicles/${id}/commandes`);
+    return data.data;
   },
 
   addVehicle: async (imei: string, nom: string): Promise<void> => {

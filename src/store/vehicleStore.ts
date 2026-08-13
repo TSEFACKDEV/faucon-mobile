@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { Device, Position, Alarme } from '../types';
+import { Device, Position, Alarme, Commande } from '../types';
 
 interface LivePosition {
   vehiculeId:  string;
   latitude:    number;
   longitude:   number;
   vitesse:     number;
-  cap:         number;
+  cap?:        number;
   battery:     number;
   satellites?: number;
   signal?:     number;
@@ -30,6 +30,11 @@ interface DeviceState {
   // se remontent l'un l'autre en boucle). Ce flag ne dépend que du fait
   // qu'un premier chargement a eu lieu, peu importe son résultat.
   hasFetchedOnce: boolean;
+  // Dernière commande descendante (LOCALISER/MODE/REDEMARRER/RESET_USINE)
+  // dont le statut vient de changer, reçue via le socket ("commande_update").
+  // Un simple pointeur vers "la dernière" suffit : les écrans intéressés
+  // (RemoteActions) filtrent eux-mêmes par id de commande qu'ils suivent.
+  lastCommandeUpdate: Commande | null;
 
   setVehicles:        (vehicles: Device[]) => void;
   updateLivePosition: (data: LivePosition) => void;
@@ -38,6 +43,7 @@ interface DeviceState {
   setActiveVehicleId: (id: string | null) => void;
   setLoading:         (v: boolean) => void;
   setHasFetchedOnce:  (v: boolean) => void;
+  setLastCommandeUpdate: (c: Commande) => void;
   // À appeler impérativement à la déconnexion : sans ça, les données du
   // compte précédent (vehicles, positions, hasFetchedOnce=true) restent en
   // mémoire et un nouveau compte connecté dans la même session verrait les
@@ -54,6 +60,7 @@ const initialState = {
   activeVehicleId: null as string | null,
   isLoading:     true,
   hasFetchedOnce: false,
+  lastCommandeUpdate: null as Commande | null,
 };
 
 export const useVehicleStore = create<DeviceState>((set) => ({
@@ -70,6 +77,15 @@ export const useVehicleStore = create<DeviceState>((set) => ({
         ...state.livePositions,
         [data.vehiculeId]: data,
       },
+      // Une trame fraîche reçue = communication récente : on resynchronise
+      // aussitôt les champs dérivés du véhicule, pour que le statut
+      // « En ligne » / la batterie de la popup restent vrais immédiatement
+      // (et non pas au prochain fetch REST).
+      vehicles: state.vehicles.map((v) =>
+        v.id === data.vehiculeId
+          ? { ...v, derniereCommunication: data.horodatage, niveauBatterie: data.battery }
+          : v
+      ),
     })),
 
   addAlarm: (alarm) =>
@@ -81,5 +97,6 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   setActiveVehicleId: (id) => set({ activeVehicleId: id }),
   setLoading:         (v)  => set({ isLoading: v }),
   setHasFetchedOnce:  (v)  => set({ hasFetchedOnce: v }),
+  setLastCommandeUpdate: (c) => set({ lastCommandeUpdate: c }),
   reset:              ()   => set({ ...initialState }),
 }));

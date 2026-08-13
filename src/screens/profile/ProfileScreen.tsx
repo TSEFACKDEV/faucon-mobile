@@ -13,6 +13,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useSocket } from '../../hooks/useSocket';
 import { authService } from '../../services/authService';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import { RootStackParamList } from '../../navigation/MainNavigator';
 
 interface SettingRowProps {
@@ -73,8 +75,7 @@ export default function ProfileScreen() {
       setUser(updated);
       Alert.alert('Profil mis à jour', 'Vos informations ont été enregistrées.');
     } catch (error: any) {
-      const message = error?.response?.data?.message ?? "Impossible d'enregistrer les modifications.";
-      Alert.alert('Erreur', message);
+      Alert.alert('Erreur', getErrorMessage(error, "Impossible d'enregistrer les modifications. Réessayez dans un instant."));
     } finally {
       setSaving(false);
     }
@@ -91,7 +92,11 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             disconnect();
-            await logout();
+            try {
+              await logout();
+            } catch {
+              useToastStore.getState().show('Impossible de vous déconnecter pour le moment. Réessayez dans un instant.', 'danger');
+            }
           },
         },
       ]

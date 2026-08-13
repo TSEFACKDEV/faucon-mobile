@@ -798,7 +798,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
         onCircleChange?.(data.center, data.radiusMeters);
       } else if (data.type === 'mapError') {
         console.warn('OsmMapView error', data.message);
-        setLoadError(data.message ?? 'Erreur inconnue lors du chargement de la carte.');
+        setLoadError("La carte n'a pas pu se charger. Vérifiez votre connexion Internet, puis réessayez.");
       }
     } catch {
       // ignore messages malformés

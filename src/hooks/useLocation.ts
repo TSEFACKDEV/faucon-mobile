@@ -51,7 +51,7 @@ export const useLocation = () => {
         );
       } catch (err: any) {
         console.error('[useLocation]', err);
-        setError(err?.message ?? 'Position indisponible');
+        setError('Position indisponible pour le moment. Vérifiez que la localisation est activée sur votre téléphone.');
       } finally {
         setLoading(false);
       }

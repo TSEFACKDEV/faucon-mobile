@@ -11,6 +11,8 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { formatCoords, formatTime, haversineKm } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 type Segment = 'today' | '7d' | '30d' | 'custom';
 
@@ -56,15 +58,18 @@ export default function HistoryScreen() {
   const [customTo,   setCustomTo]   = useState(lastNDays(14)[0]);
   const [trips,     setTrips]     = useState<TripCard[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadToday = useCallback(async () => {
+  const loadToday = useCallback(async (): Promise<{ cards: TripCard[]; rejected: number }> => {
     const today = isoDate(new Date());
     const results = await Promise.allSettled(
       vehicles.map(v => vehicleService.getPositionHistory(v.id, today))
     );
+    let rejected = 0;
     const cards: TripCard[] = [];
     results.forEach((r, i) => {
-      if (r.status !== 'fulfilled' || r.value.length < 2) return;
+      if (r.status !== 'fulfilled') { rejected++; return; }
+      if (r.value.length < 2) return;
       const points = r.value;
       const first = points[0];
       const last  = points[points.length - 1];
@@ -84,17 +89,19 @@ export default function HistoryScreen() {
         durationLabel: formatDurationMin(durationMin),
       });
     });
-    return cards;
+    return { cards, rejected };
   }, [vehicles]);
 
-  const loadRange = useCallback(async (days: string[]) => {
+  const loadRange = useCallback(async (days: string[]): Promise<{ cards: TripCard[]; rejected: number }> => {
     const cards: TripCard[] = [];
+    let rejected = 0;
     for (const vehicle of vehicles) {
       const results = await Promise.allSettled(
         days.map(day => vehicleService.getDailyReport(vehicle.id, day))
       );
       results.forEach((r, i) => {
-        if (r.status !== 'fulfilled' || !r.value || r.value.distanceTotaleKm <= 0) return;
+        if (r.status !== 'fulfilled') { rejected++; return; }
+        if (!r.value || r.value.distanceTotaleKm <= 0) return;
         const report = r.value;
         cards.push({
           id: `${vehicle.id}-${days[i]}`,
@@ -108,20 +115,21 @@ export default function HistoryScreen() {
         });
       });
     }
-    return cards.sort((a, b) => (a.date < b.date ? 1 : -1));
+    cards.sort((a, b) => (a.date < b.date ? 1 : -1));
+    return { cards, rejected };
   }, [vehicles]);
 
   const load = useCallback(async () => {
     if (vehicles.length === 0) { setTrips([]); setLoading(false); return; }
     setLoading(true);
     try {
-      let cards: TripCard[];
+      let result: { cards: TripCard[]; rejected: number };
       if (segment === 'today') {
-        cards = await loadToday();
+        result = await loadToday();
       } else if (segment === '7d') {
-        cards = await loadRange(lastNDays(7));
+        result = await loadRange(lastNDays(7));
       } else if (segment === '30d') {
-        cards = await loadRange(lastNDays(30));
+        result = await loadRange(lastNDays(30));
       } else {
         const days: string[] = [];
         const cursor = new Date(customFrom);
@@ -130,11 +138,21 @@ export default function HistoryScreen() {
           days.push(isoDate(cursor));
           cursor.setDate(cursor.getDate() + 1);
         }
-        cards = await loadRange(days);
+        result = await loadRange(days);
       }
-      setTrips(cards);
+      setTrips(result.cards);
+      if (result.rejected > 0 && result.cards.length === 0) {
+        const message = 'Impossible de récupérer l\'historique. Vérifiez votre connexion, puis réessayez.';
+        setLoadError(message);
+        useToastStore.getState().show(message, 'danger');
+      } else {
+        setLoadError(null);
+      }
     } catch (err) {
       console.error('[HistoryScreen]', err);
+      const message = getErrorMessage(err, 'Impossible de récupérer l\'historique. Réessayez dans un instant.');
+      setLoadError(message);
+      useToastStore.getState().show(message, 'danger');
     } finally {
       setLoading(false);
     }
@@ -216,11 +234,25 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <EmptyState
-              icon="map-outline"
-              title="Aucun trajet"
-              subtitle="Aucun déplacement enregistré sur cette période."
-            />
+            loadError ? (
+              <View style={styles.centered}>
+                <EmptyState
+                  icon="cloud-offline-outline"
+                  title="Impossible de charger l'historique"
+                  subtitle={loadError}
+                />
+                <TouchableOpacity style={styles.retryBtn} onPress={load}>
+                  <Ionicons name="refresh" size={14} color={Colors.white} />
+                  <Text style={styles.retryText}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <EmptyState
+                icon="map-outline"
+                title="Aucun trajet"
+                subtitle="Aucun déplacement enregistré sur cette période."
+              />
+            )
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -261,7 +293,19 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
-  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 32 },
+
+  retryBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical:   9,
+    borderRadius:      20,
+    marginTop:         8,
+  },
+  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
 
   segmentWrapper: {
     flexDirection:     'row',

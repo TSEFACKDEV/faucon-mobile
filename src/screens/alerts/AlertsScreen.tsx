@@ -12,6 +12,8 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { Alarme, TypeAlarme } from '../../types';
 import { formatTime } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 // ── CONFIG PAR TYPE D'ALARME ──────────────────────────────────────
 const ALARM_CONFIG: Record<TypeAlarme, {
@@ -80,23 +82,33 @@ export default function AlertsScreen() {
   const [filter,      setFilter]      = useState<FilterType>('TOUTES');
   const [refreshing,  setRefreshing]  = useState(false);
   const [loading,     setLoading]     = useState(true);
+  const [loadError,   setLoadError]   = useState<string | null>(null);
   const [acquitting,  setAcquitting]  = useState<string | null>(null);
   const [acquittingAll, setAcquittingAll] = useState(false);
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
 
   // Charger les alarmes de tous les véhicules
   const loadAlarmes = useCallback(async () => {
+    if (vehicles.length === 0) {
+      setAllAlarmes([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const results = await Promise.allSettled(
         vehicles.map(v => vehicleService.getAlarmes(v.id))
       );
 
       const all: Alarme[] = [];
+      let rejected = 0;
       results.forEach((result, i) => {
         if (result.status === 'fulfilled') {
           result.value.forEach(a => {
             all.push({ ...a, vehiculeId: vehicles[i].id });
           });
+        } else {
+          rejected++;
         }
       });
 
@@ -106,8 +118,18 @@ export default function AlertsScreen() {
       );
 
       setAllAlarmes(all);
+      if (rejected > 0 && all.length === 0) {
+        const message = 'Impossible de récupérer les alertes. Vérifiez votre connexion, puis réessayez.';
+        setLoadError(message);
+        useToastStore.getState().show(message, 'danger');
+      } else {
+        setLoadError(null);
+      }
     } catch (err) {
       console.error('[AlertsScreen]', err);
+      const message = getErrorMessage(err, 'Impossible de récupérer les alertes. Réessayez dans un instant.');
+      setLoadError(message);
+      useToastStore.getState().show(message, 'danger');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -115,8 +137,8 @@ export default function AlertsScreen() {
   }, [vehicles]);
 
   useEffect(() => {
-    if (vehicles.length > 0) loadAlarmes();
-  }, [vehicles]);
+    loadAlarmes();
+  }, [loadAlarmes]);
 
   // Merge avec les alarmes temps réel du store
   useEffect(() => {
@@ -147,6 +169,10 @@ export default function AlertsScreen() {
       );
     } catch (err) {
       console.error('[acquitter]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, 'Impossible d\'acquitter cette alerte. Réessayez dans un instant.'),
+        'danger'
+      );
     } finally {
       setAcquitting(null);
     }
@@ -168,7 +194,7 @@ export default function AlertsScreen() {
               setAllAlarmes(prev => prev.filter(a => a.id !== alarme.id));
             } catch (err) {
               console.error('[supprimerAlarme]', err);
-              Alert.alert('Erreur', "Impossible de supprimer cette alerte pour le moment.");
+              Alert.alert('Erreur', getErrorMessage(err, 'Impossible de supprimer cette alerte pour le moment.'));
             } finally {
               setDeletingId(null);
             }
@@ -190,6 +216,10 @@ export default function AlertsScreen() {
       setAllAlarmes(prev => prev.map(a => (ids.has(a.id) ? { ...a, estAcquittee: true } : a)));
     } catch (err) {
       console.error('[acquitterTout]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, 'Impossible de marquer toutes les alertes comme lues. Réessayez.'),
+        'danger'
+      );
     } finally {
       setAcquittingAll(false);
     }
@@ -284,11 +314,25 @@ export default function AlertsScreen() {
           />
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="checkmark-circle-outline"
-            title="Aucune alerte"
-            subtitle="Tous vos équipements sont dans les limites définies."
-          />
+          loadError ? (
+            <View style={styles.centered}>
+              <EmptyState
+                icon="cloud-offline-outline"
+                title="Impossible de charger les alertes"
+                subtitle={loadError}
+              />
+              <TouchableOpacity style={styles.retryBtn} onPress={handleRefresh}>
+                <Ionicons name="refresh" size={14} color={Colors.white} />
+                <Text style={styles.retryText}>Réessayer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <EmptyState
+              icon="checkmark-circle-outline"
+              title="Aucune alerte"
+              subtitle="Tous vos équipements sont dans les limites définies."
+            />
+          )
         }
         renderItem={({ item }) => {
           const config = ALARM_CONFIG[item.typeAlarme];
@@ -379,7 +423,19 @@ export default function AlertsScreen() {
 
 const styles = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.offWhite },
-  centered:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 32 },
+
+  retryBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical:   9,
+    borderRadius:      20,
+    marginTop:         8,
+  },
+  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
 
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   markAllText: { fontSize: 13, fontWeight: '700', color: Colors.white },

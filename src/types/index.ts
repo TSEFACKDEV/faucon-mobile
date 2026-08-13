@@ -15,6 +15,9 @@ export interface Device {
   niveauBatterie: number;
   estActif: boolean;
   derniereCommunication?: string;
+  // Numéro qui reçoit les SMS d'alerte envoyés directement par le traceur
+  // (choc, conduite brutale, premier fix...) — indépendant du compte.
+  telephoneAlerte?: string | null;
   limiteVitesse?: {
     seuilKmh: number;
     estActive: boolean;
@@ -43,7 +46,9 @@ export interface Position {
   latitude: number;
   longitude: number;
   vitesse: number;
-  cap: number;
+  // Absent la plupart du temps à l'arrêt : le GPS ne peut pas calculer de
+  // cap sans déplacement — jamais une valeur fabriquée à la place.
+  cap?: number | null;
   niveauBatterie: number;
   nbSatellites?: number | null;
   niveauSignal?: number | null;
@@ -51,14 +56,12 @@ export interface Position {
   horodatage: string;
 }
 
-export type DevicePosition = Position;
-
 export interface LivePositionPayload {
   vehiculeId: string;
   latitude: number;
   longitude: number;
   vitesse: number;
-  cap: number;
+  cap?: number;
   battery: number;
   satellites?: number;
   signal?: number;
@@ -80,14 +83,28 @@ export interface Alarme {
   horodatage: string;
 }
 
-export type DeviceAlarm = Alarme;
-
 export type TypeAlarme =
   | 'SORTIE_ZONE'
   | 'VITESSE_EXCESSIVE'
   | 'DECOLLEMENT_TRACEUR'
   | 'NON_MOUVEMENT'
   | 'BATTERIE_FAIBLE';
+
+// Commandes descendantes (app -> traceur, via MQTT). Voir OsmMapView/
+// RemoteActions pour l'UI, et le firmware v10.1 (traiterCommandeEntrante)
+// pour ce que chaque code déclenche réellement sur le boîtier.
+export type CodeCommande = 'LOCALISER' | 'MODE' | 'REDEMARRER' | 'RESET_USINE';
+export type StatutCommande = 'PENDING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT';
+
+export interface Commande {
+  id: string;
+  vehiculeId: string;
+  codeCommande: CodeCommande;
+  parametres?: { valeur?: string; detail?: string } | null;
+  statutExecution: StatutCommande;
+  dateEnvoi: string;
+  dateReponse?: string | null;
+}
 
 export interface AuthTokens {
   accessToken: string;

@@ -34,11 +34,14 @@ export const formatRelativeTime = (iso: string): string => {
 };
 
 // Seuil au-delà duquel on considère un dispositif "hors ligne" faute de
-// nouvelle communication récente — aligné sur la cadence MQTT (5-30s en
-// mouvement, jusqu'à 30s à l'arrêt) avec une marge large pour les coupures réseau.
+// nouvelle communication récente. DOIT rester strictement supérieur à la
+// plus longue période d'émission du firmware (STANDBY à l'arrêt : 5 min) —
+// sinon un traceur allumé bascule "hors ligne" juste avant la trame suivante.
+// MÊME SEUIL QUE : server/src/utils/constants.ts (EN_LIGNE_SEUIL_MS = 10 min)
+// et dashboard web (client/src/lib/utils.ts isOnline). À tenir identique partout.
 export const isRecentlyConnected = (iso?: string | null): boolean => {
   if (!iso) return false;
-  return Date.now() - new Date(iso).getTime() < 5 * 60 * 1000;
+  return Date.now() - new Date(iso).getTime() < 10 * 60 * 1000;
 };
 
 // trackerId (canal MQTT) est déjà un identifiant lisible ("FCN-0733") ; imei

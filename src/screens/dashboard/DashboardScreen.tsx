@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
-import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
+import OsmMapView, { OsmMarker, OsmMapViewHandle, OsmPolyline } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -20,6 +20,8 @@ import { vehicleService } from '../../services/vehicleService';
 import { reverseGeocode } from '../../services/geocoding';
 import { Config } from '../../constants/config';
 import { MAP_STYLES, MapStyleId } from '../../constants/mapTiles';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 // Clé configurée (ou non) pour chaque style qui en a besoin — un seul endroit
 // à relire si un nouveau fournisseur est ajouté au registre.
@@ -39,6 +41,13 @@ export default function DashboardScreen() {
   const [address,       setAddress]       = useState<string | null>(null);
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
   const [mapOptionsOpen, setMapOptionsOpen] = useState(false);
+  // Mode « suivi » : recentre automatiquement la carte sur le dispositif
+  // suivi à chaque nouvelle trame. À couper pour naviguer librement.
+  const [follow, setFollow] = useState(true);
+  // Trace du dispositif suivi : points accumulés au fil des trames live.
+  const [liveTrace, setLiveTrace] = useState<OsmPolyline[]>([]);
+  const traceRef = useRef<{ lat: number; lon: number; t: string }[]>([]);
+  const traceVehicleRef = useRef<string | null>(null);
 
   // Store — activeVehicleId est partagé (DevicesScreen peut savoir quel
   // dispositif est actuellement suivi) ; selectedId reste un signal ponctuel
@@ -83,7 +92,10 @@ export default function DashboardScreen() {
           id: vehicle.id,
           latitude:  pos.latitude,
           longitude: pos.longitude,
-          heading:   pos.cap ?? 0,
+          // Pas de `?? 0` : un cap absent (GPS immobile, direction non
+          // calculable) doit rester absent pour que la flèche de direction
+          // ne s'affiche pas comme si elle pointait réellement plein nord.
+          heading:   pos.cap,
           color:     statusColor,
           label:     vehicle.nom,
           hasAlarm,
@@ -150,8 +162,12 @@ export default function DashboardScreen() {
       try {
         const report = await vehicleService.getDailyReport(selectedId, new Date().toISOString().split('T')[0]);
         setDailyDistance(report?.distanceTotaleKm ?? 0);
-      } catch {
+      } catch (err) {
         setDailyDistance(0);
+        useToastStore.getState().show(
+          getErrorMessage(err, 'Impossible de charger la distance du jour.'),
+          'danger'
+        );
       }
     };
 
@@ -173,6 +189,41 @@ export default function DashboardScreen() {
   }, [selectedPos?.latitude, selectedPos?.longitude]);
 
   const mapRef = useRef<OsmMapViewHandle | null>(null);
+
+  // Trace temps réel : chaque nouvelle trame du dispositif suivi prolonge la
+  // ligne bleue (dédupliquée par horodatage, bornée à 500 points). Le tracé
+  // repart de zéro quand on change de dispositif.
+  useEffect(() => {
+    if (traceVehicleRef.current !== selectedId) {
+      traceVehicleRef.current = selectedId ?? null;
+      traceRef.current = [];
+    }
+    if (!selectedPos) { setLiveTrace([]); return; }
+    const last = traceRef.current[traceRef.current.length - 1];
+    if (last && last.t === selectedPos.horodatage) return;
+    traceRef.current = [
+      ...traceRef.current,
+      { lat: selectedPos.latitude, lon: selectedPos.longitude, t: selectedPos.horodatage },
+    ].slice(-500);
+    setLiveTrace(
+      traceRef.current.length >= 2
+        ? [{
+            id: 'live-trace',
+            coords: traceRef.current.map(p => ({ latitude: p.lat, longitude: p.lon })),
+            color: '#2563EB',
+            weight: 4,
+          }]
+        : []
+    );
+  }, [selectedId, selectedPos?.horodatage]);
+
+  // Suivi : recentre la carte sur le dispositif à chaque déplacement, sans
+  // toucher au niveau de zoom choisi par l'utilisateur.
+  useEffect(() => {
+    if (!follow || !selectedPos || !mapRef.current) return;
+    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow, selectedPos?.latitude, selectedPos?.longitude]);
 
   // Anneau natif qui s'étend et s'estompe autour du bouton Scan au clic —
   // retour tactile immédiat, en plus (pas à la place) du balayage animé sur
@@ -253,6 +304,7 @@ export default function DashboardScreen() {
         tileUrlTemplate={activeMapStyle.buildUrl(activeMapKey)}
         attribution={activeMapStyle.attribution}
         markers={markersWithUser}
+        polylines={liveTrace}
         selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
         onPopupAction={handlePopupAction}
@@ -410,6 +462,22 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── SUIVI : bascule le recentrage automatique sur le dispositif suivi ── */}
+      <View style={[styles.followWrap, { top: insets.top + 180 }]} pointerEvents="box-none">
+        <TouchableOpacity
+          style={[styles.followBtn, follow && styles.followBtnActive]}
+          onPress={() => setFollow(f => !f)}
+          activeOpacity={0.75}
+          accessibilityLabel={follow ? 'Désactiver le suivi du véhicule' : 'Suivre le véhicule'}
+        >
+          <Ionicons
+            name={follow ? 'locate' : 'locate-outline'}
+            size={18}
+            color={follow ? Colors.white : Colors.textPrimary}
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* ── LOADER ── */}
       {isLoading && (
         <View style={styles.loader}>
@@ -559,6 +627,28 @@ const styles = StyleSheet.create({
     height:          44,
     borderRadius:    22,
     backgroundColor: Colors.accent,
+  },
+
+  // SUIVI
+  followWrap: {
+    position: 'absolute',
+    left:     16,
+  },
+  followBtn: {
+    width:           44,
+    height:          44,
+    borderRadius:    22,
+    backgroundColor: Colors.white,
+    alignItems:      'center',
+    justifyContent:  'center',
+    shadowColor:     '#000',
+    shadowOpacity:   0.15,
+    shadowRadius:    6,
+    shadowOffset:    { width: 0, height: 2 },
+    elevation:       4,
+  },
+  followBtnActive: {
+    backgroundColor: Colors.primary,
   },
 
   // LOADER

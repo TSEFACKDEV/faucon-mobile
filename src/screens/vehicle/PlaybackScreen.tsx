@@ -12,6 +12,8 @@ import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
 import { Position } from '../../types';
 import { formatTime, formatSpeed, formatDistance, haversineKm } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string; date?: string };
@@ -32,6 +34,7 @@ export default function PlaybackScreen() {
   // Données
   const [positions,    setPositions]    = useState<Position[]>([]);
   const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(
     date ?? new Date().toISOString().split('T')[0]
   );
@@ -48,6 +51,7 @@ export default function PlaybackScreen() {
   // Charger les positions
   const loadPositions = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     setIsPlaying(false);
     setCurrentIdx(0);
     clearInterval(intervalRef.current ?? undefined);
@@ -63,6 +67,9 @@ export default function PlaybackScreen() {
       }
     } catch (err) {
       console.error('[PlaybackScreen]', err);
+      const message = getErrorMessage(err, 'Impossible de charger le trajet. Vérifiez votre connexion et réessayez.');
+      setLoadError(message);
+      useToastStore.getState().show(message, 'danger');
     } finally {
       setLoading(false);
     }
@@ -219,11 +226,23 @@ export default function PlaybackScreen() {
           </View>
         )}
 
-        {/* Aucune position */}
+        {/* Aucune position / erreur */}
         {!loading && positions.length === 0 && (
           <View style={styles.mapLoader}>
-            <Ionicons name="map-outline" size={40} color={Colors.textMuted} />
-            <Text style={styles.mapLoaderText}>Aucun trajet ce jour</Text>
+            <Ionicons
+              name={loadError ? 'cloud-offline-outline' : 'map-outline'}
+              size={40}
+              color={loadError ? Colors.dangerStrong : Colors.textMuted}
+            />
+            <Text style={[styles.mapLoaderText, loadError && { color: Colors.dangerStrong }]}>
+              {loadError ? loadError : 'Aucun trajet ce jour'}
+            </Text>
+            {loadError && (
+              <TouchableOpacity style={styles.retryBtn} onPress={loadPositions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="refresh" size={14} color={Colors.white} />
+                <Text style={styles.retryText}>Réessayer</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -395,7 +414,18 @@ const styles = StyleSheet.create({
     justifyContent:  'center',
     gap:             12,
   },
-  mapLoaderText: { fontSize: 14, color: Colors.textSecondary },
+  mapLoaderText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
+
+  retryBtn: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical:   8,
+    borderRadius:      18,
+  },
+  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
 
   controls: {
     backgroundColor: Colors.white,

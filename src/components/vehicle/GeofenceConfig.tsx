@@ -7,6 +7,8 @@ import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import { ROUTE_TILE_URL } from '../../constants/mapTiles';
 
 interface GeofenceData {
@@ -52,6 +54,10 @@ export default function GeofenceConfig({
       });
     } catch (err) {
       console.error('[GeofenceConfig]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, 'Impossible d\'enregistrer la zone de sécurité. Réessayez dans un instant.'),
+        'danger'
+      );
     } finally {
       setSaving(false);
     }

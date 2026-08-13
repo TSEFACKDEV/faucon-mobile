@@ -12,6 +12,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { loginSchema } from '../../utils/validationSchemas';
+import { getErrorMessage } from '../../utils/errors';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
@@ -41,8 +42,7 @@ export default function LoginScreen() {
       await setTokens(tokens.accessToken, tokens.refreshToken);
       setUser(user);
     } catch (error: any) {
-      const message = error?.response?.data?.message ?? 'Email ou mot de passe incorrect';
-      setFieldError('password', message);
+      setFieldError('password', getErrorMessage(error, 'Email ou mot de passe incorrect. Vérifiez vos identifiants, puis réessayez.'));
     } finally {
       setSubmitting(false);
     }

@@ -4,13 +4,13 @@ import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
 import { useAuthStore } from '../store/authStore';
-import { Alarme } from '../types';
+import { Alarme, Commande } from '../types';
 
 let socketInstance: Socket | null = null;
 
 export const useSocket = (vehiculeIds: string[]) => {
   const socketRef = useRef<Socket | null>(null);
-  const { updateLivePosition, addAlarm } = useVehicleStore();
+  const { updateLivePosition, addAlarm, setLastCommandeUpdate } = useVehicleStore();
   const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
@@ -56,6 +56,12 @@ export const useSocket = (vehiculeIds: string[]) => {
       // Réception alarme temps réel
       socket.on('alarm', (data: Alarme) => {
         addAlarm(data);
+      });
+
+      // Statut d'une commande descendante (LOCALISER/MODE/REDEMARRER/
+      // RESET_USINE) : envoyée -> exécutée par le traceur, ou expirée.
+      socket.on('commande_update', (data: Commande) => {
+        setLastCommandeUpdate(data);
       });
 
       socket.on('disconnect', (reason) => {

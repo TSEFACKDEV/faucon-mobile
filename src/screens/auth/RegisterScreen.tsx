@@ -12,6 +12,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { registerSchema } from '../../utils/validationSchemas';
+import { getErrorMessage } from '../../utils/errors';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
@@ -55,8 +56,7 @@ export default function RegisterScreen() {
       setUser(user);
     } catch (error: any) {
       console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
-      const message = error?.response?.data?.message ?? 'Erreur lors de l\'inscription';
-      setFieldError('email', message);
+      setFieldError('email', getErrorMessage(error, 'Impossible de créer votre compte pour le moment. Réessayez dans un instant.'));
     } finally {
       setSubmitting(false);
     }

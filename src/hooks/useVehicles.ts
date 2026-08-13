@@ -1,6 +1,8 @@
 import { useEffect, useCallback } from 'react';
 import { vehicleService } from '../services/vehicleService';
 import { useVehicleStore } from '../store/vehicleStore';
+import { getErrorMessage } from '../utils/errors';
+import { useToastStore } from '../store/toastStore';
 
 export const useVehicles = () => {
   const {
@@ -28,7 +30,7 @@ export const useVehicles = () => {
             latitude:   pos.latitude,
             longitude:  pos.longitude,
             vitesse:    pos.vitesse,
-            cap:        pos.cap,
+            cap:        pos.cap ?? undefined,
             battery:    pos.niveauBatterie,
             satellites: pos.nbSatellites ?? undefined,
             signal:     pos.niveauSignal ?? undefined,
@@ -38,6 +40,10 @@ export const useVehicles = () => {
       });
     } catch (err) {
       console.error('[useVehicles]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.'),
+        'danger'
+      );
     } finally {
       setLoading(false);
       setHasFetchedOnce(true);

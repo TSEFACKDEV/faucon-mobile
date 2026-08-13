@@ -14,6 +14,8 @@ import { vehicleService } from '../../services/vehicleService';
 import { useVehicles } from '../../hooks/useVehicles';
 import { Vehicle } from '../../types';
 import { formatTime, displayDeviceId } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 export default function DevicesScreen() {
   const navigation = useNavigation<any>();
@@ -32,6 +34,10 @@ export default function DevicesScreen() {
       await refetch();
     } catch (err) {
       console.error('[DevicesScreen]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, 'Impossible de rafraîchir la liste. Vérifiez votre connexion, puis réessayez.'),
+        'danger'
+      );
     } finally {
       setRefreshing(false);
     }
@@ -82,7 +88,7 @@ export default function DevicesScreen() {
               await refetch();
             } catch (err) {
               console.error('[Supprimer]', err);
-              Alert.alert('Erreur', "Impossible de supprimer ce dispositif pour le moment.");
+              Alert.alert('Erreur', getErrorMessage(err, 'Impossible de supprimer ce dispositif pour le moment.'));
             } finally {
               setDeletingId(null);
             }
@@ -106,7 +112,7 @@ export default function DevicesScreen() {
       setRenaming(null);
     } catch (err) {
       console.error('[Renommer]', err);
-      Alert.alert('Erreur', "Impossible de renommer ce dispositif pour le moment.");
+      Alert.alert('Erreur', getErrorMessage(err, 'Impossible de renommer ce dispositif pour le moment.'));
     } finally {
       setSaving(false);
     }

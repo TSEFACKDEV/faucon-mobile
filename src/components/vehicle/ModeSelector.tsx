@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 
 type Mode = 'WORK' | 'MOVE' | 'STANDBY';
 
@@ -59,6 +61,11 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       onUpdated(selected);
     } catch (err) {
       console.error('[ModeSelector]', err);
+      useToastStore.getState().show(
+        getErrorMessage(err, `Impossible d'appliquer le mode ${selected}. La commande n'a pas pu être envoyée au traceur.`),
+        'danger'
+      );
+      setSelected(currentMode);
     } finally {
       setSaving(false);
     }

@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { vehicleService } from '../../services/vehicleService';
+import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import { RapportJournalier } from '../../types';
 
 const getLast7Days = (): string[] => {
@@ -23,18 +25,23 @@ interface DailyReportPanelProps {
 export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) {
   const [report,      setReport]      = useState<RapportJournalier | null>(null);
   const [loading,     setLoading]     = useState(true);
+  const [loadError,   setLoadError]   = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(getLast7Days()[0]);
 
   const days = getLast7Days();
 
   const loadReport = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await vehicleService.getDailyReport(vehiculeId, selectedDate);
       setReport(data ?? null);
     } catch (err) {
       console.error('[DailyReportPanel]', err);
       setReport(null);
+      const message = getErrorMessage(err, 'Impossible de charger le rapport du jour.');
+      setLoadError(message);
+      useToastStore.getState().show(message, 'danger');
     } finally {
       setLoading(false);
     }
@@ -73,6 +80,15 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}>
           <ActivityIndicator color={Colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={styles.empty}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.dangerStrong} />
+          <Text style={[styles.emptyText, { color: Colors.dangerStrong }]}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={loadReport} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="refresh" size={13} color={Colors.white} />
+            <Text style={styles.retryText}>Réessayer</Text>
+          </TouchableOpacity>
         </View>
       ) : !report ? (
         <View style={styles.empty}>
@@ -184,5 +200,16 @@ const styles = StyleSheet.create({
   okStripText: { fontSize: 12, color: Colors.successStrong, fontWeight: '600' },
 
   empty:     { alignItems: 'center', paddingVertical: 40, gap: 10 },
-  emptyText: { fontSize: 13, color: Colors.textMuted },
+  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 24 },
+
+  retryBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical:   8,
+    borderRadius:      18,
+  },
+  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
 });

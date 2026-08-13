@@ -18,9 +18,17 @@ export default function AddDeviceFromProfileScreen() {
   const { vehicles, setVehicles } = useVehicleStore();
 
   const handleAddSuccess = async (values: AddDeviceFormValues) => {
-    // Recharger la liste
-    const updated = await vehicleService.getVehicles();
-    setVehicles(updated);
+    try {
+      // Recharger la liste
+      const updated = await vehicleService.getVehicles();
+      setVehicles(updated);
+    } catch (error: any) {
+      Alert.alert(
+        'Appareil ajouté',
+        `${values.nom} a été connecté. La liste sera mise à jour au prochain chargement.`
+      );
+      return;
+    }
 
     Alert.alert(
       'Appareil ajouté',

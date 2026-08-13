@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { authService } from '../../services/authService';
 import { addDeviceSchema } from '../../utils/validationSchemas';
+import { getErrorMessage } from '../../utils/errors';
 import InputField from '../ui/InputField';
 import Button from '../ui/Button';
 
@@ -37,7 +38,7 @@ export default function AddDeviceForm({
       await authService.addDevice(values.imei, values.nom, values.pin || undefined);
       onSuccess(values);
     } catch (error: any) {
-      const message = error?.response?.data?.message ?? 'IMEI invalide ou déjà enregistré';
+      const message = getErrorMessage(error, 'IMEI invalide ou déjà enregistré');
       if (message.toLowerCase().includes('activation') || message.toLowerCase().includes('pin')) {
         setFieldError('pin', message);
       } else {
