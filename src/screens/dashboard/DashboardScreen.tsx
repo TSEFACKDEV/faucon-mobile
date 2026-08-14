@@ -5,17 +5,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import OsmMapView, { OsmMarker, OsmMapViewHandle, OsmPolyline } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
+import { GlowShadow, GlowShadowCyan, ElevatedShadow } from '../../theme/shadows';
 import Logo from '../../components/ui/Logo';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from '../../hooks/useLocation';
-import { formatTime, formatRelativeTime, isRecentlyConnected } from '../../utils/formatters';
+import { formatTime, formatRelativeTime, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
 import { reverseGeocode } from '../../services/geocoding';
 import { Config } from '../../constants/config';
@@ -28,15 +30,19 @@ import { useToastStore } from '../../store/toastStore';
 const API_KEYS: Record<string, string> = {
   MAPTILER: Config.MAPTILER_KEY,
   STADIA:   Config.STADIA_KEY,
-  HERE:     Config.HERE_KEY,
 };
+
+// Niveau de zoom utilisé pour centrer sur un dispositif — au chargement, en
+// suivi continu ou après une sélection manuelle : une seule valeur pour que
+// le comportement reste cohérent partout où la carte se recentre sur un véhicule.
+const FOLLOW_ZOOM = 16;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
   // State local
-  const [mapStyleId,    setMapStyleId]    = useState<MapStyleId>('osm');
+  const [mapStyleId,    setMapStyleId]    = useState<MapStyleId>('maptiler');
   const [dailyDistance, setDailyDistance] = useState<number | null>(null);
   const [address,       setAddress]       = useState<string | null>(null);
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
@@ -53,7 +59,7 @@ export default function DashboardScreen() {
   // dispositif est actuellement suivi) ; selectedId reste un signal ponctuel
   // "va afficher celui-ci" utilisé par la navigation croisée (voir plus bas).
   const {
-    livePositions, activeAlarms, vehicles,
+    livePositions, lastMovedAt, activeAlarms, vehicles,
     selectedId: storeSelectedId, setSelectedId: setStoreSelectedId,
     activeVehicleId: selectedId, setActiveVehicleId: setSelectedId,
   } = useVehicleStore();
@@ -105,14 +111,13 @@ export default function DashboardScreen() {
           // les infos "à cette position", pas besoin de tout calculer pour les autres.
           popup: isSelected ? {
             title:        vehicle.nom,
-            statusLabel:  hasAlarm ? 'ALARME' : pos.vitesse > 5 ? 'EN MOUVEMENT' : 'ARRÊTÉ',
+            statusLabel:  hasAlarm ? 'ALARME' : isDeviceStopped(lastMovedAt[vehicle.id]) ? 'ARRÊTÉ' : 'EN MOUVEMENT',
             statusColor:  '#fff',
             updatedLabel: `Mis à jour à ${formatTime(pos.horodatage)}`,
-            // "Connecté" = communication reçue récemment (vs simplement "a déjà eu
-            // une position un jour") — dérivé de la vraie dernière communication,
-            // pas fabriqué.
-            connectionOk:    isRecentlyConnected(vehicle.derniereCommunication),
-            connectionLabel: isRecentlyConnected(vehicle.derniereCommunication) ? 'En ligne' : 'Hors ligne',
+            // "Connecté" = signal réseau et batterie encore vivants (ou, à
+            // défaut de signal remonté, communication récente) — pas fabriqué.
+            connectionOk:    !isDeviceOffline(pos, vehicle.derniereCommunication),
+            connectionLabel: isDeviceOffline(pos, vehicle.derniereCommunication) ? 'Hors ligne' : 'En ligne',
             lastActivityLabel: vehicle.derniereCommunication
               ? formatRelativeTime(vehicle.derniereCommunication)
               : formatRelativeTime(pos.horodatage),
@@ -139,7 +144,7 @@ export default function DashboardScreen() {
         } as OsmMarker;
       })
       .filter((m): m is OsmMarker => m !== null);
-  }, [vehicles, livePositions, alarmsByVehicle, selectedId, dailyDistance, address]);
+  }, [vehicles, livePositions, lastMovedAt, alarmsByVehicle, selectedId, dailyDistance, address]);
 
   // Ajoute la position du téléphone comme pastille "vous êtes ici" (id: 'user')
   const markersWithUser = useMemo(() => {
@@ -210,18 +215,20 @@ export default function DashboardScreen() {
         ? [{
             id: 'live-trace',
             coords: traceRef.current.map(p => ({ latitude: p.lat, longitude: p.lon })),
-            color: '#2563EB',
+            color: Colors.accent,
             weight: 4,
           }]
         : []
     );
   }, [selectedId, selectedPos?.horodatage]);
 
-  // Suivi : recentre la carte sur le dispositif à chaque déplacement, sans
-  // toucher au niveau de zoom choisi par l'utilisateur.
+  // Suivi : recentre ET zoome la carte sur le dispositif à chaque déplacement
+  // (y compris au tout premier chargement, dès que sa position — live ou
+  // dernière connue — devient disponible) pour que l'utilisateur retrouve
+  // directement son traceur sans avoir à chercher/zoomer lui-même.
   useEffect(() => {
     if (!follow || !selectedPos || !mapRef.current) return;
-    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude);
+    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude, FOLLOW_ZOOM);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [follow, selectedPos?.latitude, selectedPos?.longitude]);
 
@@ -239,7 +246,7 @@ export default function DashboardScreen() {
     setSelectedId(vehicleId);
     const pos = livePositions[vehicleId];
     if (pos && mapRef.current) {
-      mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, 14);
+      mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, FOLLOW_ZOOM);
     }
     // La popup ne peut s'ouvrir qu'une fois le marqueur du véhicule sélectionné
     // resynchronisé avec ses données (voir mapMarkers) — un court délai suffit
@@ -314,7 +321,12 @@ export default function DashboardScreen() {
       />
 
       {/* ── TOPBAR ── */}
-      <View style={[styles.topbar, { paddingTop: insets.top + Spacing.sm }]}>
+      <LinearGradient
+        colors={Gradients.glass}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.topbar, { paddingTop: insets.top + Spacing.sm }]}
+      >
         <View style={styles.topbarRow}>
           <Logo tone="white" size={20} showWordmark={false} />
 
@@ -361,7 +373,7 @@ export default function DashboardScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* ── MENU DE SÉLECTION DE DISPOSITIF ── */}
       <Modal
@@ -533,7 +545,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.offWhite,
   },
 
-  // TOPBAR
+  // TOPBAR — verre teinté marine→électrique (Gradients.glass), plus la
+  // flat rgba indigo héritée de l'ancienne palette.
   topbar: {
     position:        'absolute',
     top:             0,
@@ -541,7 +554,6 @@ const styles = StyleSheet.create({
     right:           0,
     paddingBottom:   12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(54,63,112,0.94)', // Colors.primary600 translucide
   },
   topbarRow: {
     flexDirection:  'row',
@@ -594,7 +606,7 @@ const styles = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
     borderWidth:     1.5,
-    borderColor:     Colors.primary,
+    borderColor:     Colors.primaryDark,
   },
   bellBadgeText: {
     fontSize:   9,
@@ -615,11 +627,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     alignItems:      'center',
     justifyContent:  'center',
-    shadowColor:     Colors.accent700,
-    shadowOpacity:   0.3,
-    shadowRadius:    6,
-    shadowOffset:    { width: 0, height: 2 },
-    elevation:       4,
+    ...GlowShadowCyan,
   },
   scanPulse: {
     position:        'absolute',
@@ -641,14 +649,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems:      'center',
     justifyContent:  'center',
-    shadowColor:     '#000',
-    shadowOpacity:   0.15,
-    shadowRadius:    6,
-    shadowOffset:    { width: 0, height: 2 },
-    elevation:       4,
+    ...ElevatedShadow,
   },
   followBtnActive: {
     backgroundColor: Colors.primary,
+    ...GlowShadow,
   },
 
   // LOADER
@@ -663,10 +668,7 @@ const styles = StyleSheet.create({
     borderRadius:    20,
     paddingHorizontal: 16,
     paddingVertical:   8,
-    shadowColor:     '#000',
-    shadowOpacity:   0.1,
-    shadowRadius:    4,
-    elevation:       3,
+    ...ElevatedShadow,
   },
   loaderText: {
     fontSize: 13,
@@ -686,10 +688,7 @@ const styles = StyleSheet.create({
     borderRadius:    10,
     paddingHorizontal: 12,
     paddingVertical:   8,
-    shadowColor:     '#000',
-    shadowOpacity:   0.1,
-    shadowRadius:    4,
-    elevation:       3,
+    ...ElevatedShadow,
   },
   locationBannerText: {
     flex:     1,
@@ -717,8 +716,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderTopRightRadius:    20,
     borderBottomRightRadius: 20,
-    shadowColor:   '#000',
-    shadowOpacity: 0.2,
+    shadowColor:   Colors.primaryDark,
+    shadowOpacity: 0.25,
     shadowRadius:  16,
     shadowOffset:  { width: 4, height: 0 },
     elevation:     8,

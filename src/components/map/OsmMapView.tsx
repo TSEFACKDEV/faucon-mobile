@@ -10,7 +10,7 @@ export type OsmMarkerPopup = {
   statusLabel:        string;
   statusColor:        string;
   updatedLabel:       string;  // horodatage exact ("Mis à jour à 14:32")
-  connectionLabel:    string;  // "En ligne" / "Hors ligne" (dérivé de derniereCommunication)
+  connectionLabel:    string;  // "En ligne" / "Hors ligne" (voir isDeviceOffline dans utils/formatters.ts)
   connectionOk:       boolean;
   batteryPercent:     number;  // valeur brute réelle — sert à la fois à la jauge d'en-tête et à la grille
   batteryColor:       string;
@@ -114,6 +114,7 @@ const attributionFor = (tileUrlTemplate: string): string => {
 const buildTheme = () => ({
   primary:       Colors.primary,
   primaryLight:  Colors.primaryLight,
+  accent:        Colors.accent,
   textPrimary:   Colors.textPrimary,
   textSecondary: Colors.textSecondary,
   textMuted:     Colors.textMuted,
@@ -130,17 +131,17 @@ const buildHtml = () => `
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
   <style>
     :root {
-      --color-primary: #363F70;
-      --color-primary-light: #EEF0F7;
-      --color-accent: #F2884D;
-      --color-text: #211F1B;
-      --color-text-secondary: #4A473F;
-      --color-text-muted: #6B6558;
-      --color-info: #5F6BA8;
-      --color-bg: #FAF9F7;
+      --color-primary: #0057FF;
+      --color-primary-light: #EAF1FF;
+      --color-accent: #00C2FF;
+      --color-text: #0B1526;
+      --color-text-secondary: #3D4A61;
+      --color-text-muted: #5A6980;
+      --color-info: #3B7DFF;
+      --color-bg: #F5F8FC;
     }
     html, body, #map { height: 100%; margin: 0; padding: 0; background: #eee; }
     .leaflet-tile-pane   { z-index: 200; }
@@ -302,21 +303,34 @@ const buildHtml = () => `
     // que de laisser la carte silencieusement vide.
     window.addEventListener('error', function (e) {
       try {
-        var msg = (e && e.message)
-          || (e && e.target && e.target.src ? 'Ressource introuvable : ' + e.target.src : 'Erreur inconnue');
+        var isResourceError = e && e.target && e.target !== window && e.target.src;
+        // e.error porte l'objet Error réel (avec sa stack) pour un script
+        // same-origin. Pour un script cross-origin (ex: leaflet.js servi par
+        // le CDN) sans correspondance CORS exacte, le navigateur masque tout
+        // en "Script error." par sécurité — e.error vaut alors null : on le
+        // signale explicitement plutôt que de laisser passer un message vide.
+        var msg = isResourceError
+          ? 'Ressource introuvable : ' + e.target.src
+          : (e && e.error && e.error.stack) ? String(e.error.stack)
+          : (e && e.message) ? String(e.message)
+          : 'Erreur inconnue';
+        if (!isResourceError && e && e.message === 'Script error.' && (!e.error)) {
+          msg = 'Script error. (erreur cross-origin masquée par le navigateur — probablement dans le code Leaflet chargé depuis le CDN)';
+        }
+        if (e && e.filename) msg += ' (' + e.filename + ':' + (e.lineno || '?') + ':' + (e.colno || '?') + ')';
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapError', message: String(msg) }));
       } catch (err) {}
     }, true);
   </script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
   <script>
    try {
     // Valeurs par défaut (alignées sur constants/colors.ts) — écrasées dès
     // réception du thème transmis par le message 'init'.
     var THEME = {
-      primary: '#363F70', primaryLight: '#EEF0F7', textPrimary: '#211F1B',
-      textSecondary: '#4A473F', textMuted: '#6B6558', info: '#5F6BA8',
-      success: '#2E9E6B', bg: '#FAF9F7'
+      primary: '#0057FF', primaryLight: '#EAF1FF', accent: '#00C2FF', textPrimary: '#0B1526',
+      textSecondary: '#3D4A61', textMuted: '#5A6980', info: '#3B7DFF',
+      success: '#22C55E', bg: '#F5F8FC'
     };
 
     function applyTheme(theme) {
@@ -325,6 +339,7 @@ const buildHtml = () => `
       var root = document.documentElement.style;
       if (theme.primary)       root.setProperty('--color-primary', theme.primary);
       if (theme.primaryLight)  root.setProperty('--color-primary-light', theme.primaryLight);
+      if (theme.accent)        root.setProperty('--color-accent', theme.accent);
       if (theme.textPrimary)   root.setProperty('--color-text', theme.textPrimary);
       if (theme.textSecondary) root.setProperty('--color-text-secondary', theme.textSecondary);
       if (theme.textMuted)     root.setProperty('--color-text-muted', theme.textMuted);
@@ -339,8 +354,16 @@ const buildHtml = () => `
     var editableCircleLayer = null;
     var editableCircleMarker = null;
 
+    // true une fois qu'une vue (centre + zoom) a été posée sur la carte — Leaflet
+    // exige setView au moins une fois avant d'accepter flyTo/zoomIn/zoomOut
+    // ("Set map center and zoom first."). Un message peut en théorie arriver avant
+    // 'init' malgré la file côté React Native (voir OsmMapView.tsx) : ce drapeau
+    // permet de s'auto-réparer au lieu de laisser Leaflet lever une exception.
+    var hasView = false;
+
     function setInitialRegion(r) {
       map.setView([r.latitude, r.longitude], regionToZoom(r));
+      hasView = true;
     }
 
     function regionToZoom(r) {
@@ -361,6 +384,17 @@ const buildHtml = () => `
       return String(s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
       });
+    }
+
+    // Une coordonnée manquante/NaN transmise telle quelle à Leaflet (ex: L.marker,
+    // L.circle) fait remonter une exception non interceptable proprement — le
+    // point d'entrée le plus sûr est de refuser ces valeurs avant qu'elles
+    // n'atteignent l'API Leaflet plutôt que de laisser l'erreur se produire.
+    function isFiniteNum(n) {
+      return typeof n === 'number' && isFinite(n);
+    }
+    function isValidLatLng(lat, lng) {
+      return isFiniteNum(lat) && isFiniteNum(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
     }
 
     // Glyphe camion (Material Design "local_shipping") — remplace la flèche
@@ -498,6 +532,7 @@ const buildHtml = () => `
     function syncMarkers(markers) {
       var seen = {};
       markers.forEach(function (m) {
+        if (!isValidLatLng(m.latitude, m.longitude)) return; // position pas encore connue — on ignore ce marqueur pour ce cycle
         seen[m.id] = true;
         var existing = markersById[m.id];
         var popupHtml = buildPopupHtml(m);
@@ -564,9 +599,16 @@ const buildHtml = () => `
     function syncPolylines(polylines) {
       var seen = {};
       polylines.forEach(function (p) {
+        var latlngs = p.coords
+          .filter(function (c) { return isValidLatLng(c.latitude, c.longitude); })
+          .map(function (c) { return [c.latitude, c.longitude]; });
+        if (latlngs.length < 2) {
+          // Rien d'exploitable (position(s) manquante(s)) — retire le tracé s'il existait déjà.
+          if (polylinesById[p.id]) { map.removeLayer(polylinesById[p.id]); delete polylinesById[p.id]; delete animatedPolylineIds[p.id]; }
+          return;
+        }
         seen[p.id] = true;
         var existing = polylinesById[p.id];
-        var latlngs = p.coords.map(function(c){ return [c.latitude, c.longitude]; });
         var options = { color: p.color || THEME.primary, weight: p.weight || 3 };
         if (p.dashArray && Array.isArray(p.dashArray)) options.dashArray = p.dashArray.join(',');
         if (p.animated && p.dashArray) animatedPolylineIds[p.id] = true;
@@ -610,6 +652,7 @@ const buildHtml = () => `
       if (editableCircleLayer) { map.removeLayer(editableCircleLayer); editableCircleLayer = null; }
       if (editableCircleMarker) { map.removeLayer(editableCircleMarker); editableCircleMarker = null; }
       if (!circle) return;
+      if (!isValidLatLng(circle.center.latitude, circle.center.longitude) || !isFiniteNum(circle.radiusMeters) || circle.radiusMeters <= 0) return;
 
       var color = circle.color || THEME.primary;
       var center = [circle.center.latitude, circle.center.longitude];
@@ -659,34 +702,60 @@ const buildHtml = () => `
     document.addEventListener('message', onMessage); // Android
     window.addEventListener('message', onMessage);   // iOS
 
+    // Toute exception levée pendant le traitement d'un message (y compris à
+    // l'intérieur du code Leaflet lui-même, chargé depuis un CDN cross-origin)
+    // remonte sinon au gestionnaire d'erreur global window.addEventListener('error', ...)
+    // qui, pour un script cross-origin, ne rapporte que "Script error." sans
+    // détail exploitable. En l'attrapant ici, on récupère le vrai message —
+    // et un souci sur UNE mise à jour (ex: position transitoirement invalide)
+    // ne fait pas passer toute la carte pour "en échec de chargement".
     function onMessage(event) {
-      var data = JSON.parse(event.data);
-      if (data.type === 'init') {
-        applyTheme(data.theme);
-        setInitialRegion(data.region);
-        setTileLayer(data.tileUrlTemplate, data.attribution);
-        syncMarkers(data.markers);
-        if (data.polylines) syncPolylines(data.polylines);
-        if (data.editableCircle) setEditableCircle(data.editableCircle);
-      } else if (data.type === 'updateMarkers') {
-        syncMarkers(data.markers);
-      } else if (data.type === 'updatePolylines') {
+      var data;
+      try {
+        data = JSON.parse(event.data);
+        if (data.type === 'init') {
+          applyTheme(data.theme);
+          setInitialRegion(data.region);
+          setTileLayer(data.tileUrlTemplate, data.attribution);
+          syncMarkers(data.markers);
+          if (data.polylines) syncPolylines(data.polylines);
+          if (data.editableCircle) setEditableCircle(data.editableCircle);
+        } else if (data.type === 'updateMarkers') {
+          syncMarkers(data.markers);
+        } else if (data.type === 'updatePolylines') {
           syncPolylines(data.polylines);
         } else if (data.type === 'setEditableCircle') {
           setEditableCircle(data.circle);
         } else if (data.type === 'zoomIn') {
-          try { map.zoomIn(); } catch (e) {}
+          if (hasView) map.zoomIn();
         } else if (data.type === 'zoomOut') {
-          try { map.zoomOut(); } catch (e) {}
+          if (hasView) map.zoomOut();
         } else if (data.type === 'updateTiles') {
-        setTileLayer(data.tileUrlTemplate, data.attribution);
-      } else if (data.type === 'animateTo') {
-        map.flyTo([data.latitude, data.longitude], data.zoom || map.getZoom());
-      } else if (data.type === 'openPopup') {
-        var mk = markersById[data.id];
-        if (mk) mk.openPopup();
-      } else if (data.type === 'radarPing') {
-        radarPing(data.center);
+          setTileLayer(data.tileUrlTemplate, data.attribution);
+        } else if (data.type === 'animateTo') {
+          if (isValidLatLng(data.latitude, data.longitude)) {
+            if (hasView) {
+              map.flyTo([data.latitude, data.longitude], data.zoom || map.getZoom());
+            } else {
+              // Pas encore de vue posée (init pas encore traité) : on en pose une
+              // directement plutôt que de laisser flyTo() lever une exception.
+              map.setView([data.latitude, data.longitude], data.zoom || 15);
+              hasView = true;
+            }
+          }
+        } else if (data.type === 'openPopup') {
+          var mk = markersById[data.id];
+          if (mk) mk.openPopup();
+        } else if (data.type === 'radarPing') {
+          if (data.center && isValidLatLng(data.center.latitude, data.center.longitude)) radarPing(data.center);
+        }
+      } catch (err) {
+        try {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'mapWarning',
+            message: '[' + (data && data.type) + '] ' + String(err && err.message || err),
+          }));
+        } catch (e) {}
       }
     }
 
@@ -723,7 +792,18 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     return () => clearTimeout(timeout);
   }, [isReady]);
 
+  // Les écrans appelants peuvent invoquer les méthodes du ref (animateToCoordinate,
+  // scan, ...) dès leur montage — avant que la WebView ait fini de charger Leaflet
+  // et posé sa vue initiale (message 'init'). Un `animateTo` envoyé trop tôt fait
+  // échouer `map.flyTo()` côté WebView ("Set map center and zoom first."). On met
+  // donc en file les messages tant que ce n'est pas prêt, et on les rejoue juste
+  // après avoir envoyé 'init'.
+  const pendingMessages = useRef<object[]>([]);
   const post = (payload: object) => {
+    if (!isReady) {
+      pendingMessages.current.push(payload);
+      return;
+    }
     webviewRef.current?.postMessage(JSON.stringify(payload));
   };
 
@@ -745,7 +825,11 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     }
 
     post({ type: 'radarPing', center: { latitude: user.latitude, longitude: user.longitude } });
-    post({ type: 'animateTo', latitude: user.latitude, longitude: user.longitude, zoom: 16 });
+    // Le balayage part de l'utilisateur (effet visuel), mais la caméra doit
+    // finir sur le véhicule recherché — c'est lui qu'on cherche à localiser,
+    // pas sa propre position déjà connue.
+    const focusTarget = targets[0];
+    post({ type: 'animateTo', latitude: focusTarget.latitude, longitude: focusTarget.longitude, zoom: 16 });
 
     const lines = targets.map(v => ({
       id: `link-${v.id}`,
@@ -799,6 +883,11 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
       } else if (data.type === 'mapError') {
         console.warn('OsmMapView error', data.message);
         setLoadError("La carte n'a pas pu se charger. Vérifiez votre connexion Internet, puis réessayez.");
+      } else if (data.type === 'mapWarning') {
+        // Erreur récupérable sur UNE mise à jour (ex: position transitoirement
+        // invalide) — déjà écartée côté WebView, la carte reste utilisable :
+        // on journalise sans afficher la bannière "échec de chargement".
+        console.warn('OsmMapView warning', data.message);
       }
     } catch {
       // ignore messages malformés
@@ -812,6 +901,12 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
         type: 'init', theme, region: initialRegion, tileUrlTemplate,
         attribution: attribution ?? attributionFor(tileUrlTemplate), markers, polylines, editableCircle,
       });
+      // Rejoue dans l'ordre les appels arrivés avant que la carte soit prête
+      // (ex: le suivi automatique déclenché dès le montage de l'écran appelant).
+      if (pendingMessages.current.length > 0) {
+        pendingMessages.current.forEach(post);
+        pendingMessages.current = [];
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
@@ -941,7 +1036,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   zoomStack: {
-    backgroundColor: 'rgba(42,49,89,0.78)', // Colors.primary700, translucide — cohérent avec la marque
+    backgroundColor: 'rgba(0,45,114,0.80)', // Colors.primaryDark, translucide — cohérent avec la marque
     borderRadius: 10,
     padding: 6,
     alignItems: 'center',
@@ -963,7 +1058,7 @@ const styles = StyleSheet.create({
     width:           44,
     height:          44,
     borderRadius:    22,
-    backgroundColor: 'rgba(42,49,89,0.85)', // Colors.primary700, translucide
+    backgroundColor: 'rgba(0,45,114,0.85)', // Colors.primaryDark, translucide
     alignItems:      'center',
     justifyContent:  'center',
     shadowColor:     '#000',

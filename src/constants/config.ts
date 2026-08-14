@@ -8,5 +8,4 @@ export const Config = {
   // alors visible mais désactivé dans la sidebar ("Clé API requise").
   MAPTILER_KEY: process.env.EXPO_PUBLIC_MAPTILER_KEY ?? 'iF6VvIYG95QOqnMoBoyg',
   STADIA_KEY:   process.env.EXPO_PUBLIC_STADIA_KEY   ?? 'cec837b1-9e33-4edf-a8df-b2742183c903',
-  HERE_KEY:     process.env.EXPO_PUBLIC_HERE_KEY      ?? '',
 };

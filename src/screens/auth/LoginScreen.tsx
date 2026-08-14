@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Formik, FormikHelpers } from 'formik';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
@@ -17,7 +18,7 @@ import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
 import Logo from '../../components/ui/Logo';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,59 +50,61 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <LinearGradient colors={Gradients.navy} style={styles.flex}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
-            <Logo tone="white" size={44} />
-            <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
-              Voir · Surveiller · Contrôler
-            </AppText>
-          </Animated.View>
-        </View>
-
-        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
-          <AppText variant="h1" style={styles.title}>Connexion</AppText>
-          <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-            Accédez à votre tableau de bord
-          </AppText>
-
-          <Formik
-            initialValues={initialValues}
-            validationSchema={loginSchema}
-            onSubmit={handleLogin}
-          >
-            {({ handleSubmit, isSubmitting }) => (
-              <View>
-                <InputField name="email" label="Adresse email" icon="mail-outline" placeholder="john@email.com" keyboardType="email-address" autoComplete="email" />
-                <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Votre mot de passe" isPassword autoComplete="current-password" />
-
-                <Button label="Se connecter" onPress={() => handleSubmit()} loading={isSubmitting} size="lg" style={styles.submitBtn} />
-              </View>
-            )}
-          </Formik>
-
-          <View style={styles.registerRow}>
-            <AppText variant="body" color={Colors.textSecondary}>Pas encore de compte ? </AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <AppText variant="bodyBold" color={Colors.accentDark}>S'inscrire</AppText>
-            </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+            <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
+              <Logo tone="white" size={44} />
+              <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
+                Voir · Surveiller · Contrôler
+              </AppText>
+            </Animated.View>
           </View>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
+            <AppText variant="h1" style={styles.title}>Connexion</AppText>
+            <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
+              Accédez à votre tableau de bord
+            </AppText>
+
+            <Formik
+              initialValues={initialValues}
+              validationSchema={loginSchema}
+              onSubmit={handleLogin}
+            >
+              {({ handleSubmit, isSubmitting }) => (
+                <View>
+                  <InputField name="email" label="Adresse email" icon="mail-outline" placeholder="john@email.com" keyboardType="email-address" autoComplete="email" />
+                  <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Votre mot de passe" isPassword autoComplete="current-password" />
+
+                  <Button label="Se connecter" onPress={() => handleSubmit()} loading={isSubmitting} size="lg" style={styles.submitBtn} />
+                </View>
+              )}
+            </Formik>
+
+            <View style={styles.registerRow}>
+              <AppText variant="body" color={Colors.textSecondary}>Pas encore de compte ? </AppText>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <AppText variant="bodyBold" color={Colors.accentDark}>S'inscrire</AppText>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.primary },
+  flex: { flex: 1 },
   scroll: { flexGrow: 1 },
   header: { paddingBottom: 64, alignItems: 'center' },
   headerContent: { alignItems: 'center', gap: Spacing.sm },

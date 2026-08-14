@@ -4,7 +4,7 @@
     "slug": "faucon",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo/logo-font-bleu.jpeg",
     "ios": {
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
@@ -23,10 +23,8 @@
       ],
       "package": "com.faucon.tracking",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#1F2544"
+        "foregroundImage": "./assets/logo/logo-font-bleu.jpeg",
+        "backgroundColor": "#002D72"
       }
     },
     "plugins": [
@@ -39,10 +37,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/logo/grande-icone-font-blanc.jpeg",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#FAF9F7"
+          "backgroundColor": "#002D72"
         }
       ],
       "expo-secure-store",

@@ -1,0 +1,48 @@
+name: EAS Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: EAS Build (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Vous devez définir un secret EXPO_TOKEN (jeton d'accès Expo, compte du projet) dans les secrets de ce repo. Doc : https://docs.expo.dev/eas-update/github-actions"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Setup EAS
+        uses: expo/expo-github-actions@main
+        with:
+          token: ${{ secrets.EXPO_TOKEN }}
+          eas-version: latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      # push sur main → build de production (autoIncrement)
+      # pull request → build preview (APK interne)
+      - name: Build on EAS
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            PROFILE=production
+          else
+            PROFILE=preview
+          fi
+          eas build --platform android --profile "$PROFILE" --non-interactive --message "GitHub Actions - ${{ github.sha }}"

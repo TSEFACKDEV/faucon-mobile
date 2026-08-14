@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
+import { ElevatedShadow } from '../../theme/shadows';
 import { useToastStore } from '../../store/toastStore';
 import AppText from './Typography';
 
@@ -71,11 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    ...ElevatedShadow,
     zIndex: 999,
   },
   text: { flex: 1 },

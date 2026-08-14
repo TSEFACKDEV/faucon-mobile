@@ -6,7 +6,9 @@ import { useState, useEffect, useCallback } from 'react';
 import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { CardShadow } from '../../theme/shadows';
 import BrandBar from '../../components/ui/BrandBar';
+import Chip from '../../components/ui/Chip';
 import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
@@ -70,7 +72,11 @@ const FILTERS: { key: FilterType; label: string }[] = [
 // d'une alerte non acquittée doit rester vivant, pas un simple point statique.
 const PulseDot = ({ color }: { color: string }) => {
   const opacity = useSharedValue(1);
-  opacity.value = withRepeat(withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }), -1, true);
+  // Écrire `.value` doit se faire après le rendu (effet), jamais pendant —
+  // Reanimated avertit sinon d'une écriture "during render".
+  useEffect(() => {
+    opacity.value = withRepeat(withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, [opacity]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Reanimated.View style={[styles.unreadDot, { backgroundColor: color }, style]} />;
 };
@@ -280,21 +286,11 @@ export default function AlertsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                filter === item.key && styles.filterChipActive,
-              ]}
+            <Chip
+              label={item.label}
+              selected={filter === item.key}
               onPress={() => setFilter(item.key)}
-              hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
-            >
-              <Text style={[
-                styles.filterText,
-                filter === item.key && styles.filterTextActive,
-              ]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
+            />
           )}
         />
       </View>
@@ -456,20 +452,6 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   filterList: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  filterChip: {
-    backgroundColor:  Colors.offWhite,
-    borderRadius:     20,
-    paddingHorizontal: 14,
-    paddingVertical:   6,
-    borderWidth:      1,
-    borderColor:      Colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor:     Colors.primary,
-  },
-  filterText:       { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: Colors.white, fontWeight: '700' },
 
   list: { padding: 16, gap: 12, paddingBottom: 32 },
 
@@ -480,10 +462,7 @@ const styles = StyleSheet.create({
     flexDirection:   'row',
     padding:         14,
     gap:             12,
-    shadowColor:     '#000',
-    shadowOpacity:   0.04,
-    shadowRadius:    4,
-    elevation:       2,
+    ...CardShadow,
   },
   cardAcquitted: { opacity: 0.6 },
 

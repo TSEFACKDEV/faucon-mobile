@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } fr
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { GlowShadowCyan } from '../../theme/shadows';
 import { vehicleService } from '../../services/vehicleService';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { getErrorMessage } from '../../utils/errors';
@@ -111,21 +112,36 @@ export default function RemoteActions({ vehiculeId }: Props) {
       </Text>
 
       <View style={{ gap: 12 }}>
-        {ACTIONS.map((action) => {
+        {ACTIONS.map((action, i) => {
           const pending = !!enAttente[action.code];
+          const isPrimary = !action.danger && i === 0;
           return (
             <TouchableOpacity
               key={action.code}
-              style={[styles.card, action.danger && styles.cardDanger]}
+              style={[
+                styles.card,
+                isPrimary && styles.cardPrimary,
+                action.danger && styles.cardDanger,
+                pending && styles.cardPending,
+              ]}
               onPress={() => handlePress(action)}
               disabled={pending}
               activeOpacity={0.8}
             >
-              <View style={[styles.iconBox, action.danger && styles.iconBoxDanger]}>
+              <View style={[
+                styles.iconBox,
+                isPrimary && styles.iconBoxGold,
+                action.danger && styles.iconBoxDanger,
+                pending && GlowShadowCyan,
+              ]}>
                 {pending ? (
-                  <ActivityIndicator size="small" color={action.danger ? Colors.dangerStrong : Colors.primary} />
+                  <ActivityIndicator size="small" color={action.danger ? Colors.dangerStrong : Colors.accent} />
                 ) : (
-                  <Ionicons name={action.icon} size={20} color={action.danger ? Colors.dangerStrong : Colors.primary} />
+                  <Ionicons
+                    name={action.icon}
+                    size={20}
+                    color={action.danger ? Colors.dangerStrong : isPrimary ? Colors.goldText : Colors.primary}
+                  />
                 )}
               </View>
               <View style={{ flex: 1 }}>
@@ -157,7 +173,9 @@ const styles = StyleSheet.create({
     alignItems:      'center',
     gap:             12,
   },
-  cardDanger: { borderColor: Colors.dangerStrong + '55' },
+  cardPrimary: { borderColor: Colors.gold200 },
+  cardDanger:  { borderColor: Colors.dangerStrong + '55' },
+  cardPending: { opacity: 0.7 },
 
   iconBox: {
     width:          40,
@@ -167,6 +185,7 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
+  iconBoxGold:   { backgroundColor: Colors.gold50 },
   iconBoxDanger: { backgroundColor: Colors.dangerStrong + '18' },
 
   cardLabel:       { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },

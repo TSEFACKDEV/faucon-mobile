@@ -9,9 +9,11 @@ import Animated, {
   SharedValue,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
+import { GlowShadow } from '../../theme/shadows';
 import { ONBOARDING_SLIDES, OnboardingSlide } from '../../constants/onboarding';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import AppText from '../../components/ui/Typography';
@@ -37,9 +39,14 @@ function Slide({ item, index, scrollX, width }: SlideProps) {
   return (
     <View style={[styles.slide, { width }]}>
       <Animated.View style={[styles.iconRing, animatedStyle]}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={item.icon} size={48} color={Colors.primary} />
-        </View>
+        <LinearGradient
+          colors={Gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.iconWrap, GlowShadow]}
+        >
+          <Ionicons name={item.icon} size={48} color={Colors.white} />
+        </LinearGradient>
       </Animated.View>
       <Animated.View style={animatedStyle}>
         <AppText variant="h1" style={styles.title}>{item.title}</AppText>
@@ -125,7 +132,11 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <Button label={isLast ? 'Commencer' : 'Suivant'} onPress={goNext} />
+        <Button
+          label={isLast ? 'Commencer' : 'Suivant'}
+          onPress={goNext}
+          variant={isLast ? 'gold' : 'primary'}
+        />
       </View>
     </View>
   );
@@ -152,7 +163,7 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
     borderRadius: 64,
-    backgroundColor: Colors.primary50,
+    backgroundColor: Colors.blue50,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,
@@ -161,7 +172,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.primary100,
     alignItems: 'center',
     justifyContent: 'center',
   },

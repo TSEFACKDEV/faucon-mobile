@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useFormikContext, getIn } from 'formik';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { GlowShadow } from '../../theme/shadows';
 
 interface InputFieldProps extends TextInputProps {
   name: string;
@@ -43,6 +44,7 @@ export default function InputField({
       <View style={[
         styles.inputRow,
         isFocused && styles.inputFocused,
+        isFocused && !hasError && GlowShadow,
         hasError && styles.inputError,
       ]}>
         {icon && (
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     backgroundColor: Colors.white,
-    borderColor: Colors.primary300,
+    borderColor: Colors.primary,
   },
   inputError: {
     backgroundColor: Colors.white,

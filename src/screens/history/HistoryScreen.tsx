@@ -5,8 +5,11 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../constants/colors';
+import { CardShadow, GlowShadow } from '../../theme/shadows';
 import BrandBar from '../../components/ui/BrandBar';
+import Chip from '../../components/ui/Chip';
 import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
@@ -171,15 +174,26 @@ export default function HistoryScreen() {
       <BrandBar title="Historique des trajets" />
 
       <View style={styles.segmentWrapper}>
-        {SEGMENTS.map(s => (
-          <TouchableOpacity
-            key={s.key}
-            style={[styles.segment, segment === s.key && styles.segmentActive]}
-            onPress={() => setSegment(s.key)}
-          >
-            <Text style={[styles.segmentText, segment === s.key && styles.segmentTextActive]}>{s.label}</Text>
-          </TouchableOpacity>
-        ))}
+        {SEGMENTS.map(s => {
+          const active = segment === s.key;
+          return (
+            <TouchableOpacity
+              key={s.key}
+              style={styles.segment}
+              onPress={() => setSegment(s.key)}
+            >
+              {active && (
+                <LinearGradient
+                  colors={Gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{s.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {segment === 'custom' && (
@@ -192,14 +206,11 @@ export default function HistoryScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.dayChip, item === customFrom && styles.dayChipActive]}
+              <Chip
+                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                selected={item === customFrom}
                 onPress={() => setCustomFrom(item)}
-              >
-                <Text style={[styles.dayChipText, item === customFrom && styles.dayChipTextActive]}>
-                  {new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </Text>
-              </TouchableOpacity>
+              />
             )}
           />
           <Text style={styles.customLabel}>Au</Text>
@@ -210,14 +221,11 @@ export default function HistoryScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.dayChip, item === customTo && styles.dayChipActive]}
+              <Chip
+                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                selected={item === customTo}
                 onPress={() => setCustomTo(item)}
-              >
-                <Text style={[styles.dayChipText, item === customTo && styles.dayChipTextActive]}>
-                  {new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </Text>
-              </TouchableOpacity>
+              />
             )}
           />
         </View>
@@ -317,24 +325,12 @@ const styles = StyleSheet.create({
     borderWidth:       1,
     borderColor:       Colors.border,
   },
-  segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
-  segmentActive: { backgroundColor: Colors.primary },
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9, overflow: 'hidden' },
   segmentText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   segmentTextActive: { color: Colors.white },
 
   customPickers: { paddingBottom: 8, gap: 4 },
   customLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginLeft: 16, marginTop: 4 },
-  dayChip: {
-    paddingHorizontal: 10,
-    paddingVertical:   6,
-    borderRadius:      16,
-    backgroundColor:   Colors.white,
-    borderWidth:       1,
-    borderColor:       Colors.border,
-  },
-  dayChipActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dayChipText:       { fontSize: 11, color: Colors.textSecondary, fontWeight: '500' },
-  dayChipTextActive: { color: Colors.white, fontWeight: '700' },
 
   list: { padding: 16, paddingTop: 4, gap: 12, paddingBottom: 32 },
 
@@ -343,10 +339,7 @@ const styles = StyleSheet.create({
     borderRadius:    14,
     padding:         14,
     gap:             8,
-    shadowColor:     '#000',
-    shadowOpacity:   0.05,
-    shadowRadius:    6,
-    elevation:       2,
+    ...CardShadow,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badge: {
@@ -363,6 +356,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems:      'center',
     justifyContent:  'center',
+    ...GlowShadow,
   },
 
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

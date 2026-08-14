@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { CardShadow } from '../../theme/shadows';
 import BrandBar from '../../components/ui/BrandBar';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
@@ -13,13 +14,13 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { useVehicles } from '../../hooks/useVehicles';
 import { Vehicle } from '../../types';
-import { formatTime, displayDeviceId } from '../../utils/formatters';
+import { formatTime, displayDeviceId, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 
 export default function DevicesScreen() {
   const navigation = useNavigation<any>();
-  const { livePositions, activeVehicleId, setActiveVehicleId } = useVehicleStore();
+  const { livePositions, lastMovedAt, activeVehicleId, setActiveVehicleId } = useVehicleStore();
   const { vehicles, refetch } = useVehicles();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -120,12 +121,13 @@ export default function DevicesScreen() {
 
   const renderCard = ({ item }: { item: Vehicle }) => {
     const pos = livePositions[item.id];
-    const isMoving = !!pos && pos.vitesse > 5;
-    const statusLabel = isMoving ? 'En mouvement' : pos ? 'Immobilisé' : 'Hors ligne';
-    const statusColor = isMoving ? Colors.successStrong : pos ? Colors.warningStrong : Colors.textMuted;
+    const offline = isDeviceOffline(pos, item.derniereCommunication);
+    const stopped = isDeviceStopped(lastMovedAt[item.id]);
+    const statusLabel = offline ? 'Hors ligne' : stopped ? 'Immobilisé' : 'En mouvement';
+    const statusColor = offline ? Colors.textMuted : stopped ? Colors.warningStrong : Colors.successStrong;
     // Icône distincte en plus de la couleur pour chaque statut — la couleur seule
     // ne doit jamais être le seul signal (accessibilité, daltonisme).
-    const statusIcon = isMoving ? 'navigate' : pos ? 'pause-circle' : 'cloud-offline-outline';
+    const statusIcon = offline ? 'cloud-offline-outline' : stopped ? 'pause-circle' : 'navigate';
     const batteryColor =
       item.niveauBatterie < 20 ? Colors.dangerStrong :
       item.niveauBatterie < 50 ? Colors.warningStrong :
@@ -309,10 +311,7 @@ const styles = StyleSheet.create({
     gap:             14,
     borderWidth:     1.5,
     borderColor:     'transparent',
-    shadowColor:     '#000',
-    shadowOpacity:   0.05,
-    shadowRadius:    6,
-    elevation:       2,
+    ...CardShadow,
   },
   cardTracked: {
     borderColor: Colors.primary,

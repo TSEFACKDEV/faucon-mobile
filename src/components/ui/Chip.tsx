@@ -1,6 +1,8 @@
 import { TouchableOpacity, ViewStyle, StyleSheet } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
+import { GlowShadow } from '../../theme/shadows';
 import AppText from './Typography';
 
 interface Props {
@@ -11,13 +13,28 @@ interface Props {
 }
 
 export default function Chip({ label, selected = false, onPress, style }: Props) {
+  if (selected) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={style}>
+        <LinearGradient
+          colors={Gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.base, GlowShadow]}
+        >
+          <AppText variant="caption" color={Colors.white}>{label}</AppText>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
-      style={[styles.base, selected && styles.selected, style]}
+      style={[styles.base, styles.unselected, style]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <AppText variant="caption" color={selected ? Colors.white : Colors.textSecondary}>
+      <AppText variant="caption" color={Colors.textSecondary}>
         {label}
       </AppText>
     </TouchableOpacity>
@@ -29,9 +46,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.neutral100,
   },
-  selected: {
-    backgroundColor: Colors.primary,
+  unselected: {
+    backgroundColor: Colors.neutral100,
   },
 });

@@ -17,6 +17,10 @@ interface LivePosition {
 interface DeviceState {
   vehicles:       Device[];
   livePositions:  Record<string, LivePosition>;
+  // Horodatage de la dernière position RÉELLEMENT différente de la
+  // précédente, par véhicule — sert à détecter l'arrêt (cf. isDeviceStopped
+  // dans utils/deviceStatus.ts) sans dépendre de la seule vitesse instantanée.
+  lastMovedAt:    Record<string, string>;
   activeAlarms:   Alarme[];
   selectedId:     string | null;
   // Dispositif actuellement suivi sur le Dashboard — état partagé (contrairement
@@ -55,6 +59,7 @@ interface DeviceState {
 const initialState = {
   vehicles:      [] as Device[],
   livePositions: {} as Record<string, LivePosition>,
+  lastMovedAt:   {} as Record<string, string>,
   activeAlarms:  [] as Alarme[],
   selectedId:    null as string | null,
   activeVehicleId: null as string | null,
@@ -72,21 +77,36 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   setVehicles: (vehicles) => set({ vehicles }),
 
   updateLivePosition: (data) =>
-    set((state) => ({
-      livePositions: {
-        ...state.livePositions,
-        [data.vehiculeId]: data,
-      },
-      // Une trame fraîche reçue = communication récente : on resynchronise
-      // aussitôt les champs dérivés du véhicule, pour que le statut
-      // « En ligne » / la batterie de la popup restent vrais immédiatement
-      // (et non pas au prochain fetch REST).
-      vehicles: state.vehicles.map((v) =>
-        v.id === data.vehiculeId
-          ? { ...v, derniereCommunication: data.horodatage, niveauBatterie: data.battery }
-          : v
-      ),
-    })),
+    set((state) => {
+      const previous = state.livePositions[data.vehiculeId];
+      // "Bougé" = position réellement différente de la précédente (pas juste
+      // une nouvelle trame) — le firmware ne renvoie les mêmes coordonnées à
+      // l'identique que lorsque le véhicule est immobile (cf. constants.ts
+      // du firmware). Première trame reçue = considérée comme "vient de bouger".
+      const hasMoved = !previous
+        || previous.latitude !== data.latitude
+        || previous.longitude !== data.longitude;
+
+      return {
+        livePositions: {
+          ...state.livePositions,
+          [data.vehiculeId]: data,
+        },
+        lastMovedAt: {
+          ...state.lastMovedAt,
+          [data.vehiculeId]: hasMoved ? data.horodatage : (state.lastMovedAt[data.vehiculeId] ?? data.horodatage),
+        },
+        // Une trame fraîche reçue = communication récente : on resynchronise
+        // aussitôt les champs dérivés du véhicule, pour que le statut
+        // « En ligne » / la batterie de la popup restent vrais immédiatement
+        // (et non pas au prochain fetch REST).
+        vehicles: state.vehicles.map((v) =>
+          v.id === data.vehiculeId
+            ? { ...v, derniereCommunication: data.horodatage, niveauBatterie: data.battery }
+            : v
+        ),
+      };
+    }),
 
   addAlarm: (alarm) =>
     set((state) => ({

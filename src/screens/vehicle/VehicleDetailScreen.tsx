@@ -6,13 +6,17 @@ import { useState, useEffect } from 'react';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import OsmMapView, { OsmMarker } from '../../components/map/OsmMapView';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
+import { CardShadow } from '../../theme/shadows';
+import { Duration } from '../../theme/motion';
+import Badge from '../../components/ui/Badge';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { Vehicle } from '../../types';
-import { formatSpeed, formatBattery, formatCoords, formatTime } from '../../utils/formatters';
+import { formatSpeed, formatBattery, formatCoords, formatTime, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import ModeSelector from '../../components/vehicle/ModeSelector';
@@ -31,7 +35,7 @@ export default function VehicleDetailScreen() {
   const insets = useSafeAreaInsets();
   const { vehiculeId } = route.params;
 
-  const { vehicles, livePositions } = useVehicleStore();
+  const { vehicles, livePositions, lastMovedAt } = useVehicleStore();
 
   const [vehicle,   setVehicle]   = useState<Vehicle | null>(null);
   const [loading,   setLoading]   = useState(true);
@@ -113,35 +117,40 @@ export default function VehicleDetailScreen() {
     );
   }
 
-  const statusColor =
-    vehicle.niveauBatterie < 20 ? Colors.dangerStrong :
-    (livePos != null && livePos.vitesse > 5) ? Colors.successStrong :
-    livePos ? Colors.warningStrong :
-    Colors.textMuted;
+  const offline = isDeviceOffline(livePos ?? undefined, vehicle.derniereCommunication);
+  const stopped = isDeviceStopped(lastMovedAt[vehiculeId]);
+
+  const statusTone: 'danger' | 'success' | 'warning' | 'neutral' =
+    vehicle.niveauBatterie < 20 ? 'danger' :
+    offline ? 'neutral' :
+    stopped ? 'warning' :
+    'success';
 
   const statusLabel =
-    (livePos != null && livePos.vitesse > 5) ? 'EN MOUVEMENT' :
-    livePos ? 'ARRÊTÉ' : 'HORS LIGNE';
+    offline ? 'HORS LIGNE' :
+    stopped ? 'ARRÊTÉ' : 'EN MOUVEMENT';
 
   return (
     <View style={styles.container}>
 
       {/* ── HEADER ── */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <LinearGradient
+        colors={Gradients.navy}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{vehicle.nom}</Text>
-          <View style={[styles.statusPill, { backgroundColor: `${statusColor}33` }]}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
+          <Badge label={statusLabel} tone={statusTone} style={styles.statusBadge} />
         </View>
         <TouchableOpacity style={styles.playbackBtn} onPress={handlePlayback}>
           <Ionicons name="play-circle-outline" size={26} color={Colors.white} />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {/* ── CARTE MINI ── */}
       {livePos ? (
@@ -249,7 +258,7 @@ export default function VehicleDetailScreen() {
           d'onglet au lieu d'un rendu instantané. */}
       <Reanimated.ScrollView
         key={activeTab}
-        entering={FadeIn.duration(200)}
+        entering={FadeIn.duration(Duration.base)}
         style={styles.tabContent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
@@ -404,7 +413,6 @@ const styles = StyleSheet.create({
 
   // HEADER
   header: {
-    backgroundColor:   Colors.primary,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',
@@ -414,17 +422,7 @@ const styles = StyleSheet.create({
   backBtn:       { padding: 4 },
   headerCenter:  { flex: 1, gap: 4 },
   headerTitle:   { fontSize: 18, fontWeight: '700', color: Colors.white },
-  statusPill: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             5,
-    alignSelf:       'flex-start',
-    borderRadius:    10,
-    paddingHorizontal: 8,
-    paddingVertical:   3,
-  },
-  statusDot:  { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 10, fontWeight: '700' },
+  statusBadge:   { alignSelf: 'flex-start' },
   playbackBtn: { padding: 4 },
 
   // CARTE
@@ -460,16 +458,13 @@ const styles = StyleSheet.create({
     borderRadius:    8,
     paddingHorizontal: 8,
     paddingVertical:   4,
-    shadowColor:     '#000',
-    shadowOpacity:   0.1,
-    shadowRadius:    4,
-    elevation:       2,
+    ...CardShadow,
   },
   coordText:  { fontSize: 10, color: Colors.primary, fontWeight: '500' },
   updateText: {
     fontSize:        10,
     color:           Colors.white,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,26,68,0.55)',
     borderRadius:    6,
     paddingHorizontal: 7,
     paddingVertical:   3,

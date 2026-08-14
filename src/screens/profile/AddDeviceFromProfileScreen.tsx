@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { displayDeviceId } from '../../utils/formatters';
@@ -48,13 +49,18 @@ export default function AddDeviceFromProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* HEADER */}
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <LinearGradient
+          colors={Gradients.navy}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 12 }]}
+        >
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Ajouter un appareil</Text>
           <View style={{ width: 30 }} />
-        </View>
+        </LinearGradient>
 
         <View style={styles.body}>
           {/* ILLUSTRATION */}
@@ -85,7 +91,7 @@ export default function AddDeviceFromProfileScreen() {
                 {vehicles.map(v => (
                   <View key={v.id} style={styles.deviceRow}>
                     <View style={styles.deviceIcon}>
-                      <Ionicons name="hardware-chip-outline" size={18} color={Colors.primary} />
+                      <Ionicons name="hardware-chip-outline" size={18} color={Colors.cyan600} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deviceName}>{v.nom}</Text>
@@ -117,7 +123,6 @@ const styles = StyleSheet.create({
   flex:   { flex: 1, backgroundColor: Colors.offWhite },
   scroll: { flexGrow: 1, paddingBottom: 40 },
   header: {
-    backgroundColor:   Colors.primary,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',
@@ -130,12 +135,12 @@ const styles = StyleSheet.create({
   illustration: { alignItems: 'center', gap: 8, paddingVertical: 8 },
   illustrationRing: {
     width: 92, height: 92, borderRadius: 46,
-    backgroundColor: Colors.primary50, alignItems: 'center',
+    backgroundColor: Colors.blue50, alignItems: 'center',
     justifyContent: 'center', marginBottom: 4,
   },
   illustrationInner: {
     width: 68, height: 68, borderRadius: 34,
-    backgroundColor: Colors.primary100, alignItems: 'center',
+    backgroundColor: Colors.blue100, alignItems: 'center',
     justifyContent: 'center',
   },
   illustrationTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
@@ -144,7 +149,7 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.8, marginLeft: 2 },
   deviceList: { backgroundColor: Colors.white, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
   deviceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  deviceIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  deviceIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.cyan50, alignItems: 'center', justifyContent: 'center' },
   deviceName: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
   deviceImei: { fontSize: 11, color: Colors.textMuted, fontVariant: ['tabular-nums'] },
   deviceStatus: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },

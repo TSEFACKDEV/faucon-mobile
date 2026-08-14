@@ -44,6 +44,31 @@ export const isRecentlyConnected = (iso?: string | null): boolean => {
   return Date.now() - new Date(iso).getTime() < 10 * 60 * 1000;
 };
 
+// Un dispositif est considéré "hors ligne" quand signal réseau quasi nul et
+// batterie à plat convergent — signe d'un boîtier éteint faute d'énergie,
+// plutôt qu'une simple coupure réseau passagère. Le signal n'étant remonté
+// par le firmware que si le matériel le supporte (champ optionnel), on
+// retombe sur l'ancienneté de la dernière communication quand il est absent
+// — seule information alors disponible.
+export const isDeviceOffline = (
+  pos: { signal?: number; battery: number } | undefined,
+  derniereCommunication?: string | null
+): boolean => {
+  if (!pos) return true;
+  if (pos.signal !== undefined && pos.signal < 12 && pos.battery === 0) return true;
+  return !isRecentlyConnected(derniereCommunication);
+};
+
+// Durée au-delà de laquelle une position qui ne change plus (mêmes lat/lon
+// qu'à la trame précédente) vaut "à l'arrêt" — le firmware ne réémet les
+// coordonnées identiques que lorsque le véhicule est réellement immobile.
+export const STOPPED_THRESHOLD_MS = 10 * 60 * 1000;
+
+export const isDeviceStopped = (lastMovedAt?: string | null): boolean => {
+  if (!lastMovedAt) return false;
+  return Date.now() - new Date(lastMovedAt).getTime() > STOPPED_THRESHOLD_MS;
+};
+
 // trackerId (canal MQTT) est déjà un identifiant lisible ("FCN-0733") ; imei
 // (legacy, canal SMS) ne l'est pas, d'où le raccourci. Les deux sont
 // optionnels côté backend — un traceur MQTT n'a jamais d'imei renseigné.

@@ -1,7 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../constants/colors';
+import { GlowShadow } from '../../theme/shadows';
+import Badge from '../ui/Badge';
+import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
@@ -90,11 +94,18 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
               onPress={() => setSelected(mode.key)}
               activeOpacity={0.8}
             >
+              {isActive && (
+                <LinearGradient
+                  colors={Gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, styles.cardFill]}
+                />
+              )}
+
               {/* Badge actuel */}
               {isCurrent && (
-                <View style={styles.currentBadge}>
-                  <Text style={styles.currentBadgeText}>Actuel</Text>
-                </View>
+                <Badge label="Actuel" tone="accent" style={styles.currentBadge} />
               )}
 
               <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
@@ -147,20 +158,12 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       </View>
 
       {hasChanged && (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+        <Button
+          label={`Appliquer le mode ${selected}`}
           onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.white} size="small" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={18} color={Colors.white} />
-              <Text style={styles.saveBtnText}>Appliquer le mode {selected}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={saving}
+          style={styles.saveBtn}
+        />
       )}
     </View>
   );
@@ -181,18 +184,14 @@ const styles = StyleSheet.create({
     position:        'relative',
     gap:             6,
   },
-  cardActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  cardFill:       { borderRadius: 14 },
+  cardActive:     { borderColor: 'transparent', ...GlowShadow },
 
   currentBadge: {
-    position:          'absolute',
-    top:               10,
-    right:             10,
-    backgroundColor:   Colors.accent,
-    borderRadius:      6,
-    paddingHorizontal: 7,
-    paddingVertical:   2,
+    position: 'absolute',
+    top:      10,
+    right:    10,
   },
-  currentBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.textPrimary },
 
   iconBox: {
     width:          44,
@@ -216,16 +215,5 @@ const styles = StyleSheet.create({
 
   checkmark: { position: 'absolute', bottom: 12, right: 12 },
 
-  saveBtn: {
-    backgroundColor:  Colors.primary,
-    borderRadius:     12,
-    padding:          15,
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'center',
-    gap:              8,
-    marginTop:        4,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText:     { color: Colors.white, fontSize: 15, fontWeight: '600' },
+  saveBtn: { marginTop: 4 },
 });

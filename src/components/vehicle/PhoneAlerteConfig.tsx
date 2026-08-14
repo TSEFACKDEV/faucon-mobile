@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 
@@ -62,20 +63,7 @@ export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Pr
       {erreur && <Text style={styles.erreur}>{erreur}</Text>}
 
       {hasChanged && (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.white} size="small" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={18} color={Colors.white} />
-              <Text style={styles.saveBtnText}>Enregistrer</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <Button label="Enregistrer" onPress={handleSave} loading={saving} style={styles.saveBtn} />
       )}
     </View>
   );
@@ -100,16 +88,5 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: Colors.textPrimary },
   erreur: { fontSize: 12, color: Colors.dangerStrong },
 
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius:    12,
-    padding:         15,
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-    marginTop:       4,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText:     { color: Colors.white, fontSize: 15, fontWeight: '600' },
+  saveBtn: { marginTop: 4 },
 });

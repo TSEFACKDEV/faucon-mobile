@@ -84,7 +84,7 @@ export default function AddDeviceForm({
               <Ionicons
                 name="information-circle-outline"
                 size={16}
-                color={Colors.primary}
+                color={Colors.cyan600}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoTitle}>Comment trouver l'IMEI et le PIN ?</Text>
@@ -121,12 +121,14 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.cyan50,
+    borderWidth: 1,
+    borderColor: Colors.cyan100,
     borderRadius: 10,
     padding: 14,
     alignItems: 'flex-start',
     marginTop: 4,
   },
-  infoTitle: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginBottom: 3 },
-  infoText: { fontSize: 12, color: Colors.primary, lineHeight: 17 },
+  infoTitle: { fontSize: 12, fontWeight: '700', color: Colors.cyan700, marginBottom: 3 },
+  infoText: { fontSize: 12, color: Colors.cyan700, lineHeight: 17 },
 });

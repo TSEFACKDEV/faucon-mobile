@@ -1,10 +1,13 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, TextInput,
+  View, Text, StyleSheet,
+  TextInput,
 } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import Chip from '../ui/Chip';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
@@ -69,7 +72,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
       </Text>
 
       {/* AFFICHAGE SEUIL */}
-      <View style={styles.seuilCard}>
+      <Card variant="elevated" style={styles.seuilCard}>
         <View style={styles.seuilDisplay}>
           <Text style={[styles.seuilValue, { color: seuilColor }]}>{seuil}</Text>
           <Text style={styles.seuilUnit}>km/h</Text>
@@ -91,7 +94,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
           <Text style={styles.barLabel}>100</Text>
           <Text style={styles.barLabel}>200</Text>
         </View>
-      </View>
+      </Card>
 
       {/* SAISIE MANUELLE */}
       <View style={styles.inputRow}>
@@ -113,15 +116,13 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
       <Text style={styles.presetsTitle}>Préréglages rapides</Text>
       <View style={styles.presets}>
         {PRESETS.map(p => (
-          <TouchableOpacity
+          <Chip
             key={p}
-            style={[styles.preset, seuil === p && styles.presetActive]}
+            label={String(p)}
+            selected={seuil === p}
             onPress={() => handlePreset(p)}
-          >
-            <Text style={[styles.presetText, seuil === p && styles.presetTextActive]}>
-              {p}
-            </Text>
-          </TouchableOpacity>
+            style={styles.preset}
+          />
         ))}
       </View>
 
@@ -136,20 +137,12 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
       )}
 
       {/* SAUVEGARDER */}
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+      <Button
+        label={`Appliquer — ${seuil} km/h`}
         onPress={handleSave}
-        disabled={saving || seuil < 10 || seuil > 250}
-      >
-        {saving ? (
-          <ActivityIndicator color={Colors.white} size="small" />
-        ) : (
-          <>
-            <Ionicons name="save-outline" size={18} color={Colors.white} />
-            <Text style={styles.saveBtnText}>Appliquer — {seuil} km/h</Text>
-          </>
-        )}
-      </TouchableOpacity>
+        loading={saving}
+        disabled={seuil < 10 || seuil > 250}
+      />
     </View>
   );
 }
@@ -160,13 +153,9 @@ const styles = StyleSheet.create({
   sub:       { fontSize: 13, color: Colors.textSecondary, lineHeight: 19 },
 
   seuilCard: {
-    backgroundColor: Colors.white,
-    borderRadius:    14,
-    padding:         20,
-    alignItems:      'center',
-    gap:             14,
-    borderWidth:     1,
-    borderColor:     Colors.border,
+    alignItems: 'center',
+    gap:        14,
+    padding:    20,
   },
   seuilDisplay: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   seuilValue:   { fontSize: 56, fontWeight: '700', fontVariant: ['tabular-nums'] },
@@ -210,18 +199,10 @@ const styles = StyleSheet.create({
   presetsTitle: { fontSize: 12, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   preset: {
-    flex:              1,
-    minWidth:          '28%',
-    backgroundColor:   Colors.white,
-    borderRadius:      10,
-    borderWidth:       1,
-    borderColor:       Colors.border,
-    alignItems:        'center',
-    paddingVertical:   10,
+    flex:      1,
+    minWidth:  '28%',
+    alignItems: 'center',
   },
-  presetActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  presetText:       { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  presetTextActive: { color: Colors.white },
 
   currentInfo: {
     flexDirection:   'row',
@@ -232,16 +213,4 @@ const styles = StyleSheet.create({
     padding:         10,
   },
   currentInfoText: { fontSize: 12, color: Colors.primary },
-
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius:    12,
-    padding:         15,
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-  },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText:     { color: Colors.white, fontSize: 15, fontWeight: '600' },
 });

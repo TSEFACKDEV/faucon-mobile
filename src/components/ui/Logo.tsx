@@ -7,26 +7,22 @@ interface LogoProps {
   showWordmark?: boolean;
 }
 
-// Mark géométrique (chevron/aile, ton primary600) — pour un usage sur fond
-// sombre, on affiche le mark dans un chip blanc plutôt que de générer un
-// asset monochrome séparé.
-const MARK = require('../../../assets/mark.png');
+// Mark FAUCON (rapace bleu marine/or). Deux déclinaisons fournies par la
+// marque : une petite version sur fond blanc pour les en-têtes clairs
+// (tone="color"), une version badge sur fond bleu pour les fonds sombres/
+// dégradés (tone="white") — sur ces fonds, le marine du fichier "blanc" se
+// fondrait dans l'arrière-plan.
+const MARK = require('../../../assets/logo/petite-icone-font-blanck.jpeg');
+const MARK_WHITE = require('../../../assets/logo/logo-font-bleu.jpeg');
 
 export default function Logo({ tone = 'color', size = 28, showWordmark = true }: LogoProps) {
   return (
     <View style={styles.row}>
-      {tone === 'white' ? (
-        <View
-          style={[
-            styles.chip,
-            { width: size * 1.35, height: size * 1.35, borderRadius: size * 0.7 },
-          ]}
-        >
-          <Image source={MARK} style={{ width: size, height: size }} resizeMode="contain" />
-        </View>
-      ) : (
-        <Image source={MARK} style={{ width: size, height: size }} resizeMode="contain" />
-      )}
+      <Image
+        source={tone === 'white' ? MARK_WHITE : MARK}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
       {showWordmark && (
         <Text style={[
           styles.wordmark,
@@ -45,13 +41,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  chip: {
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   wordmark: {
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1.5,
   },
 });

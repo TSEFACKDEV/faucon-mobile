@@ -6,7 +6,9 @@ import {
   ViewStyle,
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../constants/colors';
+import { GlowShadow, GlowShadowGold } from '../../theme/shadows';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -15,7 +17,7 @@ interface ButtonProps {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'gold';
   size?: 'sm' | 'md' | 'lg';
   style?: ViewStyle;
 }
@@ -24,6 +26,13 @@ const SIZES: Record<string, { height: number; fontSize: number; radius: number }
   sm: { height: 40, fontSize: 13, radius: 10 },
   md: { height: 52, fontSize: 15, radius: 12 },
   lg: { height: 58, fontSize: 16, radius: 14 },
+};
+
+// Variantes rendues en dégradé glossy (électrique→cyan / or) plutôt qu'en
+// fond plat — cohérent avec l'identité "Tech Falcon".
+const GRADIENT_VARIANTS: Partial<Record<NonNullable<ButtonProps['variant']>, typeof Gradients.primary | typeof Gradients.gold>> = {
+  primary: Gradients.primary,
+  gold: Gradients.gold,
 };
 
 export default function Button({
@@ -37,6 +46,7 @@ export default function Button({
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const s = SIZES[size];
+  const gradientColors = GRADIENT_VARIANTS[variant];
 
   // Micro-interaction "soft" : léger enfoncement au toucher (150ms, ease-out),
   // plutôt qu'un simple fondu d'opacité — cohérent sur tous les boutons de l'app.
@@ -45,12 +55,15 @@ export default function Button({
   const onPressIn  = () => { scale.value = withTiming(0.97, { duration: 120 }); };
   const onPressOut = () => { scale.value = withTiming(1,    { duration: 150 }); };
 
+  const glow = variant === 'primary' ? GlowShadow : variant === 'gold' ? GlowShadowGold : null;
+
   return (
     <AnimatedPressable
       style={[
         styles.base,
         { height: s.height, borderRadius: s.radius },
-        styles[variant],
+        !gradientColors && styles[variant],
+        !isDisabled && glow,
         isDisabled && styles.disabled,
         style,
         animatedStyle,
@@ -60,9 +73,17 @@ export default function Button({
       onPressOut={onPressOut}
       disabled={isDisabled}
     >
+      {gradientColors && (
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: s.radius }]}
+        />
+      )}
       {loading ? (
         <ActivityIndicator
-          color={variant === 'secondary' ? Colors.primary : Colors.white}
+          color={variant === 'secondary' || variant === 'danger' ? Colors.primary : Colors.white}
           size="small"
         />
       ) : (
@@ -79,10 +100,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    overflow: 'hidden',
   },
-  primary: {
-    backgroundColor: Colors.primary,
-  },
+  primary: {},
+  gold: {},
   secondary: {
     backgroundColor: Colors.white,
     borderWidth: 1.5,
@@ -98,11 +119,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   primaryLabel: {
     color: Colors.white,
+  },
+  goldLabel: {
+    color: Colors.primaryDark,
   },
   secondaryLabel: {
     color: Colors.primary,

@@ -4,7 +4,10 @@ import {
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../constants/colors';
+import { GlowShadow } from '../../theme/shadows';
+import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
@@ -66,6 +69,14 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
               style={[styles.dayChip, isActive && styles.dayChipActive]}
               onPress={() => setSelectedDate(day)}
             >
+              {isActive && (
+                <LinearGradient
+                  colors={Gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, styles.dayChipFill]}
+                />
+              )}
               <Text style={[styles.dayChipDay, isActive && styles.dayChipTextActive]}>
                 {isToday ? 'Auj.' : d.toLocaleDateString('fr-FR', { weekday: 'short' })}
               </Text>
@@ -85,10 +96,7 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
         <View style={styles.empty}>
           <Ionicons name="cloud-offline-outline" size={48} color={Colors.dangerStrong} />
           <Text style={[styles.emptyText, { color: Colors.dangerStrong }]}>{loadError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadReport} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="refresh" size={13} color={Colors.white} />
-            <Text style={styles.retryText}>Réessayer</Text>
-          </TouchableOpacity>
+          <Button label="Réessayer" onPress={loadReport} size="sm" style={styles.retryBtn} />
         </View>
       ) : !report ? (
         <View style={styles.empty}>
@@ -163,7 +171,8 @@ const styles = StyleSheet.create({
     borderColor:       Colors.border,
     minWidth:          48,
   },
-  dayChipActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayChipActive:     { borderColor: 'transparent', ...GlowShadow },
+  dayChipFill:       { borderRadius: 10 },
   dayChipDay:        { fontSize: 10, color: Colors.textMuted, fontWeight: '500' },
   dayChipNum:        { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   dayChipTextActive: { color: Colors.white },
@@ -202,14 +211,5 @@ const styles = StyleSheet.create({
   empty:     { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 24 },
 
-  retryBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             6,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical:   8,
-    borderRadius:      18,
-  },
-  retryText: { fontSize: 13, color: Colors.white, fontWeight: '600' },
+  retryBtn: { maxWidth: 200 },
 });

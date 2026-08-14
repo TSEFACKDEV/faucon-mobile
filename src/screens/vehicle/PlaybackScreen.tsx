@@ -7,8 +7,11 @@ import OsmMapView, { OsmPolyline, OsmMarker, OsmMapViewHandle } from '../../comp
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
-import { Colors } from '../../constants/colors';
+import { Colors, Gradients } from '../../constants/colors';
+import { ElevatedShadow, GlowShadow } from '../../theme/shadows';
+import Chip from '../../components/ui/Chip';
 import { vehicleService } from '../../services/vehicleService';
 import { Position } from '../../types';
 import { formatTime, formatSpeed, formatDistance, haversineKm } from '../../utils/formatters';
@@ -165,21 +168,26 @@ export default function PlaybackScreen() {
   if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4], animated: true });
 
   const markers: OsmMarker[] = [];
-  if (positions.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: Colors.primary, label: 'A' });
-  if (positions.length > 1) markers.push({ id: 'end', latitude: futureCoordsList[futureCoordsList.length - 1].latitude, longitude: futureCoordsList[futureCoordsList.length - 1].longitude, color: Colors.warning, label: 'B' });
+  if (pastCoordsList.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: Colors.primary, label: 'A' });
+  if (futureCoordsList.length > 0) markers.push({ id: 'end', latitude: futureCoordsList[futureCoordsList.length - 1].latitude, longitude: futureCoordsList[futureCoordsList.length - 1].longitude, color: Colors.warning, label: 'B' });
   if (currentPos) markers.push({ id: 'current', latitude: currentPos.latitude, longitude: currentPos.longitude, color: Colors.primary, label: '' });
 
   return (
     <View style={styles.container}>
 
       {/* HEADER */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <LinearGradient
+        colors={Gradients.navy}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rejouer le trajet</Text>
         <View style={{ width: 30 }} />
-      </View>
+      </LinearGradient>
 
       {/* SÉLECTEUR DATE */}
       <View style={styles.dateSelector}>
@@ -188,16 +196,12 @@ export default function PlaybackScreen() {
           const date     = new Date(d);
           const isToday  = d === last7[0];
           return (
-            <TouchableOpacity
+            <Chip
               key={d}
-              style={[styles.dateChip, isActive && styles.dateChipActive]}
+              label={isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
+              selected={isActive}
               onPress={() => setSelectedDate(d)}
-              hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
-            >
-              <Text style={[styles.dateChipText, isActive && styles.dateChipTextActive]}>
-                {isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
-              </Text>
-            </TouchableOpacity>
+            />
           );
         })}
       </View>
@@ -286,8 +290,8 @@ export default function PlaybackScreen() {
             value={currentIdx}
             onValueChange={handleSlider}
             minimumTrackTintColor={Colors.primary}
-            maximumTrackTintColor={Colors.border}
-            thumbTintColor={Colors.primary}
+            maximumTrackTintColor={Colors.neutral200}
+            thumbTintColor={Colors.accent}
             step={1}
             disabled={positions.length === 0}
           />
@@ -314,11 +318,18 @@ export default function PlaybackScreen() {
             onPress={handlePlayPause}
             disabled={positions.length === 0}
           >
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={28}
-              color={Colors.white}
-            />
+            <LinearGradient
+              colors={Gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.playBtnFill}
+            >
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={28}
+                color={Colors.white}
+              />
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Sélecteur vitesse */}
@@ -371,7 +382,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.offWhite },
 
   header: {
-    backgroundColor:   Colors.primary,
     paddingBottom:     14,
     paddingHorizontal: 16,
     flexDirection:     'row',
@@ -391,17 +401,6 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     flexWrap:        'wrap',
   },
-  dateChip: {
-    paddingHorizontal: 10,
-    paddingVertical:    5,
-    borderRadius:      16,
-    backgroundColor:   Colors.offWhite,
-    borderWidth:       1,
-    borderColor:       Colors.border,
-  },
-  dateChipActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dateChipText:      { fontSize: 11, color: Colors.textSecondary, fontWeight: '500' },
-  dateChipTextActive:{ color: Colors.white, fontWeight: '700' },
 
   mapContainer: {
     flex:     1,
@@ -433,10 +432,7 @@ const styles = StyleSheet.create({
     gap:             14,
     borderTopWidth:  1,
     borderTopColor:  Colors.border,
-    shadowColor:     '#000',
-    shadowOpacity:   0.06,
-    shadowRadius:    8,
-    elevation:       6,
+    ...ElevatedShadow,
   },
 
   statsRow: {
@@ -470,13 +466,13 @@ const styles = StyleSheet.create({
     width:          60,
     height:         60,
     borderRadius:   30,
-    backgroundColor: Colors.primary,
+    overflow:       'hidden',
+    ...GlowShadow,
+  },
+  playBtnFill: {
+    flex:           1,
     alignItems:     'center',
     justifyContent: 'center',
-    shadowColor:    Colors.primary,
-    shadowOpacity:  0.4,
-    shadowRadius:   8,
-    elevation:      4,
   },
   playBtnDisabled: { opacity: 0.4 },
 

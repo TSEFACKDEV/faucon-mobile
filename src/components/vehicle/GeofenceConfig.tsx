@@ -1,11 +1,14 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, TextInput,
+  View, Text, StyleSheet,
+  TextInput,
 } from 'react-native';
 import { useState } from 'react';
 import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { CardShadow } from '../../theme/shadows';
+import Chip from '../ui/Chip';
+import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
@@ -118,15 +121,13 @@ export default function GeofenceConfig({
         </View>
         <View style={styles.presets}>
           {RAYON_PRESETS.map(p => (
-            <TouchableOpacity
+            <Chip
               key={p}
-              style={[styles.preset, rayon === p && styles.presetActive]}
+              label={p >= 1000 ? `${p/1000}km` : `${p}m`}
+              selected={rayon === p}
               onPress={() => setRayon(p)}
-            >
-              <Text style={[styles.presetText, rayon === p && styles.presetTextActive]}>
-                {p >= 1000 ? `${p/1000}km` : `${p}m`}
-              </Text>
-            </TouchableOpacity>
+              style={styles.preset}
+            />
           ))}
         </View>
       </View>
@@ -142,20 +143,12 @@ export default function GeofenceConfig({
       )}
 
       {/* SAUVEGARDER */}
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+      <Button
+        label="Appliquer la zone"
         onPress={handleSave}
-        disabled={saving || !nom.trim()}
-      >
-        {saving ? (
-          <ActivityIndicator color={Colors.white} size="small" />
-        ) : (
-          <>
-            <Ionicons name="save-outline" size={18} color={Colors.white} />
-            <Text style={styles.saveBtnText}>Appliquer la zone</Text>
-          </>
-        )}
-      </TouchableOpacity>
+        loading={saving}
+        disabled={!nom.trim()}
+      />
     </View>
   );
 }
@@ -179,6 +172,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start',
+    ...CardShadow,
   },
   hintText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
 
@@ -202,18 +196,10 @@ const styles = StyleSheet.create({
 
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   preset: {
-    flex:           1,
-    minWidth:       '28%',
-    backgroundColor: Colors.white,
-    borderRadius:   10,
-    borderWidth:    1,
-    borderColor:    Colors.border,
-    alignItems:     'center',
-    paddingVertical: 10,
+    flex:       1,
+    minWidth:   '28%',
+    alignItems: 'center',
   },
-  presetActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  presetText:       { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  presetTextActive: { color: Colors.white },
 
   currentInfo: {
     flexDirection:   'row',
@@ -224,16 +210,4 @@ const styles = StyleSheet.create({
     padding:         10,
   },
   currentInfoText: { fontSize: 12, color: Colors.primary },
-
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius:    12,
-    padding:         15,
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-  },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText:     { color: Colors.white, fontSize: 15, fontWeight: '600' },
 });
