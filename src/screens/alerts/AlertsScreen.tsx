@@ -215,17 +215,30 @@ export default function AlertsScreen() {
     if (toAcquit.length === 0) return;
     setAcquittingAll(true);
     try {
-      await Promise.allSettled(
+      // Promise.allSettled ne rejette jamais : il faut vérifier le statut de
+      // CHAQUE résultat individuellement, sinon une alarme dont l'appel a
+      // échoué (réseau coupé, 401...) serait quand même marquée "acquittée"
+      // dans l'app alors qu'elle ne l'est pas côté serveur — trompeur sur un
+      // produit anti-vol où une alarme "traitée à tort" peut coûter cher.
+      const results = await Promise.allSettled(
         toAcquit.map(a => vehicleService.acquitAlarme(a.vehiculeId, a.id))
       );
-      const ids = new Set(toAcquit.map(a => a.id));
-      setAllAlarmes(prev => prev.map(a => (ids.has(a.id) ? { ...a, estAcquittee: true } : a)));
-    } catch (err) {
-      console.error('[acquitterTout]', err);
-      useToastStore.getState().show(
-        getErrorMessage(err, 'Impossible de marquer toutes les alertes comme lues. Réessayez.'),
-        'danger'
+      const succeededIds = new Set(
+        toAcquit.filter((_, i) => results[i].status === 'fulfilled').map(a => a.id)
       );
+      const nbFailed = toAcquit.length - succeededIds.size;
+
+      if (succeededIds.size > 0) {
+        setAllAlarmes(prev => prev.map(a => (succeededIds.has(a.id) ? { ...a, estAcquittee: true } : a)));
+      }
+      if (nbFailed > 0) {
+        useToastStore.getState().show(
+          nbFailed === toAcquit.length
+            ? 'Impossible de marquer les alertes comme lues. Vérifiez votre connexion.'
+            : `${nbFailed} alerte(s) n'ont pas pu être marquées comme lues.`,
+          'danger'
+        );
+      }
     } finally {
       setAcquittingAll(false);
     }

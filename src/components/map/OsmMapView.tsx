@@ -735,10 +735,21 @@ const buildHtml = () => `
         } else if (data.type === 'animateTo') {
           if (isValidLatLng(data.latitude, data.longitude)) {
             if (hasView) {
-              map.flyTo([data.latitude, data.longitude], data.zoom || map.getZoom());
+              // data.zoom est un MINIMUM, jamais une valeur imposée : on
+              // zoome pour se rapprocher si besoin, mais on ne dézoome
+              // jamais depuis le niveau que l'utilisateur a choisi lui-même
+              // (pincer pour zoomer, etc.) — un recentrage automatique ou un
+              // tap sur un marqueur ne doit jamais lui faire perdre son zoom.
+              var targetZoom = data.zoom != null ? Math.max(map.getZoom(), data.zoom) : map.getZoom();
+              // setView animé plutôt que flyTo : flyTo dézoome volontairement
+              // en cours de trajet pour "survoler" la distance quand les deux
+              // points sont éloignés à l'écran (comportement Leaflet
+              // documenté) — exactement l'effet de dézoom intempestif signalé,
+              // même quand le zoom de départ et d'arrivée sont identiques.
+              map.setView([data.latitude, data.longitude], targetZoom, { animate: true, duration: 0.6 });
             } else {
               // Pas encore de vue posée (init pas encore traité) : on en pose une
-              // directement plutôt que de laisser flyTo() lever une exception.
+              // directement plutôt que de laisser setView() lever une exception.
               map.setView([data.latitude, data.longitude], data.zoom || 15);
               hasView = true;
             }

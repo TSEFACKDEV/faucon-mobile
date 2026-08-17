@@ -10,8 +10,13 @@ export const registerSchema = Yup.object({
     .email('Email invalide')
     .required('Email requis'),
 
+  // Doit rester aligné sur la règle serveur (server/src/controllers/auth.controller.ts,
+  // register : password.length < 8) — sinon un mot de passe de 6-7
+  // caractères passe la validation locale puis se fait rejeter par le
+  // serveur avec un message générique, après que l'utilisateur ait déjà
+  // rempli tout le formulaire.
   password: Yup.string()
-    .min(6, 'Au moins 6 caractères')
+    .min(8, 'Au moins 8 caractères')
     .required('Mot de passe requis'),
 
   confirmPassword: Yup.string()

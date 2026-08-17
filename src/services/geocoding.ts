@@ -52,8 +52,11 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<string |
     cache.set(key, label);
     return label;
   } catch (err) {
+    // Ne PAS mettre l'échec en cache : un simple aléa réseau figerait
+    // l'adresse sur "inconnue" pour cette zone jusqu'au redémarrage de
+    // l'app, même une fois la connexion revenue. Le prochain appel pour
+    // cette position retentera normalement.
     console.warn('[geocoding] Échec géocodage inverse :', err);
-    cache.set(key, null);
     return null;
   }
 };

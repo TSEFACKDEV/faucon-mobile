@@ -14,6 +14,7 @@ import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { loginSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
@@ -43,7 +44,18 @@ export default function LoginScreen() {
       await setTokens(tokens.accessToken, tokens.refreshToken);
       setUser(user);
     } catch (error: any) {
-      setFieldError('password', getErrorMessage(error, 'Email ou mot de passe incorrect. Vérifiez vos identifiants, puis réessayez.'));
+      const message = getErrorMessage(error, 'Email ou mot de passe incorrect. Vérifiez vos identifiants, puis réessayez.');
+      // Le serveur renvoie volontairement un message générique "Email ou mot
+      // de passe incorrect" sans révéler lequel des deux est en cause
+      // (sécurité) — c'est le seul cas où l'associer au champ mot de passe a
+      // du sens. Une panne réseau/serveur n'est pas une erreur de saisie :
+      // un toast est plus juste qu'un message accroché à un champ qui n'y
+      // est pour rien.
+      if (message.toLowerCase().includes('incorrect')) {
+        setFieldError('password', message);
+      } else {
+        useToastStore.getState().show(message, 'danger');
+      }
     } finally {
       setSubmitting(false);
     }

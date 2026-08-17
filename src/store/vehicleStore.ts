@@ -34,6 +34,13 @@ interface DeviceState {
   // se remontent l'un l'autre en boucle). Ce flag ne dépend que du fait
   // qu'un premier chargement a eu lieu, peu importe son résultat.
   hasFetchedOnce: boolean;
+  // Distinct de `vehicles.length === 0` : un échec réseau/serveur au
+  // chargement laisse `vehicles` vide sans que ce soit une liste "confirmée"
+  // vide — sans cette distinction, AuthenticatedGate ne pouvait pas
+  // différencier "vraiment aucun dispositif" de "le chargement a échoué", et
+  // affichait AddDeviceScreen dans les deux cas (trompeur pour un compte qui
+  // a réellement des traceurs).
+  loadError: string | null;
   // Dernière commande descendante (LOCALISER/MODE/REDEMARRER/RESET_USINE)
   // dont le statut vient de changer, reçue via le socket ("commande_update").
   // Un simple pointeur vers "la dernière" suffit : les écrans intéressés
@@ -43,10 +50,12 @@ interface DeviceState {
   setVehicles:        (vehicles: Device[]) => void;
   updateLivePosition: (data: LivePosition) => void;
   addAlarm:           (alarm: Alarme) => void;
+  setActiveAlarms:    (alarms: Alarme[]) => void;
   setSelectedId:      (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
   setLoading:         (v: boolean) => void;
   setHasFetchedOnce:  (v: boolean) => void;
+  setLoadError:       (e: string | null) => void;
   setLastCommandeUpdate: (c: Commande) => void;
   // À appeler impérativement à la déconnexion : sans ça, les données du
   // compte précédent (vehicles, positions, hasFetchedOnce=true) restent en
@@ -65,6 +74,7 @@ const initialState = {
   activeVehicleId: null as string | null,
   isLoading:     true,
   hasFetchedOnce: false,
+  loadError:     null as string | null,
   lastCommandeUpdate: null as Commande | null,
 };
 
@@ -113,10 +123,18 @@ export const useVehicleStore = create<DeviceState>((set) => ({
       activeAlarms: [alarm, ...state.activeAlarms].slice(0, 100),
     })),
 
+  // Hydrate `activeAlarms` au démarrage via un fetch REST (voir useVehicles) :
+  // sans ça, ce state n'était alimenté QUE par l'événement socket "alarm" —
+  // une alarme déclenchée avant l'ouverture de l'app (ou avant reconnexion
+  // socket) restait invisible sur le Dashboard (marqueur vert, badge à 0)
+  // alors qu'AlertsScreen la montrait bien via son propre fetch REST local.
+  setActiveAlarms: (alarms) => set({ activeAlarms: alarms }),
+
   setSelectedId:      (id) => set({ selectedId: id }),
   setActiveVehicleId: (id) => set({ activeVehicleId: id }),
   setLoading:         (v)  => set({ isLoading: v }),
   setHasFetchedOnce:  (v)  => set({ hasFetchedOnce: v }),
+  setLoadError:       (e)  => set({ loadError: e }),
   setLastCommandeUpdate: (c) => set({ lastCommandeUpdate: c }),
   reset:              ()   => set({ ...initialState }),
 }));

@@ -63,11 +63,24 @@ export default function VehicleDetailScreen() {
     load();
   }, [vehiculeId]);
 
-  // Sync avec les données live du store
+  // Sync avec les données live du store — ne fusionne QUE les champs que
+  // vehicleStore.updateLivePosition met réellement à jour à chaque trame
+  // (derniereCommunication, niveauBatterie). Fusionner tout `storeVehicle`
+  // écrasait aussi modeActuel/limiteVitesse/perimetreGeofence/telephoneAlerte
+  // avec leur valeur STALE du dernier GET /vehicles global : une config
+  // modifiée depuis cet écran (ModeSelector, SpeedLimitConfig,
+  // GeofenceConfig, PhoneAlerteConfig — qui mettent à jour `vehicle` en
+  // local, pas le store global) semblait "revenir en arrière" dès qu'une
+  // nouvelle position arrivait, alors qu'elle était bien enregistrée côté
+  // serveur.
   useEffect(() => {
     const storeVehicle = vehicles.find(v => v.id === vehiculeId);
     if (storeVehicle && vehicle) {
-      setVehicle(prev => prev ? { ...prev, ...storeVehicle } : prev);
+      setVehicle(prev => prev ? {
+        ...prev,
+        derniereCommunication: storeVehicle.derniereCommunication,
+        niveauBatterie: storeVehicle.niveauBatterie,
+      } : prev);
     }
   }, [vehicles]);
 
@@ -119,15 +132,22 @@ export default function VehicleDetailScreen() {
 
   const offline = isDeviceOffline(livePos ?? undefined, vehicle.derniereCommunication);
   const stopped = isDeviceStopped(lastMovedAt[vehiculeId]);
+  const lowBattery = vehicle.niveauBatterie < 20;
 
+  // Tone et label doivent parler de la MÊME chose : `niveauBatterie < 20`
+  // forçait auparavant un badge rouge alors que le libellé restait
+  // "EN MOUVEMENT" — lu comme une alarme de mouvement/connexion alors que
+  // c'était juste la batterie. La batterie faible s'affiche maintenant
+  // explicitement dans le libellé plutôt que via une couleur muette.
   const statusTone: 'danger' | 'success' | 'warning' | 'neutral' =
-    vehicle.niveauBatterie < 20 ? 'danger' :
     offline ? 'neutral' :
+    lowBattery ? 'danger' :
     stopped ? 'warning' :
     'success';
 
   const statusLabel =
     offline ? 'HORS LIGNE' :
+    lowBattery ? 'BATTERIE FAIBLE' :
     stopped ? 'ARRÊTÉ' : 'EN MOUVEMENT';
 
   return (

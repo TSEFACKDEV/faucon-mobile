@@ -68,6 +68,17 @@ export default function ProfileScreen() {
       Alert.alert('Champs requis', 'Le nom et l\'email sont obligatoires.');
       return;
     }
+    // Pas de validation de format auparavant : une adresse mal saisie
+    // partait telle quelle vers le serveur (qui ne la valide pas non plus)
+    // et s'enregistrait invalide sans que rien ne le signale.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert('Email invalide', 'Vérifiez le format de l\'adresse email.');
+      return;
+    }
+    if (telephone.trim() && !/^\+?[0-9\s]{6,20}$/.test(telephone.trim())) {
+      Alert.alert('Téléphone invalide', 'Vérifiez le format du numéro de téléphone.');
+      return;
+    }
     setSaving(true);
     try {
       const updated = await authService.updateProfile({
@@ -108,13 +119,17 @@ export default function ProfileScreen() {
 
   const showStaticInfo = (title: string, message: string) => Alert.alert(title, message);
 
-  // Initiales de l'utilisateur
-  const initials = user?.userName
-    ?.split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) ?? '??';
+  // Initiales de l'utilisateur — la plupart des pseudos FAUCON sont un seul
+  // mot ("johndoe", cf. le placeholder de l'inscription), pas "Prénom Nom" :
+  // découper sur l'espace puis ne garder que la 1re lettre de chaque mot
+  // donnait une seule lettre ("J") au lieu de deux dans ce cas très courant.
+  const initials = (() => {
+    const name = user?.userName?.trim();
+    if (!name) return '??';
+    const words = name.split(/\s+/).filter(Boolean);
+    const letters = words.length > 1 ? words.slice(0, 2).map(w => w[0]) : [...words[0]].slice(0, 2);
+    return letters.join('').toUpperCase();
+  })();
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

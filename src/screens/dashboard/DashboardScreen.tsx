@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import OsmMapView, { OsmMarker, OsmMapViewHandle, OsmPolyline } from '../../components/map/OsmMapView';
+import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Gradients } from '../../constants/colors';
@@ -50,10 +50,6 @@ export default function DashboardScreen() {
   // Mode « suivi » : recentre automatiquement la carte sur le dispositif
   // suivi à chaque nouvelle trame. À couper pour naviguer librement.
   const [follow, setFollow] = useState(true);
-  // Trace du dispositif suivi : points accumulés au fil des trames live.
-  const [liveTrace, setLiveTrace] = useState<OsmPolyline[]>([]);
-  const traceRef = useRef<{ lat: number; lon: number; t: string }[]>([]);
-  const traceVehicleRef = useRef<string | null>(null);
 
   // Store — activeVehicleId est partagé (DevicesScreen peut savoir quel
   // dispositif est actuellement suivi) ; selectedId reste un signal ponctuel
@@ -111,7 +107,14 @@ export default function DashboardScreen() {
           // les infos "à cette position", pas besoin de tout calculer pour les autres.
           popup: isSelected ? {
             title:        vehicle.nom,
-            statusLabel:  hasAlarm ? 'ALARME' : isDeviceStopped(lastMovedAt[vehicle.id]) ? 'ARRÊTÉ' : 'EN MOUVEMENT',
+            // Même ordre de priorité que DevicesScreen/VehicleDetailScreen :
+            // hors ligne doit primer sur "arrêté"/"en mouvement", sinon un
+            // dispositif hors ligne affichait ce statut en gros dans la
+            // popup, la mention "Hors ligne" n'apparaissant qu'en petit sur
+            // la ligne de connexion en dessous.
+            statusLabel:  hasAlarm ? 'ALARME'
+              : isDeviceOffline(pos, vehicle.derniereCommunication) ? 'HORS LIGNE'
+              : isDeviceStopped(lastMovedAt[vehicle.id]) ? 'ARRÊTÉ' : 'EN MOUVEMENT',
             statusColor:  '#fff',
             updatedLabel: `Mis à jour à ${formatTime(pos.horodatage)}`,
             // "Connecté" = signal réseau et batterie encore vivants (ou, à
@@ -194,41 +197,33 @@ export default function DashboardScreen() {
   }, [selectedPos?.latitude, selectedPos?.longitude]);
 
   const mapRef = useRef<OsmMapViewHandle | null>(null);
+  // Incrémenté à chaque sélection EXPLICITE (tap sur un marqueur, choix dans
+  // le menu de dispositifs) — permet de forcer un recentrage même en
+  // retapant le dispositif déjà suivi, sans dépendre de `selectedId` seul
+  // (qui, lui, ne change pas dans ce cas).
+  const [focusRequest, setFocusRequest] = useState(0);
 
-  // Trace temps réel : chaque nouvelle trame du dispositif suivi prolonge la
-  // ligne bleue (dédupliquée par horodatage, bornée à 500 points). Le tracé
-  // repart de zéro quand on change de dispositif.
+  // Centrage sur une sélection (nouvelle, ou retapée explicitement) — centre
+  // et zoome une seule fois. Ne dépend PAS de la position qui arrive en
+  // continu : sans ça, cet effet se redéclencherait à chaque nouvelle trame
+  // du même véhicule, en plus de l'effet de suivi continu ci-dessous, et les
+  // deux appels à `animateToCoordinate` se marchaient dessus (la carte
+  // semblait "se réinitialiser" à chaque tap).
   useEffect(() => {
-    if (traceVehicleRef.current !== selectedId) {
-      traceVehicleRef.current = selectedId ?? null;
-      traceRef.current = [];
-    }
-    if (!selectedPos) { setLiveTrace([]); return; }
-    const last = traceRef.current[traceRef.current.length - 1];
-    if (last && last.t === selectedPos.horodatage) return;
-    traceRef.current = [
-      ...traceRef.current,
-      { lat: selectedPos.latitude, lon: selectedPos.longitude, t: selectedPos.horodatage },
-    ].slice(-500);
-    setLiveTrace(
-      traceRef.current.length >= 2
-        ? [{
-            id: 'live-trace',
-            coords: traceRef.current.map(p => ({ latitude: p.lat, longitude: p.lon })),
-            color: Colors.accent,
-            weight: 4,
-          }]
-        : []
-    );
-  }, [selectedId, selectedPos?.horodatage]);
+    if (!selectedId || !mapRef.current) return;
+    const pos = livePositions[selectedId];
+    if (!pos) return;
+    mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, FOLLOW_ZOOM);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, focusRequest]);
 
-  // Suivi : recentre ET zoome la carte sur le dispositif à chaque déplacement
-  // (y compris au tout premier chargement, dès que sa position — live ou
-  // dernière connue — devient disponible) pour que l'utilisateur retrouve
-  // directement son traceur sans avoir à chercher/zoomer lui-même.
+  // Suivi continu : une fois le dispositif déjà centré ci-dessus, ne fait
+  // plus que le SUIVRE en pan à chaque nouvelle position (aucun argument de
+  // zoom) — jamais de changement de zoom ici, pour ne pas défaire un zoom
+  // que l'utilisateur a choisi lui-même entre deux trames.
   useEffect(() => {
     if (!follow || !selectedPos || !mapRef.current) return;
-    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude, FOLLOW_ZOOM);
+    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [follow, selectedPos?.latitude, selectedPos?.longitude]);
 
@@ -244,10 +239,9 @@ export default function DashboardScreen() {
 
   const handleMarkerPress = (vehicleId: string) => {
     setSelectedId(vehicleId);
-    const pos = livePositions[vehicleId];
-    if (pos && mapRef.current) {
-      mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, FOLLOW_ZOOM);
-    }
+    // Déclenche l'effet de centrage ci-dessus même si `vehicleId` est déjà le
+    // dispositif suivi (selectedId ne changerait alors pas tout seul).
+    setFocusRequest(n => n + 1);
     // La popup ne peut s'ouvrir qu'une fois le marqueur du véhicule sélectionné
     // resynchronisé avec ses données (voir mapMarkers) — un court délai suffit
     // pour laisser le message "updateMarkers" atteindre la WebView avant "openPopup".
@@ -274,11 +268,15 @@ export default function DashboardScreen() {
     }
   };
 
-  // Région initiale centrée sur Yaoundé
+  // Région initiale centrée sur Yaoundé. Se redéclenche aussi si le véhicule
+  // suivi a été supprimé depuis un autre onglet (ex: Dispositifs) pendant que
+  // le Dashboard reste monté en mémoire — sans le check `stillExists`,
+  // `selectedId` restait pointé sur un id mort (aucune re-sélection auto,
+  // l'écran retombait sur "Sélectionner un dispositif" sans se rétablir).
   useEffect(() => {
-    if (!selectedId && vehicles.length > 0) {
-      setSelectedId(vehicles[0].id);
-    }
+    if (vehicles.length === 0) return;
+    const stillExists = !!selectedId && vehicles.some(v => v.id === selectedId);
+    if (!stillExists) setSelectedId(vehicles[0].id);
   }, [selectedId, vehicles]);
 
   // Un autre onglet (ex: Dispositifs → "Position") a demandé le focus sur un véhicule précis.
@@ -311,7 +309,6 @@ export default function DashboardScreen() {
         tileUrlTemplate={activeMapStyle.buildUrl(activeMapKey)}
         attribution={activeMapStyle.attribution}
         markers={markersWithUser}
-        polylines={liveTrace}
         selectedId={selectedId ?? undefined}
         onMarkerPress={handleMarkerPress}
         onPopupAction={handlePopupAction}

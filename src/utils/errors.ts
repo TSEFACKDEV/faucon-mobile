@@ -19,6 +19,11 @@ const TECHNIQUE_PATTERN =
 
 const generiqueParStatut = (status: number | undefined): string | null => {
   switch (status) {
+    case 401:
+      // api.ts tente déjà un rafraîchissement automatique avant d'abandonner
+      // et de déconnecter — si ce message s'affiche, la session est
+      // réellement terminée (pas un simple aléa réseau).
+      return 'Session expirée. Reconnectez-vous pour continuer.';
     case 403:
       return 'Accès refusé : vous n’avez pas la permission d’effectuer cette action.';
     case 404:

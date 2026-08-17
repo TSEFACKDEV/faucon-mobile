@@ -4,9 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
 import { useAuthStore } from '../store/authStore';
+import { getSocketInstance, setSocketInstance, disconnectSocket } from '../services/socketClient';
 import { Alarme, Commande } from '../types';
-
-let socketInstance: Socket | null = null;
 
 export const useSocket = (vehiculeIds: string[]) => {
   const socketRef = useRef<Socket | null>(null);
@@ -20,23 +19,32 @@ export const useSocket = (vehiculeIds: string[]) => {
       const token = await SecureStore.getItemAsync(Config.TOKEN_KEY);
       if (!token) return;
 
+      const existing = getSocketInstance();
       // Réutilise la connexion existante si elle est active
-      if (socketInstance?.connected) {
-        socketInstance.emit('subscribe', vehiculeIds);
-        socketRef.current = socketInstance;
+      if (existing?.connected) {
+        existing.emit('subscribe', vehiculeIds);
+        socketRef.current = existing;
         return;
       }
 
       // Une instance précédente existe mais n'est pas (ou plus) connectée :
       // on la déconnecte proprement avant d'en créer une nouvelle, pour
       // éviter les connexions fantômes qui continueraient de pousser des données.
-      if (socketInstance) {
-        socketInstance.disconnect();
-        socketInstance = null;
+      if (existing) {
+        disconnectSocket();
       }
 
       const socket = io(Config.SOCKET_URL, {
-        auth:             { token },
+        // Fonction plutôt qu'un objet figé : relue à CHAQUE tentative de
+        // connexion/reconnexion (socket.io-client l'invoque à chaque essai),
+        // pour que le socket utilise toujours le token le plus récent —
+        // sinon un token capturé une seule fois ici expire pendant que le
+        // socket continue de tenter de se reconnecter automatiquement, et
+        // toutes les reconnexions échouent silencieusement (juste un
+        // console.warn) sans qu'aucun écran ne le signale.
+        auth: (cb) => {
+          SecureStore.getItemAsync(Config.TOKEN_KEY).then((t) => cb({ token: t }));
+        },
         transports:       ['websocket'],
         reconnection:     true,
         reconnectionDelay: 2000,
@@ -72,7 +80,7 @@ export const useSocket = (vehiculeIds: string[]) => {
         console.warn('[WS] Erreur connexion :', err.message);
       });
 
-      socketInstance  = socket;
+      setSocketInstance(socket);
       socketRef.current = socket;
     };
 
@@ -80,14 +88,10 @@ export const useSocket = (vehiculeIds: string[]) => {
 
     return () => {
       // On garde la connexion active entre les écrans
-      // On ne déconnecte que sur logout
+      // On ne déconnecte que sur logout (authStore.logout appelle
+      // disconnectSocket — voir services/socketClient.ts)
     };
   }, [isAuthenticated, vehiculeIds.join(',')]);
 
-  const disconnect = () => {
-    socketInstance?.disconnect();
-    socketInstance = null;
-  };
-
-  return { disconnect };
+  return { disconnect: disconnectSocket };
 };

@@ -7,13 +7,14 @@ interface LogoProps {
   showWordmark?: boolean;
 }
 
-// Mark FAUCON (rapace bleu marine/or). Deux déclinaisons fournies par la
-// marque : une petite version sur fond blanc pour les en-têtes clairs
-// (tone="color"), une version badge sur fond bleu pour les fonds sombres/
-// dégradés (tone="white") — sur ces fonds, le marine du fichier "blanc" se
-// fondrait dans l'arrière-plan.
-const MARK = require('../../../assets/logo/petite-icone-font-blanck.jpeg');
-const MARK_WHITE = require('../../../assets/logo/logo-font-bleu.jpeg');
+// Mark FAUCON : un rapace stylisé en piqué (silhouette ailes en flèche +
+// tête ronde, œil et bec dorés) sur fond TRANSPARENT — dessiné pour ce
+// projet (voir mobile/assets/logo). Deux déclinaisons : dégradé marine→bleu→
+// cyan pour les fonds clairs (tone="color"), blanc uni pour les fonds
+// sombres/dégradés (tone="white"), où le dégradé marine se fondrait sinon
+// dans l'arrière-plan.
+const MARK = require('../../../assets/logo/falcon-mark-color.png');
+const MARK_WHITE = require('../../../assets/logo/falcon-mark-white.png');
 
 export default function Logo({ tone = 'color', size = 28, showWordmark = true }: LogoProps) {
   return (

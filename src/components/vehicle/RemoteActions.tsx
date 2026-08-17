@@ -48,6 +48,13 @@ const ACTIONS: {
   },
 ];
 
+// Filet de sécurité local : au-delà de ce délai sans confirmation socket
+// (app mise en arrière-plan pendant l'attente, coupure réseau...), on
+// débloque le bouton nous-mêmes plutôt que de compter uniquement sur le
+// TIMEOUT émis par le serveur — qui ne peut jamais arriver si le socket est
+// déconnecté au moment où le serveur l'émettrait.
+const CLIENT_TIMEOUT_MS = 30_000;
+
 export default function RemoteActions({ vehiculeId }: Props) {
   const [enAttente, setEnAttente] = useState<Record<CodeCommande, EnAttente | undefined>>({} as any);
   const lastCommandeUpdate = useVehicleStore((s) => s.lastCommandeUpdate);
@@ -55,14 +62,35 @@ export default function RemoteActions({ vehiculeId }: Props) {
   // devoir le relancer à chaque frappe de setEnAttente (évite une boucle).
   const enAttenteRef = useRef(enAttente);
   enAttenteRef.current = enAttente;
+  const timersRef = useRef<Partial<Record<CodeCommande, ReturnType<typeof setTimeout>>>>({});
+
+  const clearTimer = (code: CodeCommande) => {
+    const t = timersRef.current[code];
+    if (t) {
+      clearTimeout(t);
+      delete timersRef.current[code];
+    }
+  };
+
+  useEffect(() => () => {
+    Object.values(timersRef.current).forEach((t) => t && clearTimeout(t));
+  }, []);
 
   useEffect(() => {
     if (!lastCommandeUpdate) return;
+    // Tant que le POST /commandes n'a pas répondu, l'entrée en attente a
+    // encore id === '' (voir declencher ci-dessous). Sur un réseau mobile
+    // variable, la confirmation socket peut arriver AVANT que la promesse
+    // HTTP ne se résolve — sans ce repli sur codeCommande, le match par id
+    // échouait alors silencieusement et le bouton restait bloqué en
+    // "En attente…" indéfiniment.
     const match = Object.values(enAttenteRef.current).find(
-      (c) => c && c.id === lastCommandeUpdate.id
+      (c) => c && (c.id === lastCommandeUpdate.id ||
+        (c.id === '' && c.codeCommande === lastCommandeUpdate.codeCommande))
     );
     if (!match) return;
 
+    clearTimer(match.codeCommande);
     setEnAttente((prev) => ({ ...prev, [match.codeCommande]: undefined }));
 
     if (lastCommandeUpdate.statutExecution === 'SUCCESS') {
@@ -82,7 +110,30 @@ export default function RemoteActions({ vehiculeId }: Props) {
     setEnAttente((prev) => ({ ...prev, [code]: { id: '', codeCommande: code, label } }));
     try {
       const commande = await vehicleService.sendCommande(vehiculeId, code);
-      setEnAttente((prev) => ({ ...prev, [code]: { id: commande.id, codeCommande: code, label } }));
+      let stillPending = true;
+      setEnAttente((prev) => {
+        const current = prev[code];
+        // Le repli par codeCommande (effet ci-dessus) peut déjà avoir résolu
+        // et effacé cette entrée pendant que ce POST était en vol — ne pas la
+        // remettre en attente dans ce cas.
+        if (!current || current.id !== '') {
+          stillPending = false;
+          return prev;
+        }
+        return { ...prev, [code]: { id: commande.id, codeCommande: code, label } };
+      });
+      if (stillPending) {
+        timersRef.current[code] = setTimeout(() => {
+          setEnAttente((prev) => {
+            if (prev[code]?.id !== commande.id) return prev;
+            return { ...prev, [code]: undefined };
+          });
+          Alert.alert(
+            'Pas de réponse',
+            `${label} : aucune confirmation reçue (connexion perdue ou app mise en arrière-plan). Vérifie l'état du traceur avant de réessayer.`
+          );
+        }, CLIENT_TIMEOUT_MS);
+      }
     } catch (err: any) {
       setEnAttente((prev) => ({ ...prev, [code]: undefined }));
       Alert.alert(

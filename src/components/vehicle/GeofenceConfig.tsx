@@ -2,7 +2,7 @@ import {
   View, Text, StyleSheet,
   TextInput,
 } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import OsmMapView from '../../components/map/OsmMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -43,6 +43,19 @@ export default function GeofenceConfig({
   });
   const [rayon,   setRayon]  = useState(current?.rayonMetres ?? 500);
   const [saving,  setSaving] = useState(false);
+
+  // `center` n'était initialisé qu'une seule fois au montage (useState). Si
+  // l'onglet "Zone" s'ouvre avant qu'une position live n'arrive (dispositif
+  // tout juste ajouté, pas encore de fix GPS), le centre retombait sur
+  // Yaoundé codé en dur et ne se resynchronisait jamais même une fois
+  // `vehiclePosition` reçu — risque d'enregistrer une zone centrée sur
+  // Yaoundé en pensant qu'elle l'est sur le véhicule. On resynchronise tant
+  // qu'il n'y a ni zone déjà enregistrée, ni déplacement manuel du repère.
+  const touchedRef = useRef(false);
+  useEffect(() => {
+    if (current || touchedRef.current || !vehiclePosition) return;
+    setCenter({ latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude });
+  }, [vehiclePosition, current]);
 
   const handleSave = async () => {
     if (!nom.trim()) return;
@@ -88,7 +101,7 @@ export default function GeofenceConfig({
             { id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.info, label: 'Véhicule' },
           ] : []}
           editableCircle={{ center, radiusMeters: rayon, color: Colors.primary }}
-          onCircleChange={(newCenter) => setCenter(newCenter)}
+          onCircleChange={(newCenter) => { touchedRef.current = true; setCenter(newCenter); }}
         />
 
         {/* Indication d'usage */}

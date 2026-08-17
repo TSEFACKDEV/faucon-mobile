@@ -42,11 +42,22 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
   };
 
   const handleSave = async () => {
-    if (seuil < 10 || seuil > 250) return;
+    // `seuil` ne reflète que le dernier CHIFFRE valide tapé — si le champ
+    // affiche une valeur hors plage (ex. "5"), `seuil` reste silencieusement
+    // sur l'ancienne valeur valide, différente de ce que l'utilisateur voit
+    // à l'écran. On revalide depuis le texte affiché au moment d'enregistrer,
+    // plutôt que d'enregistrer une valeur que l'utilisateur n'a pas sous les
+    // yeux.
+    const parsed = parseInt(input, 10);
+    if (isNaN(parsed) || parsed < 10 || parsed > 250) {
+      useToastStore.getState().show('Entrez une valeur entre 10 et 250 km/h.', 'danger');
+      return;
+    }
     setSaving(true);
     try {
-      await vehicleService.setSpeedLimit(vehiculeId, seuil);
-      onUpdated({ seuilKmh: seuil, estActive: true });
+      await vehicleService.setSpeedLimit(vehiculeId, parsed);
+      setSeuil(parsed);
+      onUpdated({ seuilKmh: parsed, estActive: true });
     } catch (err) {
       console.error('[SpeedLimitConfig]', err);
       useToastStore.getState().show(

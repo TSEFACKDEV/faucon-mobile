@@ -4,7 +4,7 @@
     "slug": "faucon",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/logo-font-bleu.jpeg",
+    "icon": "./assets/logo/falcon-icon.png",
     "ios": {
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FAUCON utilise votre position pour calculer la distance avec vos équipements.",
@@ -23,7 +23,7 @@
       ],
       "package": "com.faucon.tracking",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo/logo-font-bleu.jpeg",
+        "foregroundImage": "./assets/logo/falcon-icon-foreground.png",
         "backgroundColor": "#002D72"
       }
     },
@@ -37,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo/grande-icone-font-blanc.jpeg",
+          "image": "./assets/logo/falcon-splash.png",
           "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#002D72"

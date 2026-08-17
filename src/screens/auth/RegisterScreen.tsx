@@ -14,6 +14,7 @@ import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { registerSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
+import { useToastStore } from '../../store/toastStore';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
@@ -23,6 +24,19 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+
+// Le serveur renvoie un message métier ciblé ("Cet email est déjà utilisé",
+// "Ce nom d'utilisateur est déjà pris", "Le mot de passe doit contenir au
+// moins 8 caractères"...) — on le rattache au champ qu'il concerne
+// réellement plutôt que systématiquement à "email", sinon un message sur le
+// nom d'utilisateur ou le mot de passe s'affichait sous le mauvais champ.
+const routeRegisterError = (message: string): 'userName' | 'email' | 'password' | null => {
+  const m = message.toLowerCase();
+  if (m.includes('utilisateur') || m.includes('pseudo')) return 'userName';
+  if (m.includes('email') || m.includes('e-mail')) return 'email';
+  if (m.includes('mot de passe')) return 'password';
+  return null;
+};
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -57,7 +71,15 @@ export default function RegisterScreen() {
       setUser(user);
     } catch (error: any) {
       console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
-      setFieldError('email', getErrorMessage(error, 'Impossible de créer votre compte pour le moment. Réessayez dans un instant.'));
+      const message = getErrorMessage(error, 'Impossible de créer votre compte pour le moment. Réessayez dans un instant.');
+      const field = routeRegisterError(message);
+      if (field) {
+        setFieldError(field, message);
+      } else {
+        // Panne réseau/serveur : pas une erreur de saisie, un message
+        // accroché à un champ au hasard serait trompeur.
+        useToastStore.getState().show(message, 'danger');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +120,7 @@ export default function RegisterScreen() {
                 <View>
                   <InputField name="userName" label="Nom d'utilisateur" icon="person-outline" placeholder="johndoe" autoComplete="username" />
                   <InputField name="email" label="Adresse email" icon="mail-outline" placeholder="john@email.com" keyboardType="email-address" autoComplete="email" />
-                  <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Min. 6 caractères" isPassword autoComplete="new-password" />
+                  <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Min. 8 caractères" isPassword autoComplete="new-password" />
                   <InputField name="confirmPassword" label="Confirmer le mot de passe" icon="shield-checkmark-outline" placeholder="Répéter le mot de passe" isPassword />
 
                   <Button label="S'inscrire" onPress={() => handleSubmit()} loading={isSubmitting} size="lg" style={styles.submitBtn} />

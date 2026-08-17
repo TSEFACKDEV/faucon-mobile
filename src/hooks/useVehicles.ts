@@ -7,7 +7,7 @@ import { useToastStore } from '../store/toastStore';
 export const useVehicles = () => {
   const {
     vehicles, setVehicles, setLoading, isLoading, updateLivePosition,
-    hasFetchedOnce, setHasFetchedOnce,
+    hasFetchedOnce, setHasFetchedOnce, loadError, setLoadError, setActiveAlarms,
   } = useVehicleStore();
 
   const fetchVehicles = useCallback(async () => {
@@ -15,6 +15,7 @@ export const useVehicles = () => {
     try {
       const data = await vehicleService.getVehicles();
       setVehicles(data);
+      setLoadError(null);
 
       // Pré-remplit la dernière position connue en base pour chaque dispositif.
       // Sans ça, un véhicule reste invisible sur la carte tant qu'aucun nouvel
@@ -38,12 +39,27 @@ export const useVehicles = () => {
           });
         }
       });
+
+      // Idem pour les alarmes actives : sans ce fetch initial, une alarme
+      // déclenchée avant l'ouverture de l'app (ou avant reconnexion socket)
+      // n'apparaissait jamais sur le Dashboard (marqueur rouge, badge cloche).
+      const alarmResults = await Promise.allSettled(
+        data.map(v => vehicleService.getAlarmes(v.id))
+      );
+      const nonAcquittees = alarmResults
+        .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof vehicleService.getAlarmes>>> => r.status === 'fulfilled')
+        .flatMap(r => r.value)
+        .filter(a => !a.estAcquittee);
+      setActiveAlarms(nonAcquittees);
     } catch (err) {
       console.error('[useVehicles]', err);
-      useToastStore.getState().show(
-        getErrorMessage(err, 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.'),
-        'danger'
-      );
+      const message = getErrorMessage(err, 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.');
+      // Distinct de "0 dispositif" : voir loadError dans vehicleStore.ts —
+      // sans ça, AuthenticatedGate affichait AddDeviceScreen à un
+      // utilisateur dont le chargement a simplement échoué, alors qu'il a
+      // peut-être bien des traceurs.
+      setLoadError(message);
+      useToastStore.getState().show(message, 'danger');
     } finally {
       setLoading(false);
       setHasFetchedOnce(true);
@@ -66,5 +82,5 @@ export const useVehicles = () => {
     }
   }, []);
 
-  return { vehicles, isLoading, refetch: fetchVehicles };
+  return { vehicles, isLoading, loadError, refetch: fetchVehicles };
 };

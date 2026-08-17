@@ -1,4 +1,6 @@
 import api from './api';
+import * as SecureStore from 'expo-secure-store';
+import { Config } from '../constants/config';
 import { AuthTokens, User } from '../types';
 
 interface ApiResponse<T> {
@@ -62,6 +64,10 @@ export const authService = {
   },
 
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
+    // Transmet le refresh token pour que le serveur le révoque explicitement
+    // (supprime la ligne RefreshToken) plutôt que de le laisser utilisable
+    // jusqu'à son expiration naturelle (7 jours) après une déconnexion.
+    const refreshToken = await SecureStore.getItemAsync(Config.REFRESH_KEY);
+    await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined);
   },
 };
