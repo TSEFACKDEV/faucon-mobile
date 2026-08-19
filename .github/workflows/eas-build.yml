@@ -39,6 +39,12 @@ jobs:
 
       # push sur main → build de production (autoIncrement)
       # pull request → build preview (APK interne)
+      #
+      # --clear-cache : sans ce flag, EAS peut réutiliser un cache de build
+      # (par empreinte de dépendances natives) datant d'un build antérieur
+      # cassé — vécu en prod le 19/08/2026 avec react-native-worklets
+      # (mismatch JS/plugin Babel, absent en dev mais présent sur CE build
+      # précis), alors qu'aucune dépendance native n'avait changé depuis.
       - name: Build on EAS
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
@@ -46,4 +52,4 @@ jobs:
           else
             PROFILE=preview
           fi
-          eas build --platform android --profile "$PROFILE" --non-interactive --message "GitHub Actions - ${{ github.sha }}"
+          eas build --platform android --profile "$PROFILE" --non-interactive --clear-cache --message "GitHub Actions - ${{ github.sha }}"
