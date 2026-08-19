@@ -77,10 +77,6 @@ export const vehicleService = {
     return data.data;
   },
 
-  addVehicle: async (imei: string, nom: string): Promise<void> => {
-  await api.post('/vehicles', { imei, nom });
-},
-
   updateVehicle: async (id: string, changes: { nom?: string; image?: string }): Promise<Vehicle> => {
     const { data } = await api.put(`/vehicles/${id}`, changes);
     return data.data;

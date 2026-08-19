@@ -2,8 +2,8 @@ import {
   View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { useState, useEffect } from 'react';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -63,16 +63,31 @@ export default function VehicleDetailScreen() {
     load();
   }, [vehiculeId]);
 
-  // Sync avec les données live du store — ne fusionne QUE les champs que
-  // vehicleStore.updateLivePosition met réellement à jour à chaque trame
-  // (derniereCommunication, niveauBatterie). Fusionner tout `storeVehicle`
-  // écrasait aussi modeActuel/limiteVitesse/perimetreGeofence/telephoneAlerte
-  // avec leur valeur STALE du dernier GET /vehicles global : une config
-  // modifiée depuis cet écran (ModeSelector, SpeedLimitConfig,
-  // GeofenceConfig, PhoneAlerteConfig — qui mettent à jour `vehicle` en
-  // local, pas le store global) semblait "revenir en arrière" dès qu'une
-  // nouvelle position arrivait, alors qu'elle était bien enregistrée côté
-  // serveur.
+  // Refresh silencieux quand l'écran reprend le focus (retour depuis un
+  // autre écran) ou périodiquement toutes les 30s pour que modeActuel,
+  // limiteVitesse, etc. ne soient jamais trop éloignés de la réalité.
+  const refreshSilently = useCallback(async () => {
+    try {
+      const data = await vehicleService.getVehicleById(vehiculeId);
+      setVehicle(data);
+    } catch { /* silencieux — le chargement initial a déjà affiché l'état */ }
+  }, [vehiculeId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSilently();
+    }, [refreshSilently])
+  );
+
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval>>(null);
+  useEffect(() => {
+    refreshTimerRef.current = setInterval(refreshSilently, 30_000);
+    return () => clearInterval(refreshTimerRef.current);
+  }, [refreshSilently]);
+
+  // Sync avec les données live du store — resynchronise les champs que
+  // vehicleStore.updateLivePosition met à jour à chaque trame (contact,
+  // batterie) ainsi que modeActuel qui peut changer via le firmware.
   useEffect(() => {
     const storeVehicle = vehicles.find(v => v.id === vehiculeId);
     if (storeVehicle && vehicle) {
@@ -80,6 +95,7 @@ export default function VehicleDetailScreen() {
         ...prev,
         derniereCommunication: storeVehicle.derniereCommunication,
         niveauBatterie: storeVehicle.niveauBatterie,
+        modeActuel: storeVehicle.modeActuel,
       } : prev);
     }
   }, [vehicles]);

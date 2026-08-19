@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
@@ -879,7 +879,13 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     scan: runScan,
   }));
 
-  const handleMessage = (event: WebViewMessageEvent) => {
+  // `useCallback` (pas une fonction inline) : `onMessage`/`onError` sont des
+  // props natives de la WebView — leur passer une nouvelle référence à
+  // chaque render fait ré-enregistrer le callback côté pont natif sans
+  // libérer le précédent (fuite documentée de react-native-webview),
+  // aggravée ici par le fait que OsmMapView re-render à chaque trame de
+  // position reçue.
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'ready') {
@@ -903,7 +909,12 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     } catch {
       // ignore messages malformés
     }
-  };
+  }, [onMarkerPress, onPopupAction, onCircleChange]);
+
+  const handleWebViewError = useCallback((e: { nativeEvent: unknown }) => {
+    console.warn('OsmMapView WebView error', e.nativeEvent);
+    setLoadError("La carte n'a pas pu se charger.");
+  }, []);
 
   // Init une fois la WebView prête (envoie thème, région, tuiles, marqueurs initiaux)
   useEffect(() => {
@@ -964,10 +975,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
         javaScriptEnabled
         domStorageEnabled
         onMessage={handleMessage}
-        onError={(e) => {
-          console.warn('OsmMapView WebView error', e.nativeEvent);
-          setLoadError("La carte n'a pas pu se charger.");
-        }}
+        onError={handleWebViewError}
       />
 
       {floatingControls ? (

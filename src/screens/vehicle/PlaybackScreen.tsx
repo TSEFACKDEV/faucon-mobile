@@ -2,7 +2,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import OsmMapView, { OsmPolyline, OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,33 +80,40 @@ export default function PlaybackScreen() {
 
   useEffect(() => { loadPositions(); }, [loadPositions]);
 
-  // Moteur de lecture
+  // Moteur de lecture — on évite d'appeler setIsPlaying() à l'intérieur
+  // d'un updater de setState (setCurrentIdx) : c'est un anti-pattern qui
+  // peut provoquer des timing imprévisibles dans les batches React. On lit
+  // plutôt l'index via un ref et on agit après l'update.
+  const positionsRef = useRef(positions);
+  positionsRef.current = positions;
+
   useEffect(() => {
     if (!isPlaying) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
 
-    // Avancer de 1 position toutes les (1000ms / speed)
     intervalRef.current = setInterval(() => {
-      setCurrentIdx(prev => {
-        if (prev >= positions.length - 1) {
-          setIsPlaying(false);
+      const pos = positionsRef.current;
+      setCurrentIdx((prev) => {
+        if (prev >= pos.length - 1) {
+          // Hors du updater : on arrête la lecture proprement
+          clearInterval(intervalRef.current ?? undefined);
+          intervalRef.current = null;
+          requestAnimationFrame(() => setIsPlaying(false));
           return prev;
         }
         const next = prev + 1;
-
-        // Centrer la carte sur la nouvelle position
-        if (mapRef.current && positions[next]) {
+        if (mapRef.current && pos[next]) {
           const zoom = zoomForDelta(0.02);
-          mapRef.current.animateToCoordinate(positions[next].latitude, positions[next].longitude, zoom);
+          mapRef.current.animateToCoordinate(pos[next].latitude, pos[next].longitude, zoom);
         }
         return next;
       });
     }, 1000 / speed);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isPlaying, speed, positions]);
+  }, [isPlaying, speed]);
 
   const handlePlayPause = () => {
     if (currentIdx >= positions.length - 1) {
@@ -136,13 +143,18 @@ export default function PlaybackScreen() {
     }
   };
 
-  // Calcul distance totale parcourue jusqu'à currentIdx (Haversine, en km)
-  const parcouru = positions.slice(0, currentIdx + 1);
-  const distanceParcourueKm = parcouru.reduce((acc, pos, i) => {
-    if (i === 0) return acc;
-    const prev = parcouru[i - 1];
-    return acc + haversineKm(prev.latitude, prev.longitude, pos.latitude, pos.longitude);
-  }, 0);
+  // Calcul distance totale parcourue jusqu'à currentIdx (Haversine, en km).
+  // useMemo évite de recalculer ce reduce à chaque render — pour un historique
+  // de 30 jours à 30s d'intervalle (~86k points), c'est significatif.
+  const distanceParcourueKm = useMemo(() => {
+    let acc = 0;
+    for (let i = 1; i <= currentIdx && i < positions.length; i++) {
+      const prev = positions[i - 1];
+      const cur  = positions[i];
+      acc += haversineKm(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
+    }
+    return acc;
+  }, [positions, currentIdx]);
 
   // Coordonnées pour la polyline (tracé passé en opaque, futur en transparent)
   const pastCoords  = positions.slice(0, currentIdx + 1).map(p => ({
@@ -160,16 +172,13 @@ export default function PlaybackScreen() {
   });
 
   // build markers and polylines for OsmMapView
-  const pastCoordsList = pastCoords.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
-  const futureCoordsList = futureCoords.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
-
   const polylines: OsmPolyline[] = [];
-  if (pastCoordsList.length > 1) polylines.push({ id: 'past', coords: pastCoordsList, color: Colors.primary, weight: 3 });
-  if (futureCoordsList.length > 1) polylines.push({ id: 'future', coords: futureCoordsList, color: Colors.border, weight: 2, dashArray: [6,4], animated: true });
+  if (pastCoords.length > 1) polylines.push({ id: 'past', coords: pastCoords, color: Colors.primary, weight: 3 });
+  if (futureCoords.length > 1) polylines.push({ id: 'future', coords: futureCoords, color: Colors.border, weight: 2, dashArray: [6,4], animated: true });
 
   const markers: OsmMarker[] = [];
-  if (pastCoordsList.length > 0) markers.push({ id: 'start', latitude: pastCoordsList[0].latitude, longitude: pastCoordsList[0].longitude, color: Colors.primary, label: 'A' });
-  if (futureCoordsList.length > 0) markers.push({ id: 'end', latitude: futureCoordsList[futureCoordsList.length - 1].latitude, longitude: futureCoordsList[futureCoordsList.length - 1].longitude, color: Colors.warning, label: 'B' });
+  if (pastCoords.length > 0) markers.push({ id: 'start', latitude: pastCoords[0].latitude, longitude: pastCoords[0].longitude, color: Colors.primary, label: 'A' });
+  if (futureCoords.length > 0) markers.push({ id: 'end', latitude: futureCoords[futureCoords.length - 1].latitude, longitude: futureCoords[futureCoords.length - 1].longitude, color: Colors.warning, label: 'B' });
   if (currentPos) markers.push({ id: 'current', latitude: currentPos.latitude, longitude: currentPos.longitude, color: Colors.primary, label: '' });
 
   return (

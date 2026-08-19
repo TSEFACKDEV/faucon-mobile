@@ -13,7 +13,6 @@ import { Spacing, Radius } from '../../constants/spacing';
 import Logo from '../../components/ui/Logo';
 import AppText from '../../components/ui/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import AddDeviceForm from '../../components/forms/AddDeviceForm';
 import { useVehicles } from '../../hooks/useVehicles';
 
@@ -33,20 +32,21 @@ export default function AddDeviceScreen() {
     <LinearGradient colors={Gradients.navy} style={styles.flex}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // Voir LoginScreen.tsx : sur Android, adjustResize (natif, défaut
+        // Expo) redimensionne déjà la fenêtre à l'ouverture du clavier —
+        // cumuler "height" ici double le recalcul de mise en page et
+        // provoquait une boucle de focus/blur sur les champs.
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
-            <Animated.View entering={FadeIn.duration(500)}>
-              <Logo tone="white" size={36} />
-            </Animated.View>
+            <Logo tone="white" size={36} />
           </View>
 
-          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
+          <View style={styles.card}>
             <View style={styles.illustrationRing}>
               <View style={styles.illustration}>
                 <Ionicons name="hardware-chip-outline" size={40} color={Colors.primary} />
@@ -66,7 +66,7 @@ export default function AddDeviceScreen() {
             </View>
 
             <AddDeviceForm onSuccess={handleAddDeviceSuccess} />
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>

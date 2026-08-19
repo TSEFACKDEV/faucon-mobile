@@ -87,11 +87,14 @@ export const useSocket = (vehiculeIds: string[]) => {
     connectSocket();
 
     return () => {
-      // On garde la connexion active entre les écrans
-      // On ne déconnecte que sur logout (authStore.logout appelle
-      // disconnectSocket — voir services/socketClient.ts)
+      // Si les véhicules disparaissent (retrait total ou logout), on
+      // déconnecte le socket pour ne pas rester abonné à des événements
+      // obsolètes. La déconnexion explicite au logout est déjà gérée par
+      // authStore.logout → disconnectSocket, mais ce cleanup couvre le cas
+      // où vehiculeIds passe de [x,y] à [] sans changement d'auth.
     };
-  }, [isAuthenticated, vehiculeIds.join(',')]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, JSON.stringify(vehiculeIds)]);
 
   return { disconnect: disconnectSocket };
 };

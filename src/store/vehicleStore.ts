@@ -1,5 +1,14 @@
 import { create } from 'zustand';
 import { Device, Position, Alarme, Commande } from '../types';
+import { haversineKm } from '../utils/formatters';
+
+// En dessous de ce seuil, un déplacement entre deux trames est considéré
+// comme du bruit GPS (le traceur filtre déjà par médiane à l'arrêt — voir
+// traiterFixGPS dans le firmware — mais le résultat varie quand même de
+// quelques mètres d'une trame à l'autre, surtout avec un ciel partiellement
+// obstrué). Nettement en dessous du seuil d'envoi "en mouvement" du firmware
+// (DISTANCE_ENVOI_M = 50m) pour ne jamais rater un vrai déplacement.
+const SEUIL_MOUVEMENT_M = 15;
 
 interface LivePosition {
   vehiculeId:  string;
@@ -89,13 +98,12 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   updateLivePosition: (data) =>
     set((state) => {
       const previous = state.livePositions[data.vehiculeId];
-      // "Bougé" = position réellement différente de la précédente (pas juste
-      // une nouvelle trame) — le firmware ne renvoie les mêmes coordonnées à
-      // l'identique que lorsque le véhicule est immobile (cf. constants.ts
-      // du firmware). Première trame reçue = considérée comme "vient de bouger".
+      // "Bougé" = déplacement réel au-delà du bruit GPS résiduel, pas une
+      // simple différence de coordonnées : deux fixes GPS successifs ne sont
+      // jamais bit-à-bit identiques, même à l'arrêt (voir SEUIL_MOUVEMENT_M).
+      // Première trame reçue = considérée comme "vient de bouger".
       const hasMoved = !previous
-        || previous.latitude !== data.latitude
-        || previous.longitude !== data.longitude;
+        || haversineKm(previous.latitude, previous.longitude, data.latitude, data.longitude) * 1000 >= SEUIL_MOUVEMENT_M;
 
       return {
         livePositions: {
@@ -119,9 +127,23 @@ export const useVehicleStore = create<DeviceState>((set) => ({
     }),
 
   addAlarm: (alarm) =>
-    set((state) => ({
-      activeAlarms: [alarm, ...state.activeAlarms].slice(0, 100),
-    })),
+    set((state) => {
+      // Évite les doublons si la même alarme arrive par socket ET par fetch
+      // REST (ex: reconnexion après mise en arrière-plan). On matche sur
+      // l'id serveur (alarm.id) et, à défaut, sur le couple
+      // (vehiculeId + typeAlarme + horodatage) pour les alarmes sans id stable.
+      const alreadyExists = state.activeAlarms.some(
+        (a) =>
+          a.id === alarm.id ||
+          (a.vehiculeId === alarm.vehiculeId &&
+           a.typeAlarme === alarm.typeAlarme &&
+           a.horodatage === alarm.horodatage)
+      );
+      if (alreadyExists) return state;
+      return {
+        activeAlarms: [alarm, ...state.activeAlarms].slice(0, 100),
+      };
+    }),
 
   // Hydrate `activeAlarms` au démarrage via un fetch REST (voir useVehicles) :
   // sans ça, ce state n'était alimenté QUE par l'événement socket "alarm" —

@@ -14,21 +14,13 @@ export interface Device {
   modeActuel: 'WORK' | 'MOVE' | 'STANDBY';
   niveauBatterie: number;
   estActif: boolean;
+  joursActifs: number;
   derniereCommunication?: string;
-  // Numéro qui reçoit les SMS d'alerte envoyés directement par le traceur
-  // (choc, conduite brutale, premier fix...) — indépendant du compte.
   telephoneAlerte?: string | null;
   limiteVitesse?: {
     seuilKmh: number;
     estActive: boolean;
   } | null;
-  geofence?: {
-    nom: string;
-    centreLat: number;
-    centreLon: number;
-    rayonMetres: number;
-    estActif: boolean;
-  };
   perimetreGeofence?: {
     nom: string;
     centreLat: number;
@@ -54,20 +46,6 @@ export interface Position {
   niveauSignal?: number | null;
   statutACC: boolean;
   horodatage: string;
-}
-
-export interface LivePositionPayload {
-  vehiculeId: string;
-  latitude: number;
-  longitude: number;
-  vitesse: number;
-  cap?: number;
-  battery: number;
-  satellites?: number;
-  signal?: number;
-  horodatage: string;
-  source?: string;
-  eventType?: string;
 }
 
 export interface Alarme {

@@ -1,9 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator }   from '@react-navigation/bottom-tabs';
+import { NavigatorScreenParams } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { useVehicleStore } from '../store/vehicleStore';
 import AddDeviceFromProfileScreen from '../screens/profile/AddDeviceFromProfileScreen'
 import DashboardScreen      from '../screens/dashboard/DashboardScreen';
 import DevicesScreen        from '../screens/devices/DevicesScreen';
@@ -16,7 +18,11 @@ import PlaybackScreen       from '../screens/vehicle/PlaybackScreen';
 // ── Stack pour les écrans liés aux véhicules ────────────────────
 export type VehicleStackParamList = {
   VehicleDetail: { vehiculeId: string };
-  Playback:      { vehiculeId: string };
+  // date optionnelle : HistoryScreen y navigue depuis un trajet passé précis
+  // (voir PlaybackScreen, qui l'utilise pour présélectionner le bon jour) ;
+  // les autres appelants (Dashboard, Dispositifs) n'en passent pas, la
+  // lecture démarre alors sur aujourd'hui.
+  Playback:      { vehiculeId: string; date?: string };
 };
 
 const VehicleStack = createNativeStackNavigator<VehicleStackParamList>();
@@ -31,7 +37,11 @@ const VehicleNavigator = () => (
 // ── Stack racine avec tabs + vehicules ─────────────────────────
 export type RootStackParamList = {
   Tabs:          undefined;
-  VehicleStack:  { vehiculeId: string };
+  // Navigateur imbriqué : tous les appelants y naviguent via la forme
+  // { screen, params } (voir Dashboard/Dispositifs/Historique), jamais avec
+  // des params à plat — le type doit refléter ça, pas les params d'un écran
+  // précis de la pile.
+  VehicleStack:  NavigatorScreenParams<VehicleStackParamList>;
   AddDeviceFromProfile: undefined;
 };
 
@@ -42,6 +52,8 @@ const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
+  const activeAlarms = useVehicleStore((s) => s.activeAlarms);
+  const unreadCount = activeAlarms.filter(a => !a.estAcquittee).length;
   // Budget réel pour l'icône + le label (hors paddingTop), volontairement
   // généreux : un tab bar natif a besoin d'environ 50-56px de contenu pur.
   // + la zone de sécurité réelle de l'appareil (encoche/barre d'accueil) en
@@ -91,7 +103,7 @@ const TabNavigator = () => {
       <Tab.Screen name="Carte"       component={DashboardScreen} />
       <Tab.Screen name="Dispositifs" component={DevicesScreen}   />
       <Tab.Screen name="Historique"  component={HistoryScreen}   />
-      <Tab.Screen name="Alertes"     component={AlertsScreen}    />
+      <Tab.Screen name="Alertes"     component={AlertsScreen}    options={unreadCount > 0 ? { tabBarBadge: unreadCount } : undefined} />
       <Tab.Screen name="Profil"      component={ProfileScreen}   />
     </Tab.Navigator>
   );

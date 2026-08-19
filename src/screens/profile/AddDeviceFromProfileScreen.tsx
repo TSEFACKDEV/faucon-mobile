@@ -41,11 +41,14 @@ export default function AddDeviceFromProfileScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Voir LoginScreen.tsx : sur Android, adjustResize (natif, défaut
+      // Expo) redimensionne déjà la fenêtre à l'ouverture du clavier —
+      // cumuler "height" ici double le recalcul de mise en page et
+      // provoquait une boucle de focus/blur sur les champs.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* HEADER */}

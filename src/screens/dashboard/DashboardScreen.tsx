@@ -87,8 +87,11 @@ export default function DashboardScreen() {
         if (!pos) return null;
         const hasAlarm = alarmsByVehicle[vehicle.id] ?? false;
         const isSelected = vehicle.id === selectedId;
-        // Couleur du marqueur : vert (OK) par défaut, rouge si alarme active.
-        const statusColor = hasAlarm ? Colors.danger : Colors.primary;
+        const offline = isDeviceOffline(pos, vehicle.derniereCommunication);
+        // Couleur du marqueur : bleu par défaut, rouge si alarme active
+        // ET traceur encore en ligne. Un traceur hors ligne avec alarme
+        // reste bleu — l'alarme sera visible dans l'écran Alertes.
+        const statusColor = (hasAlarm && !offline) ? Colors.danger : Colors.primary;
 
         return {
           id: vehicle.id,
@@ -361,13 +364,6 @@ export default function DashboardScreen() {
             })}
           >
             <Ionicons name="options-outline" size={22} color={Colors.white} />
-            {activeAlarms.filter(a => !a.estAcquittee).length > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {activeAlarms.filter(a => !a.estAcquittee).length}
-                </Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -592,24 +588,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     padding:   4,
   },
-  bellBadge: {
-    position:        'absolute',
-    top:             0,
-    right:           0,
-    backgroundColor: Colors.dangerStrong,
-    borderRadius:    8,
-    minWidth:        16,
-    height:          16,
-    alignItems:      'center',
-    justifyContent:  'center',
-    borderWidth:     1.5,
-    borderColor:     Colors.primaryDark,
-  },
-  bellBadgeText: {
-    fontSize:   9,
-    color:      Colors.white,
-    fontWeight: '700',
-  },
 
   // SCAN — coin supérieur gauche, empilé sous le bouton calques de la carte
   // (voir OsmMapView : layersWrap, top = insets.top + 72, 44px de haut).
@@ -724,13 +702,6 @@ const styles = StyleSheet.create({
     fontWeight:   '700',
     color:        Colors.textPrimary,
     marginBottom: Spacing.lg,
-  },
-  mapOptionsSection: {
-    fontSize:      11,
-    fontWeight:    '700',
-    color:         Colors.textMuted,
-    letterSpacing: 0.8,
-    marginBottom:  8,
   },
   optionRow: {
     flexDirection:     'row',

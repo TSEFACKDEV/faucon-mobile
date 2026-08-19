@@ -4,13 +4,22 @@ import { useVehicleStore } from '../store/vehicleStore';
 import { getErrorMessage } from '../utils/errors';
 import { useToastStore } from '../store/toastStore';
 
+// Partagé entre TOUTES les instances du hook (AuthenticatedGate, Dashboard,
+// Dispositifs l'utilisent chacun séparément) — au niveau du module, pas d'un
+// ref local, pour dédupliquer un appel concurrent quelle que soit son
+// origine. Sans ça, plusieurs composants montés en même temps (ou plusieurs
+// refetch() rapprochés, ex: AppState) déclenchaient chacun leur propre
+// fetchVehicles — chaque appel valant 1 + 2×N requêtes /vehicles (position +
+// alarmes par dispositif) — au risque de dépasser la limite de débit serveur.
+let fetchInFlight: Promise<void> | null = null;
+
 export const useVehicles = () => {
   const {
     vehicles, setVehicles, setLoading, isLoading, updateLivePosition,
     hasFetchedOnce, setHasFetchedOnce, loadError, setLoadError, setActiveAlarms,
   } = useVehicleStore();
 
-  const fetchVehicles = useCallback(async () => {
+  const doFetch = useCallback(async () => {
     setLoading(true);
     try {
       const data = await vehicleService.getVehicles();
@@ -66,21 +75,22 @@ export const useVehicles = () => {
     }
   }, []);
 
+  const fetchVehicles = useCallback(async () => {
+    if (fetchInFlight) return fetchInFlight;
+    fetchInFlight = doFetch();
+    try {
+      await fetchInFlight;
+    } finally {
+      fetchInFlight = null;
+    }
+  }, [doFetch]);
+
   useEffect(() => {
-    // `isLoading`/`vehicles` sont un état global (zustand) : ce hook est monté
-    // à la fois par AuthenticatedGate (gate de navigation) et par
-    // DashboardScreen/AddDeviceScreen (affichage). Une garde sur
-    // `vehicles.length === 0` ne suffit pas : un utilisateur qui a
-    // réellement zéro dispositif garde cette condition vraie pour toujours,
-    // ce qui relance un fetch à chaque montage et fait boucler
-    // AuthenticatedGate <-> AddDeviceScreen indéfiniment. `hasFetchedOnce` ne
-    // dépend que du fait qu'un premier chargement a eu lieu, peu importe son
-    // résultat. Le rafraîchissement explicite (pull-to-refresh, après ajout
-    // d'appareil, etc.) passe par `refetch()`.
     if (!hasFetchedOnce) {
       fetchVehicles();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { vehicles, isLoading, loadError, refetch: fetchVehicles };
+  return { vehicles, isLoading, hasFetchedOnce, loadError, refetch: fetchVehicles };
 };

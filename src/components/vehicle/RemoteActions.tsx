@@ -6,6 +6,7 @@ import { GlowShadowCyan } from '../../theme/shadows';
 import { vehicleService } from '../../services/vehicleService';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { getErrorMessage } from '../../utils/errors';
+import { isDeviceOffline } from '../../utils/formatters';
 import { CodeCommande } from '../../types';
 
 interface Props {
@@ -58,6 +59,11 @@ const CLIENT_TIMEOUT_MS = 30_000;
 export default function RemoteActions({ vehiculeId }: Props) {
   const [enAttente, setEnAttente] = useState<Record<CodeCommande, EnAttente | undefined>>({} as any);
   const lastCommandeUpdate = useVehicleStore((s) => s.lastCommandeUpdate);
+  const livePositions = useVehicleStore((s) => s.livePositions);
+  const vehicles = useVehicleStore((s) => s.vehicles);
+  const pos = livePositions[vehiculeId];
+  const vehicle = vehicles.find(v => v.id === vehiculeId);
+  const offline = isDeviceOffline(pos, vehicle?.derniereCommunication);
   // Copie stable des commandes en attente, lue dans l'effet ci-dessous sans
   // devoir le relancer à chaque frappe de setEnAttente (évite une boucle).
   const enAttenteRef = useRef(enAttente);
@@ -110,19 +116,21 @@ export default function RemoteActions({ vehiculeId }: Props) {
     setEnAttente((prev) => ({ ...prev, [code]: { id: '', codeCommande: code, label } }));
     try {
       const commande = await vehicleService.sendCommande(vehiculeId, code);
-      let stillPending = true;
+      // On utilise un ref pour lire l'état "post-updater" sans fermer sur
+      // une variable locale (closure fragile si React batching diffère).
+      let settled = false;
       setEnAttente((prev) => {
         const current = prev[code];
-        // Le repli par codeCommande (effet ci-dessus) peut déjà avoir résolu
-        // et effacé cette entrée pendant que ce POST était en vol — ne pas la
-        // remettre en attente dans ce cas.
         if (!current || current.id !== '') {
-          stillPending = false;
+          settled = true;
           return prev;
         }
         return { ...prev, [code]: { id: commande.id, codeCommande: code, label } };
       });
-      if (stillPending) {
+      // settled === true signifie que l'entrée a déjà été résolue par
+      // l'effet socket (match par codeCommande) pendant le POST → pas de
+      // timer de sécurité nécessaire.
+      if (!settled) {
         timersRef.current[code] = setTimeout(() => {
           setEnAttente((prev) => {
             if (prev[code]?.id !== commande.id) return prev;
@@ -144,6 +152,13 @@ export default function RemoteActions({ vehiculeId }: Props) {
   };
 
   const handlePress = (action: typeof ACTIONS[number]) => {
+    if (offline) {
+      Alert.alert(
+        'Traceur hors ligne',
+        'Le traceur n\'est pas connecté. La commande ne pourra pas lui être livrée tant qu\'il ne sera pas de retour en ligne.'
+      );
+      return;
+    }
     if (action.confirmTitre) {
       Alert.alert(action.confirmTitre, action.confirmMessage, [
         { text: 'Annuler', style: 'cancel' },

@@ -14,7 +14,7 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuthStore } from '../../store/authStore';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { useSocket } from '../../hooks/useSocket';
+import { disconnectSocket } from '../../services/socketClient';
 import { authService } from '../../services/authService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
@@ -50,7 +50,6 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, logout, setUser } = useAuthStore();
   const { vehicles } = useVehicleStore();
-  const { disconnect } = useSocket([]);
 
   const [nom,       setNom]       = useState(user?.userName ?? '');
   const [email,     setEmail]     = useState(user?.email ?? '');
@@ -75,7 +74,7 @@ export default function ProfileScreen() {
       Alert.alert('Email invalide', 'Vérifiez le format de l\'adresse email.');
       return;
     }
-    if (telephone.trim() && !/^\+?[0-9\s]{6,20}$/.test(telephone.trim())) {
+    if (telephone.trim() && !/^(\+[1-9]\d{7,14}|00[1-9]\d{9,15})$/.test(telephone.trim().replace(/\s/g, ''))) {
       Alert.alert('Téléphone invalide', 'Vérifiez le format du numéro de téléphone.');
       return;
     }
@@ -105,7 +104,7 @@ export default function ProfileScreen() {
           text: 'Déconnecter',
           style: 'destructive',
           onPress: async () => {
-            disconnect();
+            disconnectSocket();
             try {
               await logout();
             } catch {

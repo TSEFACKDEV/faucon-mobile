@@ -6,7 +6,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Formik, FormikHelpers } from 'formik';
+import { useState } from 'react';
+import * as Yup from 'yup';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -23,7 +24,6 @@ import { Colors, Gradients } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 // Le serveur renvoie un message métier ciblé ("Cet email est déjà utilisé",
 // "Ce nom d'utilisateur est déjà pris", "Le mot de passe doit contenir au
@@ -40,27 +40,62 @@ const routeRegisterError = (message: string): 'userName' | 'email' | 'password' 
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
-const initialValues = {
+type RegisterValues = {
+  userName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
+const initialValues: RegisterValues = {
   userName: '',
   email: '',
   password: '',
   confirmPassword: '',
 };
 
+// State local (comme le formulaire "Informations personnelles" de
+// ProfileScreen) plutôt que Formik : chaque champ ne dépend que de son
+// propre state, aucun contexte de formulaire partagé ne re-rend les champs
+// voisins à chaque frappe — c'est ce couplage qui provoquait le vol de focus
+// entre champs observé avec l'ancienne implémentation Formik.
 export default function RegisterScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { setUser, setTokens } = useAuthStore();
 
-  const handleRegister = async (
-    values: typeof initialValues,
-    { setSubmitting, setFieldError }: FormikHelpers<typeof initialValues>
-  ) => {
+  const [values, setValues] = useState<RegisterValues>(initialValues);
+  const [errors, setErrors] = useState<Partial<RegisterValues>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const setField = (name: keyof RegisterValues) => (text: string) => {
+    setValues((v) => ({ ...v, [name]: text }));
+  };
+
+  const handleRegister = async () => {
+    setErrors({});
+
+    let validated: RegisterValues;
+    try {
+      validated = await registerSchema.validate(values, { abortEarly: false });
+    } catch (err) {
+      const fieldErrors: Partial<RegisterValues> = {};
+      if (err instanceof Yup.ValidationError) {
+        err.inner.forEach((e) => {
+          const path = e.path as keyof RegisterValues | undefined;
+          if (path && !fieldErrors[path]) fieldErrors[path] = e.message;
+        });
+      }
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const response = await authService.register({
-        userName: values.userName,
-        email: values.email,
-        password: values.password,
+        userName: validated.userName,
+        email: validated.email,
+        password: validated.password,
       });
 
       const { user, tokens } = response;
@@ -74,7 +109,7 @@ export default function RegisterScreen() {
       const message = getErrorMessage(error, 'Impossible de créer votre compte pour le moment. Réessayez dans un instant.');
       const field = routeRegisterError(message);
       if (field) {
-        setFieldError(field, message);
+        setErrors((e) => ({ ...e, [field]: message }));
       } else {
         // Panne réseau/serveur : pas une erreur de saisie, un message
         // accroché à un champ au hasard serait trompeur.
@@ -85,58 +120,88 @@ export default function RegisterScreen() {
     }
   };
 
+  const content = (
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+        <View style={styles.headerContent}>
+          <Logo tone="white" size={44} />
+          <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
+            Voir · Surveiller · Contrôler
+          </AppText>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <AppText variant="h1" style={styles.title}>Créer un compte</AppText>
+        <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
+          Inscrivez-vous pour commencer le suivi
+        </AppText>
+
+        <View>
+          <InputField
+            label="Nom d'utilisateur"
+            icon="person-outline"
+            placeholder="johndoe"
+            autoComplete="username"
+            value={values.userName}
+            onChangeText={setField('userName')}
+            error={errors.userName}
+          />
+          <InputField
+            label="Adresse email"
+            icon="mail-outline"
+            placeholder="john@email.com"
+            keyboardType="email-address"
+            autoComplete="email"
+            value={values.email}
+            onChangeText={setField('email')}
+            error={errors.email}
+          />
+          <InputField
+            label="Mot de passe"
+            icon="lock-closed-outline"
+            placeholder="Min. 8 caractères"
+            isPassword
+            autoComplete="new-password"
+            value={values.password}
+            onChangeText={setField('password')}
+            error={errors.password}
+          />
+          <InputField
+            label="Confirmer le mot de passe"
+            icon="shield-checkmark-outline"
+            placeholder="Répéter le mot de passe"
+            isPassword
+            value={values.confirmPassword}
+            onChangeText={setField('confirmPassword')}
+            error={errors.confirmPassword}
+          />
+
+          <Button label="S'inscrire" onPress={handleRegister} loading={submitting} size="lg" style={styles.submitBtn} />
+        </View>
+
+        <View style={styles.loginRow}>
+          <AppText variant="body" color={Colors.textSecondary}>Déjà un compte ? </AppText>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <AppText variant="bodyBold" color={Colors.accentDark}>Se connecter</AppText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <LinearGradient colors={Gradients.navy} style={styles.flex}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
-            <Animated.View entering={FadeIn.duration(500)} style={styles.headerContent}>
-              <Logo tone="white" size={44} />
-              <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
-                Voir · Surveiller · Contrôler
-              </AppText>
-            </Animated.View>
-          </View>
-
-          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.card}>
-            <AppText variant="h1" style={styles.title}>Créer un compte</AppText>
-            <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-              Inscrivez-vous pour commencer le suivi
-            </AppText>
-
-            <Formik
-              initialValues={initialValues}
-              validationSchema={registerSchema}
-              onSubmit={handleRegister}
-            >
-              {({ handleSubmit, isSubmitting }) => (
-                <View>
-                  <InputField name="userName" label="Nom d'utilisateur" icon="person-outline" placeholder="johndoe" autoComplete="username" />
-                  <InputField name="email" label="Adresse email" icon="mail-outline" placeholder="john@email.com" keyboardType="email-address" autoComplete="email" />
-                  <InputField name="password" label="Mot de passe" icon="lock-closed-outline" placeholder="Min. 8 caractères" isPassword autoComplete="new-password" />
-                  <InputField name="confirmPassword" label="Confirmer le mot de passe" icon="shield-checkmark-outline" placeholder="Répéter le mot de passe" isPassword />
-
-                  <Button label="S'inscrire" onPress={() => handleSubmit()} loading={isSubmitting} size="lg" style={styles.submitBtn} />
-                </View>
-              )}
-            </Formik>
-
-            <View style={styles.loginRow}>
-              <AppText variant="body" color={Colors.textSecondary}>Déjà un compte ? </AppText>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <AppText variant="bodyBold" color={Colors.accentDark}>Se connecter</AppText>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView style={styles.flex} behavior="padding">
+          {content}
+        </KeyboardAvoidingView>
+      ) : (
+        content
+      )}
     </LinearGradient>
   );
 }

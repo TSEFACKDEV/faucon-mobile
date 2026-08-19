@@ -5,7 +5,7 @@ import { Colors } from '../../constants/colors';
 import { authService } from '../../services/authService';
 import { addDeviceSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
-import InputField from '../ui/InputField';
+import InputField from '../ui/FormikInputField';
 import Button from '../ui/Button';
 
 export interface AddDeviceFormValues {

@@ -12,8 +12,10 @@ interface Props {
   onUpdated: (telephone: string) => void;
 }
 
-// Même règle que côté serveur : format international minimal (+237...).
-const NUMERO_REGEX = /^\+[1-9]\d{7,14}$/;
+// Accepte les formats internationaux courants : +237672894291, +237 672 894 291,
+// 00237672894291. Le serveur valide aussi côté API, cette regex est un filet
+// local pour éviter des allers-retours inutiles.
+const NUMERO_REGEX = /^(\+[1-9]\d{7,14}|00[1-9]\d{9,15})$/;
 
 export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Props) {
   const [valeur,  setValeur]  = useState(current ?? '');

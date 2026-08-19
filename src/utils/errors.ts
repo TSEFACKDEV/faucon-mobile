@@ -25,7 +25,7 @@ const generiqueParStatut = (status: number | undefined): string | null => {
       // réellement terminée (pas un simple aléa réseau).
       return 'Session expirée. Reconnectez-vous pour continuer.';
     case 403:
-      return 'Accès refusé : vous n’avez pas la permission d’effectuer cette action.';
+      return "Accès refusé : vous n'avez pas la permission d'effectuer cette action.";
     case 404:
       return 'Élément introuvable ou supprimé. Actualisez la liste, puis réessayez.';
     case 429:

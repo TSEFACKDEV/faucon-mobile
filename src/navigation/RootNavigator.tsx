@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../store/authStore';
 import { useOnboardingStore } from '../store/onboardingStore';
@@ -39,7 +39,7 @@ const LoadErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
 // GET /vehicles) ne soit jamais monté/exécuté tant que l'utilisateur n'est
 // pas authentifié — pas de requête gaspillée avant connexion.
 function AuthenticatedGate() {
-  const { vehicles, isLoading, loadError, refetch } = useVehicles();
+  const { vehicles, isLoading, hasFetchedOnce, loadError, refetch } = useVehicles();
 
   // Quand l'OS suspend l'app (mise en arrière-plan), le socket temps réel se
   // coupe généralement ; tout événement (position, alarme, confirmation de
@@ -49,14 +49,32 @@ function AuthenticatedGate() {
   // RemoteActions) pouvait rester bloquée en "attente" pour toujours, et les
   // positions/alarmes affichées restaient périmées jusqu'à la prochaine
   // trame en direct.
+  //
+  // On ne redéclenche que sur une VRAIE transition vers "active" (depuis un
+  // état différent), pas sur un simple événement "active" répété : certains
+  // appareils (constaté sur MIUI) émettent plusieurs événements "active"
+  // consécutifs autour d'une boîte de dialogue système (ex: demande de
+  // permission de localisation), ce qui déclenchait autant de refetch en
+  // rafale — jusqu'à dépasser la limite de débit serveur (429) et faire
+  // clignoter l'écran de chargement en boucle.
+  const appStateRef = useRef(AppState.currentState);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') refetch();
+      if (state === 'active' && appStateRef.current !== 'active') refetch();
+      appStateRef.current = state;
     });
     return () => sub.remove();
   }, [refetch]);
 
-  if (isLoading) return <LoadingScreen />;
+  // Uniquement au tout premier chargement — PAS à chaque refetch() en
+  // arrière-plan (retour au premier plan, socket reconnecté...). `isLoading`
+  // seul basculait ici sur chaque rafraîchissement, ce qui démontait puis
+  // remontait tout MainNavigator (donc DashboardScreen, sa WebView carte,
+  // le socket...) à répétition : sur certains appareils, ce cycle rapide
+  // de montage/démontage de la WebView est ce qui accumulait des fragments
+  // natifs orphelins jusqu'à un crash Android (TransactionTooLargeException)
+  // suivi d'un redémarrage de l'app — perçu comme un rechargement en boucle.
+  if (isLoading && !hasFetchedOnce) return <LoadingScreen />;
 
   // Échec de chargement (pas une liste vide confirmée) : proposer de
   // réessayer plutôt qu'afficher AddDeviceScreen, qui laisserait croire à
