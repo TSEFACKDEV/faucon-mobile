@@ -7,18 +7,36 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development"
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_SOCKET_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_MAPTILER_KEY": "iF6VvIYG95QOqnMoBoyg",
+        "EXPO_PUBLIC_STADIA_KEY": "cec837b1-9e33-4edf-a8df-b2742183c903"
+      }
     },
     "preview": {
       "distribution": "internal",
       "environment": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_SOCKET_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_MAPTILER_KEY": "iF6VvIYG95QOqnMoBoyg",
+        "EXPO_PUBLIC_STADIA_KEY": "cec837b1-9e33-4edf-a8df-b2742183c903"
       }
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_SOCKET_URL": "https://169.58.69.36.sslip.io",
+        "EXPO_PUBLIC_MAPTILER_KEY": "iF6VvIYG95QOqnMoBoyg",
+        "EXPO_PUBLIC_STADIA_KEY": "cec837b1-9e33-4edf-a8df-b2742183c903"
+      }
     }
   },
   "submit": {
