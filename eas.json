@@ -7,7 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://169.58.69.36.sslip.io",
         "EXPO_PUBLIC_SOCKET_URL": "https://169.58.69.36.sslip.io",
@@ -17,7 +16,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
@@ -30,7 +28,6 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://169.58.69.36.sslip.io",
         "EXPO_PUBLIC_SOCKET_URL": "https://169.58.69.36.sslip.io",
