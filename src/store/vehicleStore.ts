@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Device, Position, Alarme, Commande } from '../types';
+import { Device, Position, Alarme, Commande, ModeFonctionnement } from '../types';
 import { haversineKm } from '../utils/formatters';
 
 // En dessous de ce seuil, un déplacement entre deux trames est considéré
@@ -66,6 +66,10 @@ interface DeviceState {
   setHasFetchedOnce:  (v: boolean) => void;
   setLoadError:       (e: string | null) => void;
   setLastCommandeUpdate: (c: Commande) => void;
+  // Mode réellement appliqué par le traceur (confirmé par son ACK) — l'app ne
+  // se contente plus de ce qu'elle a envoyé, elle connaît l'état réel du
+  // boîtier. Émis par le serveur après chaque ACK de commande MODE / MODE?.
+  updateVehicleMode: (vehiculeId: string, mode: ModeFonctionnement) => void;
   // À appeler impérativement à la déconnexion : sans ça, les données du
   // compte précédent (vehicles, positions, hasFetchedOnce=true) restent en
   // mémoire et un nouveau compte connecté dans la même session verrait les
@@ -158,5 +162,15 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   setHasFetchedOnce:  (v)  => set({ hasFetchedOnce: v }),
   setLoadError:       (e)  => set({ loadError: e }),
   setLastCommandeUpdate: (c) => set({ lastCommandeUpdate: c }),
+
+  // Le traceur confirme le mode qu'il applique (ACK MODE / MODE?) : on le
+  // propage à tous les écrans qui affichent le mode (fiche véhicule, popup
+  // de la carte, tableau de bord) sans attendre un refetch REST.
+  updateVehicleMode: (vehiculeId, mode) =>
+    set((state) => ({
+      vehicles: state.vehicles.map((v) =>
+        v.id === vehiculeId ? { ...v, modeActuel: mode } : v
+      ),
+    })),
   reset:              ()   => set({ ...initialState }),
 }));

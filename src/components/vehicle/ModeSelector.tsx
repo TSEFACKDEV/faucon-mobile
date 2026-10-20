@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Gradients } from '../../constants/colors';
@@ -9,6 +9,7 @@ import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useVehicleStore } from '../../store/vehicleStore';
 
 type Mode = 'WORK' | 'MOVE' | 'STANDBY';
 
@@ -46,6 +47,11 @@ const MODES: {
   },
 ];
 
+// Délai au-delà duquel on abandonne l'attente d'une réponse du traceur (ACK
+// de commande MODE/MODE?). Filet de sécurité local : si l'app passe en
+// arrière-plan ou que le socket se coupe, le bouton ne reste pas bloqué.
+const TIMEOUT_LECTURE_MS = 30_000;
+
 interface Props {
   vehiculeId:  string;
   currentMode: Mode;
@@ -55,8 +61,103 @@ interface Props {
 export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Props) {
   const [selected, setSelected] = useState<Mode>(currentMode);
   const [saving,   setSaving]   = useState(false);
+  const [checking, setChecking] = useState(false);
+  // Horodatage de la dernière confirmation obtenue du traceur — permet
+  // d'afficher « confirmé à HH:MM » plutôt qu'un mode sans origine.
+  const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
+
+  // ACK de commande descendante (reçu par WebSocket) : c'est lui qui porte
+  // la VRAIE valeur du mode appliqué par le traceur.
+  const lastCommandeUpdate = useVehicleStore(s => s.lastCommandeUpdate);
+  // Id de la dernière commande traitée : empêche de rejouer le même ACK
+  // (le store garde la dernière commande en mémoire, l'effet re-déclenche
+  // à chaque changement de currentMode par exemple).
+  const derniereCommandeTraitee = useRef<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Réflexion du mode courant, lue plus tard dans un callback planifié
+  // (closure potentiellement périmée).
+  const currentModeRef = useRef<Mode>(currentMode);
+  currentModeRef.current = currentMode;
 
   const hasChanged = selected !== currentMode;
+
+  // Resynchronise le mode affiché quand le serveur le met à jour (ACK reçu
+  // ou refetch REST) — sans écraser un choix en cours de l'utilisateur.
+  useEffect(() => {
+    if (!hasChanged) setSelected(currentMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMode]);
+
+  // Nettoyage du timer à la sortie du composant.
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  // Traitement de l'ACK : le traceur confirme (ou refuse) la commande.
+  useEffect(() => {
+    if (!lastCommandeUpdate) return;
+    if (lastCommandeUpdate.codeCommande !== 'MODE' && lastCommandeUpdate.codeCommande !== 'MODE?') return;
+    if (derniereCommandeTraitee.current === lastCommandeUpdate.id) return;
+    derniereCommandeTraitee.current = lastCommandeUpdate.id;
+
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    setChecking(false);
+
+    if (lastCommandeUpdate.statutExecution === 'SUCCESS') {
+      const detail = lastCommandeUpdate.parametres?.detail;
+      // Le firmware renvoie le mode réellement appliqué dans "detail".
+      if (detail === 'WORK' || detail === 'MOVE' || detail === 'STANDBY') {
+        onUpdated(detail);
+        setConfirmedAt(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+        useToastStore.getState().show(
+          lastCommandeUpdate.codeCommande === 'MODE?'
+            ? `Mode confirmé par le traceur : ${detail}`
+            : `Mode ${detail} appliqué au traceur`,
+          'success'
+        );
+      }
+    } else if (lastCommandeUpdate.statutExecution === 'FAILED') {
+      const detail = lastCommandeUpdate.parametres?.detail;
+      // Cas particulier : un firmware qui ne connaît pas encore la commande
+      // de lecture (v12 d'origine) répond « commande inconnue ». Le message
+      // doit le dire clairement plutôt que de laisser croire à un bug.
+      if (detail === 'commande inconnue') {
+        useToastStore.getState().show(
+          "Ce traceur ne connaît pas encore la lecture du mode — son firmware doit être mis à jour (v12 patchée).",
+          'danger'
+        );
+      } else {
+        useToastStore.getState().show(
+          detail ? `Le traceur a refusé la commande : ${detail}` : 'Le traceur a refusé la commande.',
+          'danger'
+        );
+      }
+    } else if (lastCommandeUpdate.statutExecution === 'TIMEOUT') {
+      useToastStore.getState().show(
+        'Pas de réponse du traceur — vérifiez sa connexion avant de réessayer.',
+        'danger'
+      );
+    }
+  }, [lastCommandeUpdate, onUpdated]);
+
+  // Filet de sécurité : si l'ACK n'est pas reçu (socket coupé, app passée en
+  // arrière-plan, traceur hors ligne), on relit le véhicule par REST — le
+  // serveur ayant resynchronisé la base dès réception de l'ACK, la valeur
+  // remontée fait foi. Sans ça, l'écran resterait bloqué sur l'ancien mode.
+  useEffect(() => {
+    if (!checking) return;
+    const timers = [3000, 8000, 15000].map(delai =>
+      setTimeout(async () => {
+        try {
+          const v = await vehicleService.getVehicleById(vehiculeId);
+          if (v?.modeActuel && v.modeActuel !== currentModeRef.current) {
+            onUpdated(v.modeActuel as Mode);
+          }
+        } catch { /* silencieux — l'ACK socket reste le canal principal */ }
+      }, delai)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [checking, vehiculeId, onUpdated]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -75,12 +176,68 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
     }
   };
 
+  // Demande au traceur le mode qu'il applique réellement (lecture seule).
+  const handleCheck = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      await vehicleService.readMode(vehiculeId);
+      // Filet de sécurité : sans ACK (traceur hors ligne, socket coupé), on
+      // débloque le bouton et on prévient l'utilisateur.
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        setChecking(false);
+        useToastStore.getState().show(
+          'Aucune réponse du traceur — il est peut-être hors ligne.',
+          'danger'
+        );
+      }, TIMEOUT_LECTURE_MS);
+    } catch (err) {
+      console.error('[ModeSelector] readMode', err);
+      setChecking(false);
+      useToastStore.getState().show(
+        getErrorMessage(err, "Impossible de demander le mode au traceur. Vérifiez votre connexion."),
+        'danger'
+      );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Mode de fonctionnement</Text>
       <Text style={styles.sectionSub}>
         Le mode contrôle la fréquence d'envoi GPS et la consommation d'énergie.
       </Text>
+
+      {/* État réel connu du traceur — distinct du mode sélectionné ci-dessous
+          (qui n'est qu'une intention, pas encore appliquée). */}
+      <View style={styles.currentBar}>
+        <View style={styles.currentBarLeft}>
+          <Ionicons name="hardware-chip-outline" size={16} color={Colors.primary} />
+          <Text style={styles.currentBarLabel}>Mode appliqué par le traceur</Text>
+        </View>
+        <View style={styles.currentBarRight}>
+          <Text style={styles.currentBarValue}>{currentMode}</Text>
+          {confirmedAt && <Text style={styles.currentBarTime}>confirmé à {confirmedAt}</Text>}
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.checkBtn, checking && styles.checkBtnBusy]}
+        onPress={handleCheck}
+        disabled={checking}
+        activeOpacity={0.7}
+      >
+        {checking ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <Ionicons name="refresh-outline" size={16} color={Colors.primary} />
+        )}
+        <Text style={styles.checkBtnText}>
+          {checking ? 'Interrogation du traceur...' : 'Vérifier sur le traceur'}
+        </Text>
+      </TouchableOpacity>
 
       <View style={styles.cards}>
         {MODES.map(mode => {
@@ -173,6 +330,41 @@ const styles = StyleSheet.create({
   container:   { gap: 16 },
   sectionTitle:{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   sectionSub:  { fontSize: 13, color: Colors.textSecondary, lineHeight: 19 },
+
+  // Bandeau « mode réellement appliqué par le traceur » — l'info la plus
+  // importante de l'écran : elle vient de l'ACK du boîtier, pas d'un
+  //simple affichage de la valeur envoyée par l'app.
+  currentBar: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:   'space-between',
+    backgroundColor:   Colors.primaryLight,
+    borderRadius:      12,
+    paddingHorizontal: 12,
+    paddingVertical:   10,
+    borderWidth:       1,
+    borderColor:       Colors.primary + '33',
+  },
+  currentBarLeft:  { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  currentBarLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, flexShrink: 1 },
+  currentBarRight: { alignItems: 'flex-end', marginLeft: 8 },
+  currentBarValue: { fontSize: 15, fontWeight: '800', color: Colors.primary },
+  currentBarTime:  { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
+
+  // Bouton de lecture du mode réel chez le traceur.
+  checkBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:   'center',
+    gap:               8,
+    backgroundColor:   Colors.white,
+    borderRadius:      12,
+    paddingVertical:   11,
+    borderWidth:       1.5,
+    borderColor:       Colors.primary,
+  },
+  checkBtnBusy: { opacity: 0.6 },
+  checkBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 
   cards: { gap: 12 },
   card: {

@@ -63,6 +63,13 @@ export const vehicleService = {
     await api.put(`/vehicles/${id}/mode`, { mode });
   },
 
+  // Demande au traceur le mode qu'il applique réellement (lecture seule).
+  // La réponse arrive de façon asynchrone : le serveur reçoit l'ACK, resynchro-
+  // nise la base et émet l'événement socket 'vehicle_mode' (reçu par le store).
+  readMode: async (id: string): Promise<void> => {
+    await api.post(`/vehicles/${id}/mode/read`);
+  },
+
   setPhoneAlerte: async (id: string, telephone: string): Promise<void> => {
     await api.put(`/vehicles/${id}/telephone-alerte`, { telephone });
   },

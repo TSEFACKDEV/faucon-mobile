@@ -11,7 +11,9 @@ export const ROUTE_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voy
 export const SATELLITE_TILE_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-export type MapStyleId = 'maptiler' | 'osm' | 'satellite' | 'stadia';
+export type MapStyleId = 'maptiler' | 'osm' | 'satellite' | 'stadia' | 'google' | 'googleSatellite';
+
+export type GoogleMapType = 'roadmap' | 'satellite' | 'hybrid' | 'terrain';
 
 export type MapStyleOption = {
   id: MapStyleId;
@@ -21,15 +23,24 @@ export type MapStyleOption = {
   // Clé nécessaire (env EXPO_PUBLIC_*) — absente pour OSM/Satellite, gratuits
   // et sans clé. Les autres restent affichés mais désactivés tant que la clé
   // correspondante n'est pas renseignée (jamais en dur dans le code).
-  requiresKey?: 'MAPTILER' | 'STADIA';
+  requiresKey?: 'MAPTILER' | 'STADIA' | 'GOOGLE_MAPS';
+  // 'leaflet' = tuiles raster via OsmMapView (WebView+Leaflet).
+  // 'google'  = Google Maps JavaScript API via GoogleMapView (WebView).
+  provider: 'leaflet' | 'google';
+  // Pour le fournisseur Google : type de carte (roadmap, satellite, hybrid, terrain).
+  mapType?: GoogleMapType;
   // Construit l'URL finale de tuile — reçoit la clé déjà résolue (ou undefined).
-  buildUrl: (apiKey?: string) => string;
+  // Uniquement utilisé quand provider === 'leaflet'.
+  buildUrl?: (apiKey?: string) => string;
 };
 
 // Registre unique des styles de carte proposés dans la sidebar — un seul
-// endroit à maintenir pour ajouter/retirer un fournisseur. Chaque style est
-// une tuile raster (compatible Leaflet/WebView tel quel, sans dépendance
-// native ni WebGL) — voir la conversation pour le pourquoi de cette limite.
+// endroit à maintenir pour ajouter/retirer un fournisseur.
+// - Leaflet (tuiles raster) : MapTiler, OSM, Esri Satellite, Stadia.
+// - Google (JS API dans WebView) : Google Maps (plan), Google Satellite.
+//   Le WebView est agnostique de l'ABI processeur (ARMv7, ARM64, x86, x86_64),
+//   donc l'apk fonctionne sur tout téléphone Android sans compilation native
+//   spécifique.
 // MapTiler en tête : c'est le fond de carte par défaut de l'application
 // (voir mapStyleId dans DashboardScreen) — le registre reflète cet ordre.
 export const MAP_STYLES: MapStyleOption[] = [
@@ -39,9 +50,7 @@ export const MAP_STYLES: MapStyleOption[] = [
     icon: 'color-palette-outline',
     attribution: '© MapTiler © OpenStreetMap contributors',
     requiresKey: 'MAPTILER',
-    // Style "streets-v2" — rendu vectoriel-like très proche d'un fond de
-    // carte grand public. Si la tuile ne charge pas, vérifier le nom du
-    // style dans le tableau de bord MapTiler (peut évoluer selon leur API).
+    provider: 'leaflet',
     buildUrl: (key) => `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${key}`,
   },
   {
@@ -49,6 +58,7 @@ export const MAP_STYLES: MapStyleOption[] = [
     label: 'OpenStreetMap',
     icon: 'map-outline',
     attribution: '© OpenStreetMap contributors © CARTO',
+    provider: 'leaflet',
     buildUrl: () => ROUTE_TILE_URL,
   },
   {
@@ -56,6 +66,7 @@ export const MAP_STYLES: MapStyleOption[] = [
     label: 'Satellite (Esri)',
     icon: 'globe-outline',
     attribution: 'Esri, Maxar, Earthstar Geographics',
+    provider: 'leaflet',
     buildUrl: () => SATELLITE_TILE_URL,
   },
   {
@@ -64,7 +75,25 @@ export const MAP_STYLES: MapStyleOption[] = [
     icon: 'sunny-outline',
     attribution: '© Stadia Maps © OpenStreetMap contributors',
     requiresKey: 'STADIA',
-    // Style "Alidade Smooth" — épuré, clair, très soigné.
+    provider: 'leaflet',
     buildUrl: (key) => `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=${key}`,
+  },
+  {
+    id: 'google',
+    label: 'Google Maps',
+    icon: 'map-outline',
+    attribution: '© Google',
+    requiresKey: 'GOOGLE_MAPS',
+    provider: 'google',
+    mapType: 'roadmap',
+  },
+  {
+    id: 'googleSatellite',
+    label: 'Google Satellite',
+    icon: 'globe',
+    attribution: '© Google',
+    requiresKey: 'GOOGLE_MAPS',
+    provider: 'google',
+    mapType: 'satellite',
   },
 ];

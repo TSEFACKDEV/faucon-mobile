@@ -71,8 +71,11 @@ export type TypeAlarme =
 // Commandes descendantes (app -> traceur, via MQTT). Voir OsmMapView/
 // RemoteActions pour l'UI, et le firmware v10.1 (traiterCommandeEntrante)
 // pour ce que chaque code déclenche réellement sur le boîtier.
-export type CodeCommande = 'LOCALISER' | 'MODE' | 'REDEMARRER' | 'RESET_USINE';
+// 'MODE' IMPOSE un mode (avec une valeur) ; 'MODE?' LECTURE seule du mode
+// réellement appliqué — le traceur répond dans l'ACK (champ "detail").
+export type CodeCommande = 'LOCALISER' | 'MODE' | 'MODE?' | 'REDEMARRER' | 'RESET_USINE' | 'NUMERO_SMS';
 export type StatutCommande = 'PENDING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT';
+export type ModeFonctionnement = 'WORK' | 'MOVE' | 'STANDBY';
 
 export interface Commande {
   id: string;

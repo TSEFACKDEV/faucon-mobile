@@ -5,11 +5,11 @@ import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
 import { useAuthStore } from '../store/authStore';
 import { getSocketInstance, setSocketInstance, disconnectSocket } from '../services/socketClient';
-import { Alarme, Commande } from '../types';
+import { Alarme, Commande, ModeFonctionnement } from '../types';
 
 export const useSocket = (vehiculeIds: string[]) => {
   const socketRef = useRef<Socket | null>(null);
-  const { updateLivePosition, addAlarm, setLastCommandeUpdate } = useVehicleStore();
+  const { updateLivePosition, addAlarm, setLastCommandeUpdate, updateVehicleMode } = useVehicleStore();
   const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
@@ -70,6 +70,17 @@ export const useSocket = (vehiculeIds: string[]) => {
       // RESET_USINE) : envoyée -> exécutée par le traceur, ou expirée.
       socket.on('commande_update', (data: Commande) => {
         setLastCommandeUpdate(data);
+      });
+
+      // Mode RÉELLEMENT appliqué par le traceur (confirmé par son ACK).
+      // Émis par le serveur quand le traceur répond à une commande MODE
+      // (imposition) ou MODE? (lecture) — permet à tous les écrans
+      // d'afficher l'état réel du boîtier, pas ce que l'app a envoyé.
+      socket.on('vehicle_mode', (data: { vehiculeId: string; modeActuel: string }) => {
+        const mode = data?.modeActuel as ModeFonctionnement;
+        if (!data?.vehiculeId) return;
+        if (mode !== 'WORK' && mode !== 'MOVE' && mode !== 'STANDBY') return;
+        updateVehicleMode(data.vehiculeId, mode);
       });
 
       socket.on('disconnect', (reason) => {

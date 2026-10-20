@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
+import GoogleMapView, { GoogleMarker, GoogleMapViewHandle } from '../../components/map/GoogleMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Gradients } from '../../constants/colors';
@@ -28,8 +29,9 @@ import { useToastStore } from '../../store/toastStore';
 // Clé configurée (ou non) pour chaque style qui en a besoin — un seul endroit
 // à relire si un nouveau fournisseur est ajouté au registre.
 const API_KEYS: Record<string, string> = {
-  MAPTILER: Config.MAPTILER_KEY,
-  STADIA:   Config.STADIA_KEY,
+  MAPTILER:    Config.MAPTILER_KEY,
+  STADIA:      Config.STADIA_KEY,
+  GOOGLE_MAPS: Config.GOOGLE_MAPS_KEY,
 };
 
 // Niveau de zoom utilisé pour centrer sur un dispositif — au chargement, en
@@ -167,6 +169,24 @@ export default function DashboardScreen() {
     return m;
   }, [mapMarkers, userLoc]);
 
+  // Même liste de marqueurs, typée pour Google Maps (champs identiques,
+  // seule l'interface diffère — OsmMarker vs GoogleMarker).
+  const googleMarkersWithUser: GoogleMarker[] = useMemo(() => {
+    const m: GoogleMarker[] = markersWithUser.map((mk) => ({
+      id: mk.id,
+      latitude: mk.latitude,
+      longitude: mk.longitude,
+      heading: mk.heading,
+      color: mk.color,
+      label: mk.label,
+      hasAlarm: mk.hasAlarm,
+      selected: mk.selected,
+      icon: mk.icon,
+      popup: mk.popup,
+    }));
+    return m;
+  }, [markersWithUser]);
+
   useEffect(() => {
     const loadDailyDistance = async () => {
       if (!selectedId) return;
@@ -199,12 +219,23 @@ export default function DashboardScreen() {
     return () => { cancelled = true; };
   }, [selectedPos?.latitude, selectedPos?.longitude]);
 
-  const mapRef = useRef<OsmMapViewHandle | null>(null);
+  const mapRef      = useRef<OsmMapViewHandle | null>(null);
+  const googleMapRef = useRef<GoogleMapViewHandle | null>(null);
   // Incrémenté à chaque sélection EXPLICITE (tap sur un marqueur, choix dans
   // le menu de dispositifs) — permet de forcer un recentrage même en
   // retapant le dispositif déjà suivi, sans dépendre de `selectedId` seul
   // (qui, lui, ne change pas dans ce cas).
   const [focusRequest, setFocusRequest] = useState(0);
+
+  // Style de carte actif et clé API associée — déclaré ici (avant tout usage)
+  // car le memo activeMapRef ci-dessous en dépend.
+  const activeMapStyle = MAP_STYLES.find(s => s.id === mapStyleId) ?? MAP_STYLES[0];
+  const activeMapKey = activeMapStyle.requiresKey ? API_KEYS[activeMapStyle.requiresKey] : undefined;
+
+  // Retour la ref du composant de carte actuellement actif (Leaflet ou Google).
+  const activeMapRef = useMemo(() => {
+    return activeMapStyle.provider === 'google' ? googleMapRef : mapRef;
+  }, [activeMapStyle.provider]);
 
   // Centrage sur une sélection (nouvelle, ou retapée explicitement) — centre
   // et zoome une seule fois. Ne dépend PAS de la position qui arrive en
@@ -213,31 +244,33 @@ export default function DashboardScreen() {
   // deux appels à `animateToCoordinate` se marchaient dessus (la carte
   // semblait "se réinitialiser" à chaque tap).
   useEffect(() => {
-    if (!selectedId || !mapRef.current) return;
+    if (!selectedId || !activeMapRef.current) return;
     const pos = livePositions[selectedId];
     if (!pos) return;
-    mapRef.current.animateToCoordinate(pos.latitude, pos.longitude, FOLLOW_ZOOM);
+    activeMapRef.current.animateToCoordinate(pos.latitude, pos.longitude, FOLLOW_ZOOM);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, focusRequest]);
+  }, [selectedId, focusRequest, activeMapRef]);
 
   // Suivi continu : une fois le dispositif déjà centré ci-dessus, ne fait
   // plus que le SUIVRE en pan à chaque nouvelle position (aucun argument de
   // zoom) — jamais de changement de zoom ici, pour ne pas défaire un zoom
   // que l'utilisateur a choisi lui-même entre deux trames.
   useEffect(() => {
-    if (!follow || !selectedPos || !mapRef.current) return;
-    mapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude);
+    if (!follow || !selectedPos || !activeMapRef.current) return;
+    activeMapRef.current.animateToCoordinate(selectedPos.latitude, selectedPos.longitude);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [follow, selectedPos?.latitude, selectedPos?.longitude]);
+  }, [follow, selectedPos?.latitude, selectedPos?.longitude, activeMapRef]);
 
   // Anneau natif qui s'étend et s'estompe autour du bouton Scan au clic —
   // retour tactile immédiat, en plus (pas à la place) du balayage animé sur
-  // la carte elle-même (voir OsmMapView.scan()).
+  // la carte elle-même (voir OsmMapView.scan()). Scan n'existe que sur OsmMapView.
   const scanPulse = useRef(new Animated.Value(0)).current;
   const handleScanPress = () => {
     scanPulse.setValue(0);
     Animated.timing(scanPulse, { toValue: 1, duration: 700, useNativeDriver: true }).start();
-    mapRef.current?.scan();
+    if (activeMapStyle.provider === 'leaflet') {
+      mapRef.current?.scan();
+    }
   };
 
   const handleMarkerPress = (vehicleId: string) => {
@@ -248,7 +281,7 @@ export default function DashboardScreen() {
     // La popup ne peut s'ouvrir qu'une fois le marqueur du véhicule sélectionné
     // resynchronisé avec ses données (voir mapMarkers) — un court délai suffit
     // pour laisser le message "updateMarkers" atteindre la WebView avant "openPopup".
-    setTimeout(() => mapRef.current?.openPopup(vehicleId), 150);
+    setTimeout(() => activeMapRef.current?.openPopup(vehicleId), 150);
   };
 
   const handlePopupAction = (action: string, vehicleId: string) => {
@@ -298,27 +331,40 @@ export default function DashboardScreen() {
     longitudeDelta: 0.5,
   };
 
-  const activeMapStyle = MAP_STYLES.find(s => s.id === mapStyleId) ?? MAP_STYLES[0];
-  const activeMapKey = activeMapStyle.requiresKey ? API_KEYS[activeMapStyle.requiresKey] : undefined;
-
   return (
     <View style={styles.container}>
 
       {/* ── CARTE PLEIN ÉCRAN ── */}
-      <OsmMapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        initialRegion={initialRegion}
-        tileUrlTemplate={activeMapStyle.buildUrl(activeMapKey)}
-        attribution={activeMapStyle.attribution}
-        markers={markersWithUser}
-        selectedId={selectedId ?? undefined}
-        onMarkerPress={handleMarkerPress}
-        onPopupAction={handlePopupAction}
-        floatingControls={{
-          onOpenMapOptions: () => setMapOptionsOpen(true),
-        }}
-      />
+      {/* Fournisseur Leaflet (tuiles raster) : MapTiler, OSM, Esri Satellite, Stadia. */}
+      {activeMapStyle.provider === 'leaflet' && (
+        <OsmMapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFill}
+          initialRegion={initialRegion}
+          tileUrlTemplate={activeMapStyle.buildUrl!(activeMapKey)}
+          attribution={activeMapStyle.attribution}
+          markers={markersWithUser}
+          selectedId={selectedId ?? undefined}
+          onMarkerPress={handleMarkerPress}
+          onPopupAction={handlePopupAction}
+          floatingControls={{
+            onOpenMapOptions: () => setMapOptionsOpen(true),
+          }}
+        />
+      )}
+      {/* Fournisseur Google (Google Maps JavaScript API dans WebView) : Google Maps, Google Satellite. */}
+      {activeMapStyle.provider === 'google' && (
+        <GoogleMapView
+          ref={googleMapRef}
+          style={StyleSheet.absoluteFill}
+          initialRegion={initialRegion}
+          mapType={activeMapStyle.mapType ?? 'roadmap'}
+          apiKey={activeMapKey ?? ''}
+          markers={googleMarkersWithUser}
+          selectedId={selectedId ?? undefined}
+          onMarkerPress={handleMarkerPress}
+        />
+      )}
 
       {/* ── TOPBAR ── */}
       <LinearGradient

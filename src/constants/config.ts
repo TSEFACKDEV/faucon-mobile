@@ -26,6 +26,7 @@ export const Config = {
   // Clés de fonds de carte — à renseigner dans mobile/.env.
   // Pas de fallback : si absentes, le style cartographique est désactivé
   // dans la sidebar ("Clé API requise").
-  MAPTILER_KEY: process.env.EXPO_PUBLIC_MAPTILER_KEY ?? '',
-  STADIA_KEY:   process.env.EXPO_PUBLIC_STADIA_KEY   ?? '',
+  MAPTILER_KEY:  process.env.EXPO_PUBLIC_MAPTILER_KEY  ?? '',
+  STADIA_KEY:    process.env.EXPO_PUBLIC_STADIA_KEY     ?? '',
+  GOOGLE_MAPS_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? '',
 };
