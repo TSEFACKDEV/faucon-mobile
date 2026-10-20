@@ -17,6 +17,9 @@ export interface Device {
   joursActifs: number;
   derniereCommunication?: string;
   telephoneAlerte?: string | null;
+  // Dernier diagnostic périodique reçu du traceur (canal /diag, toutes
+  // les 5 min) : état réel du boîtier, mode appliqué, version firmware.
+  dernierDiagnostic?: DiagnosticTraceur | null;
   limiteVitesse?: {
     seuilKmh: number;
     estActive: boolean;
@@ -28,6 +31,40 @@ export interface Device {
     rayonMetres: number;
     estActif: boolean;
   } | null;
+}
+
+// Diagnostic périodique du traceur (firmware v12.1, canal
+// faucon/<trackerId>/diag). C'est la seule source de l'état RÉEL du
+// boîtier — les compteurs de reset et la santé I2C n'existent nulle
+// part ailleurs.
+export interface DiagnosticTraceur {
+  id: string;
+  vehiculeId: string;
+  horodatage: string;
+  modele?: string | null;
+  version?: string | null;
+  mode?: string | null;
+  causeReset?: string | null;
+  resetCode?: number | null;
+  dernierArret?: string | null;
+  nbWatchdog: number;
+  nbBrownout: number;
+  nbPanique: number;
+  fixValide: boolean;
+  fixPerime: boolean;
+  ageFixSecondes?: number | null;
+  satellites?: number | null;
+  hdop?: number | null;
+  batteriePct?: number | null;
+  signalPct?: number | null;
+  signalValide: boolean;
+  i2cRecuperations: number;
+  i2cSuspendu: boolean;
+  journalOk: boolean;
+  positionsPerdues: number;
+  fileNombre?: number | null;
+  sourceHeure?: string | null;
+  heapLibre?: number | null;
 }
 
 export type Vehicle = Device;
@@ -73,7 +110,8 @@ export type TypeAlarme =
 // pour ce que chaque code déclenche réellement sur le boîtier.
 // 'MODE' IMPOSE un mode (avec une valeur) ; 'MODE?' LECTURE seule du mode
 // réellement appliqué — le traceur répond dans l'ACK (champ "detail").
-export type CodeCommande = 'LOCALISER' | 'MODE' | 'MODE?' | 'REDEMARRER' | 'RESET_USINE' | 'NUMERO_SMS';
+// 'INFO' demande modèle + version du firmware (firmware v12.1+).
+export type CodeCommande = 'LOCALISER' | 'MODE' | 'MODE?' | 'INFO' | 'REDEMARRER' | 'RESET_USINE' | 'NUMERO_SMS';
 export type StatutCommande = 'PENDING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT';
 export type ModeFonctionnement = 'WORK' | 'MOVE' | 'STANDBY';
 

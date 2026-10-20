@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Device, Position, Alarme, Commande, ModeFonctionnement } from '../types';
+import { Device, Position, Alarme, Commande, ModeFonctionnement, DiagnosticTraceur } from '../types';
 import { haversineKm } from '../utils/formatters';
 
 // En dessous de ce seuil, un déplacement entre deux trames est considéré
@@ -70,6 +70,9 @@ interface DeviceState {
   // se contente plus de ce qu'elle a envoyé, elle connaît l'état réel du
   // boîtier. Émis par le serveur après chaque ACK de commande MODE / MODE?.
   updateVehicleMode: (vehiculeId: string, mode: ModeFonctionnement) => void;
+  // Dernier diagnostic périodique du traceur (canal /diag, toutes les 5 min) :
+  // modèle, version du firmware, compteurs de reset, santé I2C, journal flash.
+  updateDiagnostic: (vehiculeId: string, diagnostic: DiagnosticTraceur) => void;
   // À appeler impérativement à la déconnexion : sans ça, les données du
   // compte précédent (vehicles, positions, hasFetchedOnce=true) restent en
   // mémoire et un nouveau compte connecté dans la même session verrait les
@@ -170,6 +173,16 @@ export const useVehicleStore = create<DeviceState>((set) => ({
     set((state) => ({
       vehicles: state.vehicles.map((v) =>
         v.id === vehiculeId ? { ...v, modeActuel: mode } : v
+      ),
+    })),
+
+  // Diagnostic du traceur : on le range dans le véhicule concerné pour que
+  // la fiche véhicule affiche l'état réel du boîtier sans re-interroger
+  // l'API à chaque ouverture.
+  updateDiagnostic: (vehiculeId, diagnostic) =>
+    set((state) => ({
+      vehicles: state.vehicles.map((v) =>
+        v.id === vehiculeId ? { ...v, dernierDiagnostic: diagnostic } : v
       ),
     })),
   reset:              ()   => set({ ...initialState }),

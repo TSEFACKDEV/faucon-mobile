@@ -5,11 +5,11 @@ import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
 import { useAuthStore } from '../store/authStore';
 import { getSocketInstance, setSocketInstance, disconnectSocket } from '../services/socketClient';
-import { Alarme, Commande, ModeFonctionnement } from '../types';
+import { Alarme, Commande, ModeFonctionnement, DiagnosticTraceur } from '../types';
 
 export const useSocket = (vehiculeIds: string[]) => {
   const socketRef = useRef<Socket | null>(null);
-  const { updateLivePosition, addAlarm, setLastCommandeUpdate, updateVehicleMode } = useVehicleStore();
+  const { updateLivePosition, addAlarm, setLastCommandeUpdate, updateVehicleMode, updateDiagnostic } = useVehicleStore();
   const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
@@ -81,6 +81,15 @@ export const useSocket = (vehiculeIds: string[]) => {
         if (!data?.vehiculeId) return;
         if (mode !== 'WORK' && mode !== 'MOVE' && mode !== 'STANDBY') return;
         updateVehicleMode(data.vehiculeId, mode);
+      });
+
+      // Diagnostic périodique du traceur (canal /diag, toutes les 5 min) :
+      // modèle, version du firmware, compteurs de reset, santé I2C, file
+      // d'attente du journal flash. Permet d'afficher l'état RÉEL du
+      // boîtier dans la fiche véhicule.
+      socket.on('diagnostic_update', (data: DiagnosticTraceur) => {
+        if (!data?.vehiculeId) return;
+        updateDiagnostic(data.vehiculeId, data);
       });
 
       socket.on('disconnect', (reason) => {

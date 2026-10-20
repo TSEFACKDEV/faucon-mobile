@@ -15,8 +15,8 @@ import { Duration } from '../../theme/motion';
 import Badge from '../../components/ui/Badge';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
-import { Vehicle } from '../../types';
-import { formatSpeed, formatBattery, formatCoords, formatTime, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
+import { Vehicle, DiagnosticTraceur } from '../../types';
+import { formatSpeed, formatBattery, formatCoords, formatTime, formatRelativeTime, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import ModeSelector from '../../components/vehicle/ModeSelector';
@@ -36,13 +36,59 @@ export default function VehicleDetailScreen() {
   const { vehiculeId } = route.params;
 
   const { vehicles, livePositions, lastMovedAt } = useVehicleStore();
+  const lastCommandeUpdate = useVehicleStore((s) => s.lastCommandeUpdate);
 
   const [vehicle,   setVehicle]   = useState<Vehicle | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'infos' | 'mode' | 'vitesse' | 'zone' | 'rapport' | 'actions'>('infos');
+  // Réponse à la commande INFO (modèle / version du firmware renvoyés par
+  // le traceur) — affichée le temps de l'écran.
+  const [infosTraceur, setInfosTraceur] = useState<string | null>(null);
+  const [chargementInfos, setChargementInfos] = useState(false);
 
   const livePos = livePositions[vehiculeId] ?? null;
+
+  // Dernier diagnostic reçu du traceur (canal /diag). On privilégie celui
+  // du store (mis à jour en temps réel par le WebSocket) et on retombe
+  // sur celui renvoyé par l'API lors du chargement.
+  const diagnostic: DiagnosticTraceur | null =
+    vehicles.find((v) => v.id === vehiculeId)?.dernierDiagnostic
+    ?? vehicle?.dernierDiagnostic
+    ?? null;
+
+  // Réponse à la commande INFO : le firmware renvoie dans le détail de
+  // l'ACK un résumé du type "FAUCON-C3-72x40 v12.1 WORK".
+  useEffect(() => {
+    if (!lastCommandeUpdate) return;
+    if (lastCommandeUpdate.codeCommande !== 'INFO') return;
+    setChargementInfos(false);
+    if (lastCommandeUpdate.statutExecution === 'SUCCESS') {
+      setInfosTraceur(lastCommandeUpdate.parametres?.detail ?? null);
+    } else if (lastCommandeUpdate.statutExecution === 'FAILED') {
+      setInfosTraceur(null);
+      useToastStore.getState().show(
+        lastCommandeUpdate.parametres?.detail === 'commande inconnue'
+          ? "Ce traceur ne connaît pas la commande INFO — son firmware est antérieur à la v12.1."
+          : 'Le traceur a refusé la lecture de ses informations.',
+        'danger'
+      );
+    }
+  }, [lastCommandeUpdate]);
+
+  const handleReadInfos = async () => {
+    if (chargementInfos) return;
+    setChargementInfos(true);
+    try {
+      await vehicleService.readInfos(vehiculeId);
+    } catch (err) {
+      setChargementInfos(false);
+      useToastStore.getState().show(
+        getErrorMessage(err, "Impossible de demander les informations au traceur. Vérifiez votre connexion."),
+        'danger'
+      );
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -338,6 +384,87 @@ export default function VehicleDetailScreen() {
                 value={`${vehicle.perimetreGeofence.nom} — rayon ${vehicle.perimetreGeofence.rayonMetres}m`}
               />
             )}
+
+            {/* ── ÉTAT RÉEL DU TRACEUR ──
+                Source : diagnostic périodique publié par le firmware sur
+                faucon/<trackerId>/diag (toutes les 5 min) + lecture directe
+                via la commande INFO. C'est la seule façon de connaître
+                l'état du boîtier : rien de tout cela n'existe dans les
+                trames de position. */}
+            <View style={{ gap: 8, marginTop: 8 }}>
+              <Text style={styles.sectionTitle}>État du traceur</Text>
+
+              {diagnostic ? (
+                <>
+                  <InfoRow label="Modèle" value={diagnostic.modele ?? '—'} />
+                  <InfoRow label="Firmware" value={diagnostic.version ?? '—'} />
+                  <InfoRow label="Mode appliqué" value={diagnostic.mode ?? '—'} />
+                  <InfoRow
+                    label="Dernier diagnostic"
+                    value={formatRelativeTime(diagnostic.horodatage)}
+                  />
+                  <InfoRow
+                    label="Redémarrages"
+                    value={`${diagnostic.nbWatchdog} watchdog · ${diagnostic.nbBrownout} brownout · ${diagnostic.nbPanique} panique`}
+                  />
+                  <InfoRow label="Dernière cause" value={diagnostic.causeReset ?? '—'} />
+                  {diagnostic.dernierArret && diagnostic.dernierArret !== '?' && (
+                    <InfoRow label="Dernier arrêt" value={diagnostic.dernierArret} />
+                  )}
+                  <InfoRow
+                    label="Mémoire libre"
+                    value={diagnostic.heapLibre ? `${Math.round(diagnostic.heapLibre / 1024)} Ko` : '—'}
+                  />
+                  <InfoRow
+                    label="Journal flash"
+                    value={
+                      diagnostic.fileNombre
+                        ? `${diagnostic.fileNombre} position(s) en attente`
+                        : 'vide'
+                    }
+                  />
+                  {diagnostic.positionsPerdues > 0 && (
+                    <InfoRow
+                      label="Positions perdues"
+                      value={String(diagnostic.positionsPerdues)}
+                    />
+                  )}
+                  {diagnostic.i2cRecuperations > 0 && (
+                    <InfoRow
+                      label="Récupérations I2C"
+                      value={String(diagnostic.i2cRecuperations)}
+                    />
+                  )}
+                </>
+              ) : (
+                <Text style={styles.diagVide}>
+                  Aucun diagnostic reçu — le traceur n'a pas encore publié
+                  son état de santé (firmware v12.1 requis).
+                </Text>
+              )}
+
+              <TouchableOpacity
+                style={[styles.readInfosBtn, chargementInfos && styles.readInfosBtnBusy]}
+                onPress={handleReadInfos}
+                disabled={chargementInfos}
+                activeOpacity={0.7}
+              >
+                {chargementInfos ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+                )}
+                <Text style={styles.readInfosBtnText}>
+                  {chargementInfos ? 'Interrogation...' : 'Interroger le traceur'}
+                </Text>
+              </TouchableOpacity>
+
+              {infosTraceur && (
+                <View style={styles.infosBox}>
+                  <Text style={styles.infosBoxText}>{infosTraceur}</Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -571,4 +698,36 @@ const styles = StyleSheet.create({
   infoLabel:     { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
   infoValue:     { fontSize: 13, color: Colors.textPrimary, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
   infoValueMono: { fontVariant: ['tabular-nums'], fontSize: 12 },
+
+  // ÉTAT DU TRACEUR
+  sectionTitle:  { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginTop: 4 },
+  diagVide: {
+    fontSize:    12,
+    color:       Colors.textMuted,
+    lineHeight: 18,
+    backgroundColor: Colors.offWhite,
+    borderRadius: 10,
+    padding:     12,
+  },
+  readInfosBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:   'center',
+    gap:               8,
+    backgroundColor:   Colors.white,
+    borderRadius:      12,
+    paddingVertical:   11,
+    borderWidth:       1.5,
+    borderColor:       Colors.primary,
+  },
+  readInfosBtnBusy: { opacity: 0.6 },
+  readInfosBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  infosBox: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius:    10,
+    padding:         12,
+    borderWidth:     1,
+    borderColor:     Colors.primary + '33',
+  },
+  infosBoxText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
 });

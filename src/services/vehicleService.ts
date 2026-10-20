@@ -1,5 +1,5 @@
 import api from './api';
-import { Vehicle, Position, Alarme, RapportJournalier, Commande, CodeCommande } from '../types';
+import { Vehicle, Position, Alarme, RapportJournalier, Commande, CodeCommande, DiagnosticTraceur } from '../types';
 
 export const vehicleService = {
 
@@ -68,6 +68,20 @@ export const vehicleService = {
   // nise la base et émet l'événement socket 'vehicle_mode' (reçu par le store).
   readMode: async (id: string): Promise<void> => {
     await api.post(`/vehicles/${id}/mode/read`);
+  },
+
+  // Demande au traceur ses infos matérielles et logicielles (modèle, version
+  // du firmware) — commande INFO. La réponse arrive dans l'ACK.
+  readInfos: async (id: string): Promise<void> => {
+    await api.post(`/vehicles/${id}/infos`);
+  },
+
+  // Historique des diagnostics périodiques reçus du traceur (canal /diag).
+  getDiagnostics: async (id: string, limite = 50): Promise<DiagnosticTraceur[]> => {
+    const { data } = await api.get(`/vehicles/${id}/diagnostics`, {
+      params: { limite },
+    });
+    return data.data;
   },
 
   setPhoneAlerte: async (id: string, telephone: string): Promise<void> => {
