@@ -21,6 +21,7 @@ interface LivePosition {
   signal?:     number;
   horodatage:  string;
   source?:     string;
+  colle?:      boolean | null;
 }
 
 interface DeviceState {
@@ -112,9 +113,11 @@ export const useVehicleStore = create<DeviceState>((set) => ({
         const battery = liveBattery > 0
           ? liveBattery
           : (vehicle.niveauBatterie > 0 ? vehicle.niveauBatterie : previousBattery);
-        return battery === vehicle.niveauBatterie
+        const liveColle = state.livePositions[vehicle.id]?.colle;
+        const colle = liveColle ?? vehicle.estColle ?? previous?.estColle ?? null;
+        return battery === vehicle.niveauBatterie && colle === vehicle.estColle
           ? vehicle
-          : { ...vehicle, niveauBatterie: battery };
+          : { ...vehicle, niveauBatterie: battery, estColle: colle };
       }),
     })),
 
@@ -143,7 +146,14 @@ export const useVehicleStore = create<DeviceState>((set) => ({
         // (et non pas au prochain fetch REST).
         vehicles: state.vehicles.map((v) =>
           v.id === data.vehiculeId
-            ? { ...v, derniereCommunication: data.horodatage, niveauBatterie: data.battery }
+            ? {
+              ...v,
+              derniereCommunication: data.horodatage,
+              niveauBatterie: data.battery,
+              estColle: data.colle !== undefined && data.colle !== null
+                ? data.colle
+                : v.estColle,
+            }
             : v
         ),
       };

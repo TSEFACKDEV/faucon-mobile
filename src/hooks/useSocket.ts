@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
-import { maybeTriggerDetachmentAlarm } from '../services/alarmAlert';
+import { maybeTriggerDetachmentAlarm, notifyTrackerAttached } from '../services/alarmAlert';
 import { useAuthStore } from '../store/authStore';
 import { getSocketInstance, setSocketInstance, disconnectSocket } from '../services/socketClient';
 import { Alarme, Commande, ModeFonctionnement, DiagnosticTraceur } from '../types';
@@ -46,7 +46,9 @@ export const useSocket = (vehiculeIds: string[]) => {
         auth: (cb) => {
           SecureStore.getItemAsync(Config.TOKEN_KEY).then((t) => cb({ token: t }));
         },
-        transports:       ['websocket'],
+        // WebSocket direct, avec repli sur le long-polling si un proxy ou
+        // un réseau mobile bloque l'upgrade (cause fréquente de carte figée).
+        transports:       ['websocket', 'polling'],
         reconnection:     true,
         reconnectionDelay: 2000,
         reconnectionAttempts: 10,
@@ -59,7 +61,14 @@ export const useSocket = (vehiculeIds: string[]) => {
 
       // Réception position temps réel
       socket.on('position_update', (data) => {
+        const before = useVehicleStore
+          .getState()
+          .vehicles.find((v) => v.id === data.vehiculeId);
+        const wasDetached = before?.estColle === false;
         updateLivePosition(data);
+        if (data.colle === true && wasDetached) {
+          notifyTrackerAttached(before?.nom ?? 'Traceur');
+        }
       });
 
       // Réception alarme temps réel

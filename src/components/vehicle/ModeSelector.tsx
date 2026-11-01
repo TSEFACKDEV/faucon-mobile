@@ -108,7 +108,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       // Le firmware renvoie le mode réellement appliqué dans "detail".
       if (detail === 'WORK' || detail === 'MOVE' || detail === 'STANDBY') {
         onUpdated(detail);
-        setConfirmedAt(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+        setConfirmedAt(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala' }));
         useToastStore.getState().show(
           lastCommandeUpdate.codeCommande === 'MODE?'
             ? `Mode confirmé par le traceur : ${detail}`

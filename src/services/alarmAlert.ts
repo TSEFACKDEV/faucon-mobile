@@ -9,6 +9,7 @@ import { formatTime } from '../utils/formatters';
 // Alarme de décollement : sonnerie forte + vibration + notification locale
 // prioritaire. Fonctionne comme dans l'application Flutter.
 const CHANNEL_ID = 'faucon_decollement';
+const SUPPORT_CHANNEL_ID = 'faucon_support';
 const SOUND_FILE = 'alarme.wav';
 
 let player: AudioPlayer | null = null;
@@ -33,6 +34,14 @@ export const initAlarmNotifications = async (): Promise<void> => {
     }
 
     if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync(SUPPORT_CHANNEL_ID, {
+        name: 'Support traceur',
+        description: 'Confirmation quand un traceur est collé à son support.',
+        importance: Notifications.AndroidImportance.HIGH,
+        enableVibrate: true,
+        showBadge: true,
+      });
+
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: 'Alarme de décollement',
         description:
@@ -83,6 +92,25 @@ const startSound = (): void => {
     sounding = false;
   }
   Vibration.vibrate([0, 900, 350, 900, 350, 900, 350, 900], true);
+};
+
+/** Notification normale (pas la sonnerie d'alarme) quand le traceur est recollé. */
+export const notifyTrackerAttached = async (vehicleName: string): Promise<void> => {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Traceur recollé',
+        body: `${vehicleName} est de nouveau collé à son support.`,
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        color: '#0057FF',
+        data: { type: 'SUPPORT_COLLE' },
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.warn('[SUPPORT] notification impossible', error);
+  }
 };
 
 export const stopAlarm = async (): Promise<void> => {

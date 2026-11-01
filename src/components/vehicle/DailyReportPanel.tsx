@@ -12,12 +12,13 @@ import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { RapportJournalier } from '../../types';
+import { isoDateDouala, doualaDayNumber, CAMEROON_TZ } from '../../utils/formatters';
 
 const getLast7Days = (): string[] => {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return isoDateDouala(d);
   });
 };
 
@@ -78,10 +79,10 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
                 />
               )}
               <Text style={[styles.dayChipDay, isActive && styles.dayChipTextActive]}>
-                {isToday ? 'Auj.' : d.toLocaleDateString('fr-FR', { weekday: 'short' })}
+                {isToday ? 'Auj.' : d.toLocaleDateString('fr-FR', { weekday: 'short', timeZone: CAMEROON_TZ })}
               </Text>
               <Text style={[styles.dayChipNum, isActive && styles.dayChipTextActive]}>
-                {d.getDate()}
+                {doualaDayNumber(d)}
               </Text>
             </TouchableOpacity>
           );

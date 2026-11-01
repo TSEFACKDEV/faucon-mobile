@@ -9,13 +9,41 @@ export const formatDistance = (meters: number): string => {
   return `${(meters / 1000).toFixed(1)} km`;
 };
 
+// Le Cameroun est à GMT+1 toute l'année (pas d'heure d'été). On force ce
+// fuseau pour que l'heure affichée reste correcte même si le téléphone est
+// réglé sur UTC ou sur un autre fuseau.
+export const CAMEROON_TZ = 'Africa/Douala';
+
 export const formatTime = (iso: string): string => {
   const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '--:--';
   return date.toLocaleTimeString('fr-FR', {
-    hour:   '2-digit',
-    minute: '2-digit',
+    hour:     '2-digit',
+    minute:   '2-digit',
+    timeZone: CAMEROON_TZ,
   });
 };
+
+/** Date locale du Cameroun au format YYYY-MM-DD (pour les requêtes API). */
+export const isoDateDouala = (date: Date = new Date()): string => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: CAMEROON_TZ,
+    year:     'numeric',
+    month:    '2-digit',
+    day:      '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+
+/** Numéro du jour (1-31) dans le fuseau du Cameroun. */
+export const doualaDayNumber = (date: Date): number =>
+  Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: CAMEROON_TZ,
+      day:      '2-digit',
+    }).format(date),
+  );
 
 export const formatCoords = (lat: number, lon: number): string =>
   `${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E`;

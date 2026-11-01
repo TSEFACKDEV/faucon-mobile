@@ -16,9 +16,8 @@ import { GlowShadow, GlowShadowCyan, ElevatedShadow } from '../../theme/shadows'
 import Logo from '../../components/ui/Logo';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicles } from '../../hooks/useVehicles';
-import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from '../../hooks/useLocation';
-import { formatTime, formatRelativeTime, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
+import { formatTime, formatRelativeTime, isDeviceOffline, isDeviceStopped, isoDateDouala } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
 import { reverseGeocode } from '../../services/geocoding';
 import { Config } from '../../constants/config';
@@ -65,10 +64,6 @@ export default function DashboardScreen() {
   // Hooks
   const { isLoading }                    = useVehicles();
   const { location: userLoc, error: locationError } = useLocation();
-
-  // Ids des véhicules pour le WebSocket
-  const vehicleIds = useMemo(() => vehicles.map(v => v.id), [vehicles]);
-  useSocket(vehicleIds);
 
   // Alarmes actives par véhicule
   const alarmsByVehicle = useMemo(() => {
@@ -191,7 +186,7 @@ export default function DashboardScreen() {
     const loadDailyDistance = async () => {
       if (!selectedId) return;
       try {
-        const report = await vehicleService.getDailyReport(selectedId, new Date().toISOString().split('T')[0]);
+        const report = await vehicleService.getDailyReport(selectedId, isoDateDouala());
         setDailyDistance(report?.distanceTotaleKm ?? 0);
       } catch (err) {
         setDailyDistance(0);
@@ -539,7 +534,7 @@ export default function DashboardScreen() {
 
       {/* ── ERREUR POSITION TÉLÉPHONE ── */}
       {!isLoading && locationError && (
-        <View style={styles.locationBanner}>
+        <View pointerEvents="none" style={styles.locationBanner}>
           <Ionicons name="location-outline" size={14} color={Colors.warning} />
           <Text style={styles.locationBannerText}>
             Votre position n'est pas affichée : {locationError}
@@ -699,7 +694,9 @@ const styles = StyleSheet.create({
   // BANNIÈRE LOCALISATION
   locationBanner: {
     position:        'absolute',
-    top:             120,
+    // Sous les contrôles de carte (calques/zoom) : la bannière ne doit
+    // jamais intercepter les taps sur les boutons + / -.
+    top:             168,
     left:            16,
     right:           16,
     flexDirection:   'row',

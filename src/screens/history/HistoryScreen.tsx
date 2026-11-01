@@ -13,7 +13,7 @@ import Chip from '../../components/ui/Chip';
 import EmptyState from '../../components/ui/EmptyState';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
-import { formatCoords, formatTime, haversineKm } from '../../utils/formatters';
+import { formatCoords, formatTime, haversineKm, isoDateDouala, CAMEROON_TZ } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 
@@ -26,7 +26,7 @@ const SEGMENTS: { key: Segment; label: string }[] = [
   { key: 'custom', label: 'Perso' },
 ];
 
-const isoDate = (d: Date) => d.toISOString().split('T')[0];
+const isoDate = (d: Date) => isoDateDouala(d);
 
 const lastNDays = (n: number): string[] =>
   Array.from({ length: n }, (_, i) => {
@@ -36,7 +36,7 @@ const lastNDays = (n: number): string[] =>
   });
 
 const formatDateFr = (dateStr: string): string =>
-  new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+  new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: CAMEROON_TZ });
 
 const formatDurationMin = (min: number): string =>
   min >= 60 ? `${Math.floor(min / 60)} h ${Math.round(min % 60)} min` : `${Math.round(min)} min`;
@@ -207,7 +207,7 @@ export default function HistoryScreen() {
             contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
             renderItem={({ item }) => (
               <Chip
-                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: CAMEROON_TZ })}
                 selected={item === customFrom}
                 onPress={() => setCustomFrom(item)}
               />
@@ -222,7 +222,7 @@ export default function HistoryScreen() {
             contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
             renderItem={({ item }) => (
               <Chip
-                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                label={new Date(item).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: CAMEROON_TZ })}
                 selected={item === customTo}
                 onPress={() => setCustomTo(item)}
               />

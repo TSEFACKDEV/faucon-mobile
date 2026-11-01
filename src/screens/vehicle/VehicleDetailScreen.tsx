@@ -355,6 +355,11 @@ export default function VehicleDetailScreen() {
             <InfoRow label="Mode actuel"  value={vehicle.modeActuel} />
             <InfoRow label="Batterie"     value={formatBattery(vehicle.niveauBatterie)} />
             <InfoRow label="Dernière communication" value={vehicle.derniereCommunication ? formatTime(vehicle.derniereCommunication) : 'Aucune'} />
+            <InfoRow
+              label="Support"
+              value={vehicle.estColle == null ? 'État inconnu' : (vehicle.estColle ? 'Collé au support' : 'Décollé')}
+              valueColor={vehicle.estColle == null ? Colors.textMuted : (vehicle.estColle ? Colors.successStrong : Colors.dangerStrong)}
+            />
             {livePos && (
               <>
                 <InfoRow label="Latitude"  value={String(livePos.latitude.toFixed(6))}  mono />
@@ -542,15 +547,16 @@ const QuickStat = ({
 );
 
 const InfoRow = ({
-  label, value, mono,
+  label, value, mono, valueColor,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  valueColor?: string;
 }) => (
   <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={[styles.infoValue, mono && styles.infoValueMono]}>{value}</Text>
+    <Text style={[styles.infoValue, mono && styles.infoValueMono, valueColor ? { color: valueColor } : null]}>{value}</Text>
   </View>
 );
 

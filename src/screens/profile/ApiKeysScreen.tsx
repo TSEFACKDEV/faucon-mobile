@@ -32,6 +32,7 @@ const formatDate = (iso?: string | null): string => {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Africa/Douala',
   });
 };
 

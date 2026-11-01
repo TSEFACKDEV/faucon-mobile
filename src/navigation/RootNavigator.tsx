@@ -9,6 +9,8 @@ import MainNavigator from './MainNavigator';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import AddDeviceScreen from '../screens/auth/AddDeviceScreen';
 import { useVehicles } from '../hooks/useVehicles';
+import { useSocket } from '../hooks/useSocket';
+import { useLivePositionRefresh } from '../hooks/useLivePositionRefresh';
 import { View, ActivityIndicator, Text, TouchableOpacity, AppState } from 'react-native';
 import { Colors } from '../constants/colors';
 
@@ -40,6 +42,14 @@ const LoadErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
 // pas authentifié — pas de requête gaspillée avant connexion.
 function AuthenticatedGate() {
   const { vehicles, isLoading, hasFetchedOnce, loadError, refetch } = useVehicles();
+
+  // Socket monté au niveau de la session (pas seulement du tableau de bord) :
+  // il reste connecté quand l'utilisateur ouvre Dispositifs, Alertes ou
+  // l'historique. Le polling de secours garantit une position fraîche même
+  // si le WebSocket tombe.
+  const vehicleIds = vehicles.map((v) => v.id);
+  useSocket(vehicleIds);
+  useLivePositionRefresh();
 
   // Quand l'OS suspend l'app (mise en arrière-plan), le socket temps réel se
   // coupe généralement ; tout événement (position, alarme, confirmation de

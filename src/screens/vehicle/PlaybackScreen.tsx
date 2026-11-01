@@ -14,7 +14,7 @@ import { ElevatedShadow, GlowShadow } from '../../theme/shadows';
 import Chip from '../../components/ui/Chip';
 import { vehicleService } from '../../services/vehicleService';
 import { Position } from '../../types';
-import { formatTime, formatSpeed, formatDistance, haversineKm } from '../../utils/formatters';
+import { formatTime, formatSpeed, formatDistance, haversineKm, isoDateDouala, CAMEROON_TZ } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
@@ -39,7 +39,7 @@ export default function PlaybackScreen() {
   const [loading,      setLoading]      = useState(true);
   const [loadError,    setLoadError]    = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(
-    date ?? new Date().toISOString().split('T')[0]
+    date ?? isoDateDouala()
   );
 
   // Playback state
@@ -168,7 +168,7 @@ export default function PlaybackScreen() {
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return isoDateDouala(d);
   });
 
   // build markers and polylines for OsmMapView
@@ -207,7 +207,7 @@ export default function PlaybackScreen() {
           return (
             <Chip
               key={d}
-              label={isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
+              label={isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', timeZone: CAMEROON_TZ })}
               selected={isActive}
               onPress={() => setSelectedDate(d)}
             />

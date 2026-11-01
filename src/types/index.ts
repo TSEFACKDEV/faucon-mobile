@@ -16,6 +16,8 @@ export interface Device {
   estActif: boolean;
   joursActifs: number;
   derniereCommunication?: string;
+  // État du support : true = collé, false = décollé, null/absent = inconnu.
+  estColle?: boolean | null;
   telephoneAlerte?: string | null;
   // Dernier diagnostic périodique reçu du traceur (canal /diag, toutes
   // les 5 min) : état réel du boîtier, mode appliqué, version firmware.
@@ -83,6 +85,8 @@ export interface Position {
   niveauSignal?: number | null;
   statutACC: boolean;
   horodatage: string;
+  // État du capteur Hall : true = traceur collé à son support.
+  colle?: boolean | null;
 }
 
 export interface Alarme {

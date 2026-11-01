@@ -348,7 +348,17 @@ const buildHtml = () => `
       if (theme.bg)            root.setProperty('--color-bg', theme.bg);
     }
 
-    var map = L.map('map', { zoomControl: false, attributionControl: false });
+    // zoomSnap 0.5 : le pincement reste fluide et permet un demi-niveau,
+    // au lieu de sauter brutalement d'un niveau entier. maxZoom 20 donne
+    // l'échelle rue disponible avec MapTiler (l'ancien plafond 19 était
+    // perçu comme une limite).
+    var map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false,
+      maxZoom: 20,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
+    });
     var tileLayer = null;
     var markersById = {};
     var polylinesById = {};
@@ -370,12 +380,16 @@ const buildHtml = () => `
     function regionToZoom(r) {
       // Approximation simple delta -> niveau de zoom
       var d = Math.max(r.latitudeDelta, r.longitudeDelta);
-      return Math.round(Math.log2(360 / d));
+      return Math.min(20, Math.round(Math.log2(360 / d)));
     }
 
     function setTileLayer(urlTemplate, attribution) {
       if (tileLayer) map.removeLayer(tileLayer);
-      tileLayer = L.tileLayer(urlTemplate, { maxZoom: 19 });
+      // MapTiler fournit des tuiles jusqu'au niveau 20 ; OSM/Esri jusqu'à 19.
+      // Au-delà, Leaflet agrandit la dernière tuile disponible au lieu de
+      // bloquer le zoom.
+      var maxNative = urlTemplate.indexOf('maptiler') >= 0 ? 20 : 19;
+      tileLayer = L.tileLayer(urlTemplate, { maxZoom: 20, maxNativeZoom: maxNative });
       tileLayer.addTo(map);
       var el = document.getElementById('attribution');
       if (el) el.textContent = attribution || '';
