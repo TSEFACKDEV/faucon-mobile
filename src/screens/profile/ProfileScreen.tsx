@@ -1,8 +1,7 @@
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, TextInput, Alert,
+  TouchableOpacity, Alert,
 } from 'react-native';
-import { useState, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,13 +9,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Gradients } from '../../constants/colors';
 import { GlowShadow } from '../../theme/shadows';
 import BrandBar from '../../components/ui/BrandBar';
-import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuthStore } from '../../store/authStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { disconnectSocket } from '../../services/socketClient';
-import { authService } from '../../services/authService';
-import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { RootStackParamList } from '../../navigation/MainNavigator';
 
@@ -46,53 +42,14 @@ const SettingRow = ({ icon, label, onPress, rightElement, danger }: SettingRowPr
   </TouchableOpacity>
 );
 
+// Profil volontairement simple, aligné sur l'application Flutter : identité,
+// quelques réglages utiles, puis déconnexion. Plus de formulaire d'édition
+// inline ni de sections redondantes.
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, logout, setUser } = useAuthStore();
-  const { vehicles } = useVehicleStore();
-
-  const [nom,       setNom]       = useState(user?.userName ?? '');
-  const [email,     setEmail]     = useState(user?.email ?? '');
-  const [telephone, setTelephone] = useState(user?.telephone ?? '');
-  const [saving,    setSaving]    = useState(false);
-
-  useEffect(() => {
-    setNom(user?.userName ?? '');
-    setEmail(user?.email ?? '');
-    setTelephone(user?.telephone ?? '');
-  }, [user]);
-
-  const handleSave = async () => {
-    if (!nom.trim() || !email.trim()) {
-      Alert.alert('Champs requis', 'Le nom et l\'email sont obligatoires.');
-      return;
-    }
-    // Pas de validation de format auparavant : une adresse mal saisie
-    // partait telle quelle vers le serveur (qui ne la valide pas non plus)
-    // et s'enregistrait invalide sans que rien ne le signale.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      Alert.alert('Email invalide', 'Vérifiez le format de l\'adresse email.');
-      return;
-    }
-    if (telephone.trim() && !/^(\+[1-9]\d{7,14}|00[1-9]\d{9,15})$/.test(telephone.trim().replace(/\s/g, ''))) {
-      Alert.alert('Téléphone invalide', 'Vérifiez le format du numéro de téléphone.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const updated = await authService.updateProfile({
-        userName: nom.trim(),
-        email: email.trim(),
-        telephone: telephone.trim(),
-      });
-      setUser(updated);
-      Alert.alert('Profil mis à jour', 'Vos informations ont été enregistrées.');
-    } catch (error: any) {
-      Alert.alert('Erreur', getErrorMessage(error, "Impossible d'enregistrer les modifications. Réessayez dans un instant."));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const vehicles = useVehicleStore((s) => s.vehicles);
 
   const handleLogout = () => {
     Alert.alert(
@@ -108,7 +65,7 @@ export default function ProfileScreen() {
             try {
               await logout();
             } catch {
-              useToastStore.getState().show('Impossible de vous déconnecter pour le moment. Réessayez dans un instant.', 'danger');
+              useToastStore.getState().show('Impossible de vous déconnecter pour le moment.', 'danger');
             }
           },
         },
@@ -118,10 +75,6 @@ export default function ProfileScreen() {
 
   const showStaticInfo = (title: string, message: string) => Alert.alert(title, message);
 
-  // Initiales de l'utilisateur — la plupart des pseudos FAUCON sont un seul
-  // mot ("johndoe", cf. le placeholder de l'inscription), pas "Prénom Nom" :
-  // découper sur l'espace puis ne garder que la 1re lettre de chaque mot
-  // donnait une seule lettre ("J") au lieu de deux dans ce cas très courant.
   const initials = (() => {
     const name = user?.userName?.trim();
     if (!name) return '??';
@@ -132,60 +85,25 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-
       <BrandBar title="Profil" />
 
-      {/* AVATAR + NOM */}
       <LinearGradient colors={Gradients.navy} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profileCard}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.userName}>{user?.userName}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
+        <Text style={styles.userName}>{user?.userName ?? 'Utilisateur'}</Text>
+        <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
+        {user?.telephone ? <Text style={styles.userPhone}>{user.telephone}</Text> : null}
       </LinearGradient>
 
-      {/* INFORMATIONS PERSONNELLES */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>INFORMATIONS PERSONNELLES</Text>
-        <Card style={styles.formCard}>
-          <View>
-            <Text style={styles.fieldLabel}>NOM</Text>
-            <TextInput style={styles.fieldInput} value={nom} onChangeText={setNom} autoCapitalize="words" />
-          </View>
-          <View>
-            <Text style={styles.fieldLabel}>EMAIL</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-          <View>
-            <Text style={styles.fieldLabel}>TÉLÉPHONE</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={telephone}
-              onChangeText={setTelephone}
-              keyboardType="phone-pad"
-              placeholder="+237 6XX XX XX XX"
-              placeholderTextColor={Colors.textMuted}
-            />
-          </View>
-          <Button label="Enregistrer" onPress={handleSave} loading={saving} />
-        </Card>
-      </View>
-
-      {/* SECTION COMPTE */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>COMPTE</Text>
+        <Text style={styles.sectionTitle}>APPLICATION</Text>
         <Card padded={false}>
           <SettingRow
             icon="cube-outline"
-            label="Dispositifs"
+            label="Mes dispositifs"
             onPress={() => navigation.navigate('Tabs', { screen: 'Dispositifs' } as any)}
-            rightElement={<Text style={styles.rowValue}>{vehicles.length} enregistrés</Text>}
+            rightElement={<Text style={styles.rowValue}>{vehicles.length}</Text>}
           />
           <View style={styles.divider} />
           <SettingRow
@@ -203,7 +121,6 @@ export default function ProfileScreen() {
         </Card>
       </View>
 
-      {/* SECTION ASSISTANCE */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>ASSISTANCE</Text>
         <Card padded={false}>
@@ -227,7 +144,6 @@ export default function ProfileScreen() {
         </Card>
       </View>
 
-      {/* SESSION */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>SESSION</Text>
         <Card padded={false}>
@@ -240,9 +156,7 @@ export default function ProfileScreen() {
         </Card>
       </View>
 
-      {/* VERSION */}
       <Text style={styles.version}>FAUCON v1.0.0 · Voir · Surveiller · Contrôler</Text>
-
     </ScrollView>
   );
 }
@@ -270,6 +184,7 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 26, fontWeight: '700', color: Colors.white },
   userName:   { fontSize: 18, fontWeight: '700', color: Colors.white },
   userEmail:  { fontSize: 13, color: Colors.darkTextSecondary, marginTop: 4 },
+  userPhone:  { fontSize: 12, color: Colors.darkTextSecondary, marginTop: 3 },
 
   section:      { marginTop: 20, paddingHorizontal: 16 },
   sectionTitle: {
@@ -279,19 +194,6 @@ const styles = StyleSheet.create({
     letterSpacing:  0.8,
     marginBottom:   8,
     marginLeft:     4,
-  },
-  formCard: { gap: 14 },
-
-  fieldLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.5, marginBottom: 6 },
-  fieldInput: {
-    borderWidth:       1,
-    borderColor:       Colors.border,
-    borderRadius:      10,
-    paddingHorizontal: 12,
-    height:            46,
-    fontSize:          14,
-    color:             Colors.textPrimary,
-    backgroundColor:   Colors.offWhite,
   },
 
   settingRow: {

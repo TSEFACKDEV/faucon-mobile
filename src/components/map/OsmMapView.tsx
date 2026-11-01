@@ -383,6 +383,11 @@ const buildHtml = () => `
       return Math.min(20, Math.round(Math.log2(360 / d)));
     }
 
+    // Fond de secours sans clé : si la clé MapTiler expire ou si le service
+    // est indisponible, la carte bascule automatiquement sur OpenStreetMap
+    // au lieu de rester grise.
+    var OSM_FALLBACK_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
     function setTileLayer(urlTemplate, attribution) {
       if (tileLayer) map.removeLayer(tileLayer);
       // MapTiler fournit des tuiles jusqu'au niveau 20 ; OSM/Esri jusqu'à 19.
@@ -390,6 +395,12 @@ const buildHtml = () => `
       // bloquer le zoom.
       var maxNative = urlTemplate.indexOf('maptiler') >= 0 ? 20 : 19;
       tileLayer = L.tileLayer(urlTemplate, { maxZoom: 20, maxNativeZoom: maxNative });
+      if (urlTemplate.indexOf('maptiler') >= 0) {
+        tileLayer.once('tileerror', function () {
+          // Une seule bascule : évite une boucle si OSM échoue aussi.
+          setTileLayer(OSM_FALLBACK_URL, '© OpenStreetMap contributors');
+        });
+      }
       tileLayer.addTo(map);
       var el = document.getElementById('attribution');
       if (el) el.textContent = attribution || '';

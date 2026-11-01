@@ -15,8 +15,8 @@ const FalconMark = ({ tone, size }: { tone: 'color' | 'white'; size: number }) =
   <Image
     source={
       tone === 'white'
-        ? require('../../../assets/logo/falcon-icon-foreground.png')
-        : require('../../../assets/logo/falcon-splash.png')
+        ? require('../../../assets/logo/falcon-mark-white.png')
+        : require('../../../assets/logo/falcon-mark-color.png')
     }
     style={{ width: size, height: size }}
     resizeMode="contain"

@@ -10,7 +10,6 @@ import AddDeviceFromProfileScreen from '../screens/profile/AddDeviceFromProfileS
 import ApiKeysScreen from '../screens/profile/ApiKeysScreen'
 import DashboardScreen      from '../screens/dashboard/DashboardScreen';
 import DevicesScreen        from '../screens/devices/DevicesScreen';
-import HistoryScreen        from '../screens/history/HistoryScreen';
 import AlertsScreen         from '../screens/alerts/AlertsScreen';
 import ProfileScreen        from '../screens/profile/ProfileScreen';
 import VehicleDetailScreen  from '../screens/vehicle/VehicleDetailScreen';
@@ -19,10 +18,8 @@ import PlaybackScreen       from '../screens/vehicle/PlaybackScreen';
 // ── Stack pour les écrans liés aux véhicules ────────────────────
 export type VehicleStackParamList = {
   VehicleDetail: { vehiculeId: string };
-  // date optionnelle : HistoryScreen y navigue depuis un trajet passé précis
-  // (voir PlaybackScreen, qui l'utilise pour présélectionner le bon jour) ;
-  // les autres appelants (Dashboard, Dispositifs) n'en passent pas, la
-  // lecture démarre alors sur aujourd'hui.
+  // date optionnelle : ouvre directement un jour précis ; sinon la lecture
+  // démarre sur aujourd'hui.
   Playback:      { vehiculeId: string; date?: string };
 };
 
@@ -39,9 +36,9 @@ const VehicleNavigator = () => (
 export type RootStackParamList = {
   Tabs:          undefined;
   // Navigateur imbriqué : tous les appelants y naviguent via la forme
-  // { screen, params } (voir Dashboard/Dispositifs/Historique), jamais avec
-  // des params à plat — le type doit refléter ça, pas les params d'un écran
-  // précis de la pile.
+  // { screen, params } (voir Dashboard/Dispositifs), jamais avec des params
+  // à plat — le type doit refléter ça, pas les params d'un écran précis de
+  // la pile.
   VehicleStack:  NavigatorScreenParams<VehicleStackParamList>;
   AddDeviceFromProfile: undefined;
   ApiKeys:       undefined;
@@ -88,13 +85,12 @@ const TabNavigator = () => {
           fontWeight: '600',
         },
         tabBarItemStyle: {
-          paddingHorizontal: 2, // évite toute coupure sur "Dispositifs"/"Historique"
+          paddingHorizontal: 2, // évite toute coupure sur "Dispositifs"
         },
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
             Carte:       focused ? 'map'           : 'map-outline',
             Dispositifs: focused ? 'cube'          : 'cube-outline',
-            Historique:  focused ? 'time'          : 'time-outline',
             Alertes:     focused ? 'notifications' : 'notifications-outline',
             Profil:      focused ? 'person'        : 'person-outline',
           };
@@ -104,7 +100,6 @@ const TabNavigator = () => {
     >
       <Tab.Screen name="Carte"       component={DashboardScreen} />
       <Tab.Screen name="Dispositifs" component={DevicesScreen}   />
-      <Tab.Screen name="Historique"  component={HistoryScreen}   />
       <Tab.Screen name="Alertes"     component={AlertsScreen}    options={unreadCount > 0 ? { tabBarBadge: unreadCount } : undefined} />
       <Tab.Screen name="Profil"      component={ProfileScreen}   />
     </Tab.Navigator>

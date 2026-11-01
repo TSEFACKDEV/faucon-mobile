@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import OsmMapView, { OsmMarker, OsmMapViewHandle } from '../../components/map/OsmMapView';
-import GoogleMapView, { GoogleMarker, GoogleMapViewHandle } from '../../components/map/GoogleMapView';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Gradients } from '../../constants/colors';
@@ -20,18 +19,9 @@ import { useLocation } from '../../hooks/useLocation';
 import { formatTime, formatRelativeTime, isDeviceOffline, isDeviceStopped, isoDateDouala } from '../../utils/formatters';
 import { vehicleService } from '../../services/vehicleService';
 import { reverseGeocode } from '../../services/geocoding';
-import { Config } from '../../constants/config';
 import { MAP_STYLES, MapStyleId } from '../../constants/mapTiles';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
-
-// Clé configurée (ou non) pour chaque style qui en a besoin — un seul endroit
-// à relire si un nouveau fournisseur est ajouté au registre.
-const API_KEYS: Record<string, string> = {
-  MAPTILER:    Config.MAPTILER_KEY,
-  STADIA:      Config.STADIA_KEY,
-  GOOGLE_MAPS: Config.GOOGLE_MAPS_KEY,
-};
 
 // Niveau de zoom utilisé pour centrer sur un dispositif — au chargement, en
 // suivi continu ou après une sélection manuelle : une seule valeur pour que
@@ -43,7 +33,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
 
   // State local
-  const [mapStyleId,    setMapStyleId]    = useState<MapStyleId>('maptiler');
+  const [mapStyleId,    setMapStyleId]    = useState<MapStyleId>('osm');
   const [dailyDistance, setDailyDistance] = useState<number | null>(null);
   const [address,       setAddress]       = useState<string | null>(null);
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
@@ -164,24 +154,6 @@ export default function DashboardScreen() {
     return m;
   }, [mapMarkers, userLoc]);
 
-  // Même liste de marqueurs, typée pour Google Maps (champs identiques,
-  // seule l'interface diffère — OsmMarker vs GoogleMarker).
-  const googleMarkersWithUser: GoogleMarker[] = useMemo(() => {
-    const m: GoogleMarker[] = markersWithUser.map((mk) => ({
-      id: mk.id,
-      latitude: mk.latitude,
-      longitude: mk.longitude,
-      heading: mk.heading,
-      color: mk.color,
-      label: mk.label,
-      hasAlarm: mk.hasAlarm,
-      selected: mk.selected,
-      icon: mk.icon,
-      popup: mk.popup,
-    }));
-    return m;
-  }, [markersWithUser]);
-
   useEffect(() => {
     const loadDailyDistance = async () => {
       if (!selectedId) return;
@@ -214,23 +186,15 @@ export default function DashboardScreen() {
     return () => { cancelled = true; };
   }, [selectedPos?.latitude, selectedPos?.longitude]);
 
-  const mapRef      = useRef<OsmMapViewHandle | null>(null);
-  const googleMapRef = useRef<GoogleMapViewHandle | null>(null);
+  const mapRef = useRef<OsmMapViewHandle | null>(null);
   // Incrémenté à chaque sélection EXPLICITE (tap sur un marqueur, choix dans
   // le menu de dispositifs) — permet de forcer un recentrage même en
   // retapant le dispositif déjà suivi, sans dépendre de `selectedId` seul
   // (qui, lui, ne change pas dans ce cas).
   const [focusRequest, setFocusRequest] = useState(0);
 
-  // Style de carte actif et clé API associée — déclaré ici (avant tout usage)
-  // car le memo activeMapRef ci-dessous en dépend.
   const activeMapStyle = MAP_STYLES.find(s => s.id === mapStyleId) ?? MAP_STYLES[0];
-  const activeMapKey = activeMapStyle.requiresKey ? API_KEYS[activeMapStyle.requiresKey] : undefined;
-
-  // Retour la ref du composant de carte actuellement actif (Leaflet ou Google).
-  const activeMapRef = useMemo(() => {
-    return activeMapStyle.provider === 'google' ? googleMapRef : mapRef;
-  }, [activeMapStyle.provider]);
+  const activeMapRef = mapRef;
 
   // Centrage sur une sélection (nouvelle, ou retapée explicitement) — centre
   // et zoome une seule fois. Ne dépend PAS de la position qui arrive en
@@ -263,9 +227,7 @@ export default function DashboardScreen() {
   const handleScanPress = () => {
     scanPulse.setValue(0);
     Animated.timing(scanPulse, { toValue: 1, duration: 700, useNativeDriver: true }).start();
-    if (activeMapStyle.provider === 'leaflet') {
-      mapRef.current?.scan();
-    }
+    mapRef.current?.scan();
   };
 
   const handleMarkerPress = (vehicleId: string) => {
@@ -330,36 +292,21 @@ export default function DashboardScreen() {
     <View style={styles.container}>
 
       {/* ── CARTE PLEIN ÉCRAN ── */}
-      {/* Fournisseur Leaflet (tuiles raster) : MapTiler, OSM, Esri Satellite, Stadia. */}
-      {activeMapStyle.provider === 'leaflet' && (
-        <OsmMapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFill}
-          initialRegion={initialRegion}
-          tileUrlTemplate={activeMapStyle.buildUrl!(activeMapKey)}
-          attribution={activeMapStyle.attribution}
-          markers={markersWithUser}
-          selectedId={selectedId ?? undefined}
-          onMarkerPress={handleMarkerPress}
-          onPopupAction={handlePopupAction}
-          floatingControls={{
-            onOpenMapOptions: () => setMapOptionsOpen(true),
-          }}
-        />
-      )}
-      {/* Fournisseur Google (Google Maps JavaScript API dans WebView) : Google Maps, Google Satellite. */}
-      {activeMapStyle.provider === 'google' && (
-        <GoogleMapView
-          ref={googleMapRef}
-          style={StyleSheet.absoluteFill}
-          initialRegion={initialRegion}
-          mapType={activeMapStyle.mapType ?? 'roadmap'}
-          apiKey={activeMapKey ?? ''}
-          markers={googleMarkersWithUser}
-          selectedId={selectedId ?? undefined}
-          onMarkerPress={handleMarkerPress}
-        />
-      )}
+      {/* Un seul composant Leaflet : OSM, Esri Satellite ou MapTiler. */}
+      <OsmMapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        initialRegion={initialRegion}
+        tileUrlTemplate={activeMapStyle.buildUrl()}
+        attribution={activeMapStyle.attribution}
+        markers={markersWithUser}
+        selectedId={selectedId ?? undefined}
+        onMarkerPress={handleMarkerPress}
+        onPopupAction={handlePopupAction}
+        floatingControls={{
+          onOpenMapOptions: () => setMapOptionsOpen(true),
+        }}
+      />
 
       {/* ── TOPBAR ── */}
       <LinearGradient
@@ -472,20 +419,15 @@ export default function DashboardScreen() {
           >
             <Text style={styles.mapOptionsTitle}>Fond de carte</Text>
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-              {MAP_STYLES.map(styleOption => {
-                const hasKey = !styleOption.requiresKey || !!API_KEYS[styleOption.requiresKey];
-                return (
-                  <MapOptionRow
-                    key={styleOption.id}
-                    icon={styleOption.icon}
-                    label={styleOption.label}
-                    selected={mapStyleId === styleOption.id}
-                    disabled={!hasKey}
-                    subtitle={!hasKey ? 'Clé API requise' : undefined}
-                    onPress={() => setMapStyleId(styleOption.id)}
-                  />
-                );
-              })}
+              {MAP_STYLES.map(styleOption => (
+                <MapOptionRow
+                  key={styleOption.id}
+                  icon={styleOption.icon}
+                  label={styleOption.label}
+                  selected={mapStyleId === styleOption.id}
+                  onPress={() => setMapStyleId(styleOption.id)}
+                />
+              ))}
             </ScrollView>
           </Reanimated.View>
         </View>

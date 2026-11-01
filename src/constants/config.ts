@@ -23,10 +23,7 @@ export const Config = {
   SOCKET_URL:   requireEnv('EXPO_PUBLIC_SOCKET_URL', process.env.EXPO_PUBLIC_SOCKET_URL),
   TOKEN_KEY:    'faucon_access_token',
   REFRESH_KEY:  'faucon_refresh_token',
-  // Clés de fonds de carte — à renseigner dans mobile/.env.
-  // Pas de fallback : si absentes, le style cartographique est désactivé
-  // dans la sidebar ("Clé API requise").
-  MAPTILER_KEY:  process.env.EXPO_PUBLIC_MAPTILER_KEY  ?? '',
-  STADIA_KEY:    process.env.EXPO_PUBLIC_STADIA_KEY     ?? '',
-  GOOGLE_MAPS_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? '',
+  // Seule clé cartographique restante : MapTiler (option n°3). Les fonds
+  // OpenStreetMap et Esri sont sans clé, donc sans expiration.
+  MAPTILER_KEY: process.env.EXPO_PUBLIC_MAPTILER_KEY ?? '',
 };

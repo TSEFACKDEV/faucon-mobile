@@ -60,6 +60,7 @@ interface DeviceState {
   setVehicles:        (vehicles: Device[]) => void;
   updateLivePosition: (data: LivePosition) => void;
   addAlarm:           (alarm: Alarme) => void;
+  removeAlarm:        (alarmId: string) => void;
   setActiveAlarms:    (alarms: Alarme[]) => void;
   setSelectedId:      (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
@@ -183,6 +184,11 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   // une alarme déclenchée avant l'ouverture de l'app (ou avant reconnexion
   // socket) restait invisible sur le Dashboard (marqueur vert, badge à 0)
   // alors qu'AlertsScreen la montrait bien via son propre fetch REST local.
+  removeAlarm: (alarmId) =>
+    set((state) => ({
+      activeAlarms: state.activeAlarms.filter((alarm) => alarm.id !== alarmId),
+    })),
+
   setActiveAlarms: (alarms) => set({ activeAlarms: alarms }),
 
   setSelectedId:      (id) => set({ selectedId: id }),

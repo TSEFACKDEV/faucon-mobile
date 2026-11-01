@@ -100,7 +100,7 @@ const PulseDot = ({ color }: { color: string }) => {
 };
 
 export default function AlertsScreen() {
-  const { vehicles, activeAlarms, addAlarm } = useVehicleStore();
+  const { vehicles, activeAlarms, addAlarm, removeAlarm } = useVehicleStore();
 
   const [allAlarmes,  setAllAlarmes]  = useState<Alarme[]>([]);
   const [filter,      setFilter]      = useState<FilterType>('TOUTES');
@@ -184,13 +184,17 @@ export default function AlertsScreen() {
     setAcquitting(alarme.id);
     try {
       await vehicleService.acquitAlarme(alarme.vehiculeId, alarme.id);
-      setAllAlarmes(prev =>
-        prev.map(a =>
-          a.id === alarme.id
-            ? { ...a, estAcquittee: true }
-            : a
-        )
-      );
+      // Comme dans l'application Flutter : une alerte acquittée est retirée
+      // immédiatement de la liste et du serveur (suppression définitive).
+      try {
+        await vehicleService.deleteAlarme(alarme.vehiculeId, alarme.id);
+      } catch (deleteErr) {
+        // L'acquittement a réussi : on retire quand même la carte de la vue
+        // pour ne pas laisser une alerte déjà traitée à l'écran.
+        console.warn('[acquitter] suppression impossible', deleteErr);
+      }
+      setAllAlarmes(prev => prev.filter(a => a.id !== alarme.id));
+      removeAlarm(alarme.id);
     } catch (err) {
       console.error('[acquitter]', err);
       useToastStore.getState().show(
@@ -216,6 +220,7 @@ export default function AlertsScreen() {
             try {
               await vehicleService.deleteAlarme(alarme.vehiculeId, alarme.id);
               setAllAlarmes(prev => prev.filter(a => a.id !== alarme.id));
+              removeAlarm(alarme.id);
             } catch (err) {
               console.error('[supprimerAlarme]', err);
               Alert.alert('Erreur', getErrorMessage(err, 'Impossible de supprimer cette alerte pour le moment.'));
