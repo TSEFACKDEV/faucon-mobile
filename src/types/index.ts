@@ -103,7 +103,10 @@ export type TypeAlarme =
   | 'VITESSE_EXCESSIVE'
   | 'DECOLLEMENT_TRACEUR'
   | 'NON_MOUVEMENT'
-  | 'BATTERIE_FAIBLE';
+  | 'BATTERIE_FAIBLE'
+  | 'CONDUITE_BRUTALE'
+  | 'CHOC'
+  | 'MOUVEMENT_BRUTAL';
 
 // Commandes descendantes (app -> traceur, via MQTT). Voir OsmMapView/
 // RemoteActions pour l'UI, et le firmware v10.1 (traiterCommandeEntrante)
@@ -123,6 +126,20 @@ export interface Commande {
   statutExecution: StatutCommande;
   dateEnvoi: string;
   dateReponse?: string | null;
+}
+
+// Clé API propriétaire (lecture seule sur les véhicules du compte).
+// Le secret `key` n'est renvoyé qu'une seule fois, à la création.
+export interface ApiKey {
+  id: string;
+  nom: string;
+  prefix: string;
+  scopes: string[];
+  estActive: boolean;
+  dateCreation: string;
+  derniereUtilisation?: string | null;
+  dateExpiration?: string | null;
+  key?: string;
 }
 
 export interface AuthTokens {

@@ -12,7 +12,7 @@ import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
-import { ROUTE_TILE_URL } from '../../constants/mapTiles';
+import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
 
 interface GeofenceData {
   nom:         string;
@@ -96,7 +96,7 @@ export default function GeofenceConfig({
             latitudeDelta:  (rayon / 111000) * 4,
             longitudeDelta: (rayon / 111000) * 4,
           }}
-          tileUrlTemplate={ROUTE_TILE_URL}
+          tileUrlTemplate={MAPTILER_TILE_URL}
           markers={vehiclePosition ? [
             { id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.info, label: 'Véhicule' },
           ] : []}

@@ -3,6 +3,7 @@ import { vehicleService } from '../services/vehicleService';
 import { useVehicleStore } from '../store/vehicleStore';
 import { getErrorMessage } from '../utils/errors';
 import { useToastStore } from '../store/toastStore';
+import { maybeTriggerDetachmentAlarm } from '../services/alarmAlert';
 
 // Partagé entre TOUTES les instances du hook (AuthenticatedGate, Dashboard,
 // Dispositifs l'utilisent chacun séparément) — au niveau du module, pas d'un
@@ -60,6 +61,9 @@ export const useVehicles = () => {
         .flatMap(r => r.value)
         .filter(a => !a.estAcquittee);
       setActiveAlarms(nonAcquittees);
+      // Une alarme de décollement reçue pendant que l'app était fermée doit
+      // aussi déclencher l'écran d'alarme au retour (si elle est récente).
+      nonAcquittees.forEach(maybeTriggerDetachmentAlarm);
     } catch (err) {
       console.error('[useVehicles]', err);
       const message = getErrorMessage(err, 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.');

@@ -1,4 +1,5 @@
 import type { Ionicons } from '@expo/vector-icons';
+import { Config } from './config';
 
 // Tuiles "route" : CARTO Voyager (gratuit, sans clé, pensé pour un usage
 // applicatif — contrairement à tile.openstreetmap.org qui est le serveur de
@@ -6,6 +7,14 @@ import type { Ionicons } from '@expo/vector-icons';
 // {s} = rotation de sous-domaine, {r} = suffixe retina — tous deux interprétés
 // par Leaflet (toute la carte passe par OsmMapView, plus de rendu natif).
 export const ROUTE_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+// Tuiles MapTiler : fond par défaut de l'application. Cette constante est
+// utilisée par TOUS les écrans qui affichent une carte (tableau de bord,
+// détail véhicule, lecture de trajet, zone de sécurité) afin d'avoir un seul
+// fond cohérent et une seule clé à maintenir.
+export const MAPTILER_TILE_URL = Config.MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${Config.MAPTILER_KEY}`
+  : ROUTE_TILE_URL;
 
 // Tuiles satellite : Esri World Imagery, gratuit sans clé pour ce volume d'usage.
 export const SATELLITE_TILE_URL =
@@ -51,7 +60,7 @@ export const MAP_STYLES: MapStyleOption[] = [
     attribution: '© MapTiler © OpenStreetMap contributors',
     requiresKey: 'MAPTILER',
     provider: 'leaflet',
-    buildUrl: (key) => `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${key}`,
+    buildUrl: () => MAPTILER_TILE_URL,
   },
   {
     id: 'osm',

@@ -189,6 +189,13 @@ export default function ProfileScreen() {
           />
           <View style={styles.divider} />
           <SettingRow
+            icon="key-outline"
+            label="Clés API"
+            onPress={() => navigation.navigate('ApiKeys')}
+            rightElement={<Text style={styles.rowValue}>Intégrations</Text>}
+          />
+          <View style={styles.divider} />
+          <SettingRow
             icon="language-outline"
             label="Langue"
             rightElement={<Text style={styles.rowValue}>Français</Text>}

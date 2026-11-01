@@ -54,6 +54,24 @@ const ALARM_CONFIG: Record<TypeAlarme, {
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
   },
+  CONDUITE_BRUTALE: {
+    label: 'Conduite brutale',
+    icon:  'warning-outline',
+    color: Colors.warningStrong,
+    bg:    Colors.warningTint,
+  },
+  CHOC: {
+    label: 'Choc détecté',
+    icon:  'pulse-outline',
+    color: Colors.danger,
+    bg:    Colors.dangerTint,
+  },
+  MOUVEMENT_BRUTAL: {
+    label: 'Mouvement brutal',
+    icon:  'swap-vertical-outline',
+    color: Colors.warningStrong,
+    bg:    Colors.warningTint,
+  },
 };
 
 // ── FILTRES ───────────────────────────────────────────────────────

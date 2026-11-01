@@ -44,7 +44,16 @@
         }
       ],
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo/falcon-icon-foreground.png",
+          "color": "#E11D48",
+          "sounds": ["./assets/sounds/alarme.wav"]
+        }
+      ]
     ],
     "extra": {
       "eas": {

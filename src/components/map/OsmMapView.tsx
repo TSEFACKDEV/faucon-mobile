@@ -106,6 +106,7 @@ export type OsmMapViewHandle = {
 // d'oublier l'attribution sur l'un des 4 écrans qui utilisent OsmMapView.
 // Obligatoire (politique d'usage CARTO/OSM/Esri), pas cosmétique.
 const attributionFor = (tileUrlTemplate: string): string => {
+  if (tileUrlTemplate.includes('maptiler.com')) return '© MapTiler © OpenStreetMap contributors';
   if (tileUrlTemplate.includes('cartocdn.com')) return '© OpenStreetMap contributors © CARTO';
   if (tileUrlTemplate.includes('arcgisonline.com')) return 'Esri, Maxar, Earthstar Geographics';
   return '© OpenStreetMap contributors';

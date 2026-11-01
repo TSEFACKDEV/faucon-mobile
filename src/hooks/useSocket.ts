@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { useVehicleStore } from '../store/vehicleStore';
+import { maybeTriggerDetachmentAlarm } from '../services/alarmAlert';
 import { useAuthStore } from '../store/authStore';
 import { getSocketInstance, setSocketInstance, disconnectSocket } from '../services/socketClient';
 import { Alarme, Commande, ModeFonctionnement, DiagnosticTraceur } from '../types';
@@ -64,6 +65,7 @@ export const useSocket = (vehiculeIds: string[]) => {
       // Réception alarme temps réel
       socket.on('alarm', (data: Alarme) => {
         addAlarm(data);
+        maybeTriggerDetachmentAlarm(data);
       });
 
       // Statut d'une commande descendante (LOCALISER/MODE/REDEMARRER/

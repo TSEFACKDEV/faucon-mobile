@@ -100,7 +100,23 @@ export const useVehicleStore = create<DeviceState>((set) => ({
   // "Aucun appareil" le temps que la requête initiale se termine.
   ...initialState,
 
-  setVehicles: (vehicles) => set({ vehicles }),
+  // Fusionne la liste serveur avec l'état temps réel : si l'API renvoie
+  // encore une batterie à 0 (valeur pas encore rafraîchie en base), on garde
+  // la dernière valeur reçue par WebSocket au lieu de régresser à 0 %.
+  setVehicles: (vehicles) =>
+    set((state) => ({
+      vehicles: vehicles.map((vehicle) => {
+        const previous = state.vehicles.find((v) => v.id === vehicle.id);
+        const liveBattery = state.livePositions[vehicle.id]?.battery ?? 0;
+        const previousBattery = previous?.niveauBatterie ?? 0;
+        const battery = liveBattery > 0
+          ? liveBattery
+          : (vehicle.niveauBatterie > 0 ? vehicle.niveauBatterie : previousBattery);
+        return battery === vehicle.niveauBatterie
+          ? vehicle
+          : { ...vehicle, niveauBatterie: battery };
+      }),
+    })),
 
   updateLivePosition: (data) =>
     set((state) => {

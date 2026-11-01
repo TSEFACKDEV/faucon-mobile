@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useVehicleStore } from '../store/vehicleStore';
 import AddDeviceFromProfileScreen from '../screens/profile/AddDeviceFromProfileScreen'
+import ApiKeysScreen from '../screens/profile/ApiKeysScreen'
 import DashboardScreen      from '../screens/dashboard/DashboardScreen';
 import DevicesScreen        from '../screens/devices/DevicesScreen';
 import HistoryScreen        from '../screens/history/HistoryScreen';
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   // précis de la pile.
   VehicleStack:  NavigatorScreenParams<VehicleStackParamList>;
   AddDeviceFromProfile: undefined;
+  ApiKeys:       undefined;
 };
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -116,6 +118,7 @@ export default function MainNavigator() {
       <RootStack.Screen name="Tabs"         component={TabNavigator}     />
       <RootStack.Screen name="VehicleStack" component={VehicleNavigator} />
       <RootStack.Screen name="AddDeviceFromProfile" component={AddDeviceFromProfileScreen} />
+      <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
     </RootStack.Navigator>
   );
 }

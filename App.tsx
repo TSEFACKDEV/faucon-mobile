@@ -8,6 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
 import { NavigationContainer } from '@react-navigation/native';
 import Toast from './src/components/ui/Toast';
+import AlarmAlertOverlay from './src/components/alarm/AlarmAlertOverlay';
+import { initAlarmNotifications } from './src/services/alarmAlert';
 import { useAuthStore } from './src/store/authStore';
 import { useOnboardingStore } from './src/store/onboardingStore';
 
@@ -25,6 +27,12 @@ export default function App() {
   const authLoading = useAuthStore((s) => s.isLoading);
   const onboardingLoading = useOnboardingStore((s) => s.isLoading);
 
+  // Prépare le canal Android prioritaire (son + vibration) et demande la
+  // permission d'afficher les notifications au premier lancement.
+  useEffect(() => {
+    initAlarmNotifications();
+  }, []);
+
   // On attend que l'auth ET l'onboarding soient résolus avant de révéler
   // l'app, pour un unique fondu au lieu d'un hide brutal suivi d'un spinner.
   useEffect(() => {
@@ -39,6 +47,7 @@ export default function App() {
         <NavigationContainer>
           <StatusBar style="light" />
           <RootNavigator />
+          <AlarmAlertOverlay />
           <Toast />
         </NavigationContainer>
       </SafeAreaProvider>

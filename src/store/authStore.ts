@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Config } from '../constants/config';
 import { User } from '../types';
 import { useVehicleStore } from './vehicleStore';
+import { clearAlertedAlarms } from '../services/alarmAlert';
 import { disconnectSocket } from '../services/socketClient';
 
 interface AuthState {
@@ -41,6 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // verrait, et sauterait AddDeviceScreen même s'il n'a lui-même aucun
     // dispositif — fuite de données + contournement de la mesure de sécurité.
     useVehicleStore.getState().reset();
+    clearAlertedAlarms();
     // Centralisé ICI (pas seulement dans le bouton "Se déconnecter" de
     // ProfileScreen) : toute voie de perte de session — y compris un
     // rafraîchissement de token qui échoue dans api.ts — doit couper le

@@ -17,7 +17,7 @@ import { Position } from '../../types';
 import { formatTime, formatSpeed, formatDistance, haversineKm } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
-import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
+import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string; date?: string };
 
@@ -226,7 +226,7 @@ export default function PlaybackScreen() {
             latitudeDelta:  0.1,
             longitudeDelta: 0.1,
           }}
-          tileUrlTemplate={OSM_URL}
+          tileUrlTemplate={MAPTILER_TILE_URL}
           markers={markers}
           polylines={polylines}
         />

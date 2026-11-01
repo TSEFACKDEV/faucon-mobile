@@ -25,7 +25,7 @@ import GeofenceConfig from '../../components/vehicle/GeofenceConfig';
 import DailyReportPanel from '../../components/vehicle/DailyReportPanel';
 import RemoteActions from '../../components/vehicle/RemoteActions';
 import PhoneAlerteConfig from '../../components/vehicle/PhoneAlerteConfig';
-import { ROUTE_TILE_URL as OSM_URL } from '../../constants/mapTiles';
+import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
 
 type RouteParams = { vehiculeId: string };
 
@@ -245,7 +245,7 @@ export default function VehicleDetailScreen() {
               latitudeDelta:  0.02,
               longitudeDelta: 0.02,
             }}
-            tileUrlTemplate={OSM_URL}
+            tileUrlTemplate={MAPTILER_TILE_URL}
             markers={[{
               id: vehicle.id,
               latitude: livePos.latitude,
