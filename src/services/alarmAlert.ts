@@ -7,7 +7,7 @@ import { useVehicleStore } from '../store/vehicleStore';
 import { formatTime } from '../utils/formatters';
 
 // Alarme de décollement : sonnerie forte + vibration + notification locale
-// prioritaire. Fonctionne comme dans l'application Flutter.
+// prioritaire, avec sonnerie, vibration et notification.
 const CHANNEL_ID = 'faucon_decollement';
 const SUPPORT_CHANNEL_ID = 'faucon_support';
 const SOUND_FILE = 'alarme.wav';

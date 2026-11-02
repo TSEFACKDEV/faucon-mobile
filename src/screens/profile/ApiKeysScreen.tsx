@@ -22,7 +22,7 @@ import { ApiKey } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 
-// Gestion des clés API du propriétaire, comme dans l'application Flutter :
+// Gestion des clés API du propriétaire :
 // création, affichage du secret une seule fois, révocation.
 const formatDate = (iso?: string | null): string => {
   if (!iso) return '—';

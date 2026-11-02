@@ -20,6 +20,8 @@ import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import AppText from '../../components/ui/Typography';
 import Logo from '../../components/ui/Logo';
+import LanguageSwitch from '../../components/ui/LanguageSwitch';
+import { useI18n } from '../../i18n';
 import { Colors, Gradients } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
@@ -37,6 +39,7 @@ const initialValues: LoginValues = { email: '', password: '' };
 // voisins à chaque frappe — c'est ce couplage qui provoquait le vol de focus
 // entre champs observé avec l'ancienne implémentation Formik.
 export default function LoginScreen() {
+  const { t } = useI18n();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { setUser, setTokens } = useAuthStore();
@@ -74,7 +77,7 @@ export default function LoginScreen() {
       await setTokens(tokens.accessToken, tokens.refreshToken);
       setUser(user);
     } catch (error: any) {
-      const message = getErrorMessage(error, 'Email ou mot de passe incorrect. Vérifiez vos identifiants, puis réessayez.');
+      const message = getErrorMessage(error, t('login.error'));
       // Le serveur renvoie volontairement un message générique "Email ou mot
       // de passe incorrect" sans révéler lequel des deux est en cause
       // (sécurité) — c'est le seul cas où l'associer au champ mot de passe a
@@ -97,6 +100,9 @@ export default function LoginScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+        <View style={styles.languageWrap}>
+          <LanguageSwitch tone="dark" />
+        </View>
         <View style={styles.headerContent}>
           <Logo tone="white" size={44} />
           <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
@@ -106,16 +112,16 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.card}>
-        <AppText variant="h1" style={styles.title}>Connexion</AppText>
+        <AppText variant="h1" style={styles.title}>{t('login.title')}</AppText>
         <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
           Accédez à votre tableau de bord
         </AppText>
 
         <View>
           <InputField
-            label="Adresse email"
+            label={t('login.email')}
             icon="mail-outline"
-            placeholder="john@email.com"
+            placeholder={t('login.emailPlaceholder')}
             keyboardType="email-address"
             autoComplete="email"
             value={values.email}
@@ -123,9 +129,9 @@ export default function LoginScreen() {
             error={errors.email}
           />
           <InputField
-            label="Mot de passe"
+            label={t('login.password')}
             icon="lock-closed-outline"
-            placeholder="Votre mot de passe"
+            placeholder={t('login.passwordPlaceholder')}
             isPassword
             autoComplete="current-password"
             value={values.password}
@@ -133,13 +139,13 @@ export default function LoginScreen() {
             error={errors.password}
           />
 
-          <Button label="Se connecter" onPress={handleLogin} loading={submitting} size="lg" style={styles.submitBtn} />
+          <Button label={t('login.submit')} onPress={handleLogin} loading={submitting} size="lg" style={styles.submitBtn} />
         </View>
 
         <View style={styles.registerRow}>
-          <AppText variant="body" color={Colors.textSecondary}>Pas encore de compte ? </AppText>
+          <AppText variant="body" color={Colors.textSecondary}>{t('login.noAccount')} </AppText>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <AppText variant="bodyBold" color={Colors.accentDark}>S'inscrire</AppText>
+            <AppText variant="bodyBold" color={Colors.accentDark}>{t('login.signup')}</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -163,6 +169,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flexGrow: 1 },
   header: { paddingBottom: 64, alignItems: 'center' },
+  languageWrap: { position: 'absolute', top: 12, right: 20, zIndex: 2 },
   headerContent: { alignItems: 'center', gap: Spacing.sm },
   tagline: { letterSpacing: 0.5 },
   card: {

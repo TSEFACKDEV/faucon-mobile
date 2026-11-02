@@ -7,7 +7,7 @@ import { notifyTrackerAttached } from '../services/alarmAlert';
 // Filet de sécurité indépendant du WebSocket : toutes les 10 secondes, on
 // relit la dernière position de chaque traceur. Même si le socket est coupé
 // (réseau mobile instable, mise en arrière-plan, proxy), la carte continue de
-// se mettre à jour comme dans l'application Flutter.
+// se mettre à jour automatiquement.
 export const useLivePositionRefresh = () => {
   const updateLivePosition = useVehicleStore((s) => s.updateLivePosition);
 

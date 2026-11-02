@@ -16,6 +16,7 @@ import { Alarme, TypeAlarme } from '../../types';
 import { formatTime } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
 
 // ── CONFIG PAR TYPE D'ALARME ──────────────────────────────────────
 const ALARM_CONFIG: Record<TypeAlarme, {
@@ -77,13 +78,13 @@ const ALARM_CONFIG: Record<TypeAlarme, {
 // ── FILTRES ───────────────────────────────────────────────────────
 type FilterType = 'TOUTES' | TypeAlarme;
 
-const FILTERS: { key: FilterType; label: string }[] = [
-  { key: 'TOUTES',              label: 'Toutes'     },
-  { key: 'SORTIE_ZONE',         label: 'Zone'       },
-  { key: 'VITESSE_EXCESSIVE',   label: 'Vitesse'    },
-  { key: 'DECOLLEMENT_TRACEUR', label: 'Décolle.'   },
-  { key: 'BATTERIE_FAIBLE',     label: 'Batterie'   },
-  { key: 'NON_MOUVEMENT',       label: 'Inactif'    },
+const FILTERS: { key: FilterType; labelKey: string }[] = [
+  { key: 'TOUTES',              labelKey: 'alerts.all'       },
+  { key: 'SORTIE_ZONE',         labelKey: 'alerts.zone'      },
+  { key: 'VITESSE_EXCESSIVE',   labelKey: 'alerts.speed'     },
+  { key: 'DECOLLEMENT_TRACEUR', labelKey: 'alerts.detach'    },
+  { key: 'BATTERIE_FAIBLE',     labelKey: 'alerts.battery'   },
+  { key: 'NON_MOUVEMENT',       labelKey: 'alerts.inactive'  },
 ];
 
 // Pulsation douce (opacité 1 → 0.35 → 1, ~1.4s, ease-in-out) — le repère visuel
@@ -100,6 +101,7 @@ const PulseDot = ({ color }: { color: string }) => {
 };
 
 export default function AlertsScreen() {
+  const { t } = useI18n();
   const { vehicles, activeAlarms, addAlarm, removeAlarm } = useVehicleStore();
 
   const [allAlarmes,  setAllAlarmes]  = useState<Alarme[]>([]);
@@ -184,7 +186,7 @@ export default function AlertsScreen() {
     setAcquitting(alarme.id);
     try {
       await vehicleService.acquitAlarme(alarme.vehiculeId, alarme.id);
-      // Comme dans l'application Flutter : une alerte acquittée est retirée
+      // Une alerte acquittée est retirée
       // immédiatement de la liste et du serveur (suppression définitive).
       try {
         await vehicleService.deleteAlarme(alarme.vehiculeId, alarme.id);
@@ -208,12 +210,12 @@ export default function AlertsScreen() {
 
   const handleDeleteAlarme = (alarme: Alarme) => {
     Alert.alert(
-      'Supprimer cette alerte',
-      'Cette alerte sera définitivement supprimée.',
+      t('alerts.deleteTitle'),
+      t('alerts.deleteMessage'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('alerts.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('alerts.deleteConfirm'),
           style: 'destructive',
           onPress: async () => {
             setDeletingId(alarme.id);
@@ -244,15 +246,28 @@ export default function AlertsScreen() {
       // dans l'app alors qu'elle ne l'est pas côté serveur — trompeur sur un
       // produit anti-vol où une alarme "traitée à tort" peut coûter cher.
       const results = await Promise.allSettled(
-        toAcquit.map(a => vehicleService.acquitAlarme(a.vehiculeId, a.id))
+        toAcquit.map(async (alarm) => {
+          await vehicleService.acquitAlarme(alarm.vehiculeId, alarm.id);
+          // Même logique que l'acquittement individuel : une alerte traitée
+          // est supprimée du serveur et retirée de la liste.
+          try {
+            await vehicleService.deleteAlarme(alarm.vehiculeId, alarm.id);
+          } catch {
+            // L'acquittement a réussi ; la suppression sera retentée plus tard.
+          }
+          return alarm.id;
+        })
       );
       const succeededIds = new Set(
-        toAcquit.filter((_, i) => results[i].status === 'fulfilled').map(a => a.id)
+        results
+          .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+          .map(result => result.value)
       );
       const nbFailed = toAcquit.length - succeededIds.size;
 
       if (succeededIds.size > 0) {
-        setAllAlarmes(prev => prev.map(a => (succeededIds.has(a.id) ? { ...a, estAcquittee: true } : a)));
+        setAllAlarmes(prev => prev.filter(a => !succeededIds.has(a.id)));
+        succeededIds.forEach(id => removeAlarm(id));
       }
       if (nbFailed > 0) {
         useToastStore.getState().show(
@@ -290,7 +305,7 @@ export default function AlertsScreen() {
     <View style={styles.container}>
 
       <BrandBar
-        title="Alertes"
+        title={t('alerts.title')}
         right={
           nbNonLues > 0 ? (
             <View style={styles.headerRight}>
@@ -302,7 +317,7 @@ export default function AlertsScreen() {
                 {acquittingAll ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
-                  <Text style={styles.markAllText}>Tout lire</Text>
+                  <Text style={styles.markAllText}>{t('alerts.acknowledgeAll')}</Text>
                 )}
               </TouchableOpacity>
               <View style={styles.countBadge}>
@@ -323,7 +338,7 @@ export default function AlertsScreen() {
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
             <Chip
-              label={item.label}
+              label={t(item.labelKey)}
               selected={filter === item.key}
               onPress={() => setFilter(item.key)}
             />
@@ -350,19 +365,19 @@ export default function AlertsScreen() {
             <View style={styles.centered}>
               <EmptyState
                 icon="cloud-offline-outline"
-                title="Impossible de charger les alertes"
+                title={t('alerts.loadError')}
                 subtitle={loadError}
               />
               <TouchableOpacity style={styles.retryBtn} onPress={handleRefresh}>
                 <Ionicons name="refresh" size={14} color={Colors.white} />
-                <Text style={styles.retryText}>Réessayer</Text>
+                <Text style={styles.retryText}>{t('alerts.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <EmptyState
               icon="checkmark-circle-outline"
-              title="Aucune alerte"
-              subtitle="Tous vos équipements sont dans les limites définies."
+              title={t('alerts.emptyTitle')}
+              subtitle={t('alerts.emptySubtitle')}
             />
           )
         }
@@ -432,7 +447,7 @@ export default function AlertsScreen() {
                     {isAcquitting ? (
                       <ActivityIndicator size="small" color={config.color} />
                     ) : (
-                      <Text style={[styles.acquitBtnText, { color: config.color }]}>Acquitter</Text>
+                      <Text style={[styles.acquitBtnText, { color: config.color }]}>{t('alerts.acknowledge')}</Text>
                     )}
                   </TouchableOpacity>
                 ) : (

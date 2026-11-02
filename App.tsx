@@ -10,6 +10,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import Toast from './src/components/ui/Toast';
 import AlarmAlertOverlay from './src/components/alarm/AlarmAlertOverlay';
 import { initAlarmNotifications } from './src/services/alarmAlert';
+import { I18nProvider } from './src/i18n';
 import { useAuthStore } from './src/store/authStore';
 import { useOnboardingStore } from './src/store/onboardingStore';
 
@@ -44,12 +45,14 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        <I18nProvider>
         <NavigationContainer>
           <StatusBar style="light" />
           <RootNavigator />
           <AlarmAlertOverlay />
           <Toast />
         </NavigationContainer>
+        </I18nProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useVehicleStore } from '../store/vehicleStore';
+import { useI18n } from '../i18n';
 import AddDeviceFromProfileScreen from '../screens/profile/AddDeviceFromProfileScreen'
 import ApiKeysScreen from '../screens/profile/ApiKeysScreen'
 import DashboardScreen      from '../screens/dashboard/DashboardScreen';
@@ -49,7 +50,15 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 // ── Bottom tabs ────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
 
+const TAB_KEYS: Record<string, string> = {
+  Carte: 'tabs.map',
+  Dispositifs: 'tabs.devices',
+  Alertes: 'tabs.alerts',
+  Profil: 'tabs.profile',
+};
+
 const TabNavigator = () => {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const activeAlarms = useVehicleStore((s) => s.activeAlarms);
   const unreadCount = activeAlarms.filter(a => !a.estAcquittee).length;
@@ -80,6 +89,7 @@ const TabNavigator = () => {
           paddingTop,
           paddingBottom:     bottomPadding,
         },
+        tabBarLabel: t(TAB_KEYS[route.name] ?? route.name),
         tabBarLabelStyle: {
           fontSize:   10.5,
           fontWeight: '600',

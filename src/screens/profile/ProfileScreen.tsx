@@ -14,6 +14,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { disconnectSocket } from '../../services/socketClient';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
 import { RootStackParamList } from '../../navigation/MainNavigator';
 
 interface SettingRowProps {
@@ -42,10 +43,11 @@ const SettingRow = ({ icon, label, onPress, rightElement, danger }: SettingRowPr
   </TouchableOpacity>
 );
 
-// Profil volontairement simple, aligné sur l'application Flutter : identité,
+// Profil volontairement simple : identité,
 // quelques réglages utiles, puis déconnexion. Plus de formulaire d'édition
 // inline ni de sections redondantes.
 export default function ProfileScreen() {
+  const { t, language, setLanguage } = useI18n();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -53,19 +55,19 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Se déconnecter',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      t('profile.logoutTitle'),
+      t('profile.logoutMessage'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('profile.cancel'), style: 'cancel' },
         {
-          text: 'Déconnecter',
+          text: t('profile.disconnect'),
           style: 'destructive',
           onPress: async () => {
             disconnectSocket();
             try {
               await logout();
             } catch {
-              useToastStore.getState().show('Impossible de vous déconnecter pour le moment.', 'danger');
+              useToastStore.getState().show(t('profile.logoutError'), 'danger');
             }
           },
         },
@@ -74,6 +76,14 @@ export default function ProfileScreen() {
   };
 
   const showStaticInfo = (title: string, message: string) => Alert.alert(title, message);
+
+  const chooseLanguage = () => {
+    Alert.alert(t('profile.chooseLanguage'), undefined, [
+      { text: t('profile.french'), onPress: () => setLanguage('fr') },
+      { text: t('profile.english'), onPress: () => setLanguage('en') },
+      { text: t('profile.cancel'), style: 'cancel' },
+    ]);
+  };
 
   const initials = (() => {
     const name = user?.userName?.trim();
@@ -85,7 +95,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <BrandBar title="Profil" />
+      <BrandBar title={t('profile.title')} />
 
       <LinearGradient colors={Gradients.navy} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profileCard}>
         <View style={styles.avatar}>
@@ -97,66 +107,61 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>APPLICATION</Text>
+        <Text style={styles.sectionTitle}>{t('profile.application')}</Text>
         <Card padded={false}>
           <SettingRow
             icon="cube-outline"
-            label="Mes dispositifs"
+            label={t('profile.devices')}
             onPress={() => navigation.navigate('Tabs', { screen: 'Dispositifs' } as any)}
             rightElement={<Text style={styles.rowValue}>{vehicles.length}</Text>}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="key-outline"
-            label="Clés API"
+            label={t('profile.apiKeys')}
             onPress={() => navigation.navigate('ApiKeys')}
-            rightElement={<Text style={styles.rowValue}>Intégrations</Text>}
+            rightElement={<Text style={styles.rowValue}>{t('profile.integrations')}</Text>}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="language-outline"
-            label="Langue"
-            rightElement={<Text style={styles.rowValue}>Français</Text>}
+            label={t('profile.language')}
+            onPress={chooseLanguage}
+            rightElement={<Text style={styles.rowValue}>{language === 'fr' ? t('profile.french') : t('profile.english')}</Text>}
           />
         </Card>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ASSISTANCE</Text>
+        <Text style={styles.sectionTitle}>{t('profile.support')}</Text>
         <Card padded={false}>
           <SettingRow
             icon="shield-checkmark-outline"
-            label="Politique de confidentialité"
-            onPress={() => showStaticInfo(
-              'Politique de confidentialité',
-              "FAUCON collecte uniquement les données de localisation de vos dispositifs et de votre compte pour assurer le suivi de vos équipements. Aucune donnée n'est partagée avec des tiers."
-            )}
+            label={t('profile.privacy')}
+            onPress={() => showStaticInfo(t('profile.privacy'), t('profile.privacyText'))}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="help-buoy-outline"
-            label="Aide et support"
-            onPress={() => showStaticInfo(
-              'Aide et support',
-              'Besoin d\'aide ? Contactez notre équipe à support@faucon.app.'
-            )}
+            label={t('profile.help')}
+            onPress={() => showStaticInfo(t('profile.help'), t('profile.helpText'))}
           />
         </Card>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>SESSION</Text>
+        <Text style={styles.sectionTitle}>{t('profile.session')}</Text>
         <Card padded={false}>
           <SettingRow
             icon="log-out-outline"
-            label="Se déconnecter"
+            label={t('profile.logout')}
             onPress={handleLogout}
             danger
           />
         </Card>
       </View>
 
-      <Text style={styles.version}>FAUCON v1.0.0 · Voir · Surveiller · Contrôler</Text>
+      <Text style={styles.version}>{t('profile.version')}</Text>
     </ScrollView>
   );
 }

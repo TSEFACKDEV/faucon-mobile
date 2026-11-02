@@ -21,7 +21,7 @@ import { formatTime } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 
 // Écran d'alarme plein écran, superposé à toute l'application (comme dans la
-// version Flutter). Il reste affiché jusqu'à « Arrêter » ou « Acquitter ».
+// superposé à l'application). Il reste affiché jusqu'à « Arrêter » ou « Acquitter ».
 export default function AlarmAlertOverlay() {
   const insets = useSafeAreaInsets();
   const pending = useAlarmAlertStore((s) => s.pending);
