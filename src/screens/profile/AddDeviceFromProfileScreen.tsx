@@ -12,8 +12,10 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { vehicleService } from '../../services/vehicleService';
 import { displayDeviceId } from '../../utils/formatters';
 import AddDeviceForm, { AddDeviceFormValues } from '../../components/forms/AddDeviceForm';
+import { useI18n } from '../../i18n';
 
 export default function AddDeviceFromProfileScreen() {
+  const { tr } = useI18n();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { vehicles, setVehicles } = useVehicleStore();
@@ -25,15 +27,15 @@ export default function AddDeviceFromProfileScreen() {
       setVehicles(updated);
     } catch (error: any) {
       Alert.alert(
-        'Appareil ajouté',
-        `${values.nom} a été connecté. La liste sera mise à jour au prochain chargement.`
+        tr('Appareil ajouté', 'Device added'),
+        tr(`${values.nom} a été connecté. La liste sera mise à jour au prochain chargement.`, `${values.nom} was connected. The list will update on the next load.`)
       );
       return;
     }
 
     Alert.alert(
-      'Appareil ajouté',
-      `${values.nom} a été connecté avec succès.`,
+      tr('Appareil ajouté', 'Device added'),
+      tr(`${values.nom} a été connecté avec succès.`, `${values.nom} was connected successfully.`),
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
   };
@@ -61,7 +63,7 @@ export default function AddDeviceFromProfileScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ajouter un appareil</Text>
+          <Text style={styles.headerTitle}>{tr('Ajouter un appareil', 'Add a device')}</Text>
           <View style={{ width: 30 }} />
         </LinearGradient>
 
@@ -73,22 +75,22 @@ export default function AddDeviceFromProfileScreen() {
                 <Ionicons name="hardware-chip-outline" size={36} color={Colors.primary} />
               </View>
             </View>
-            <Text style={styles.illustrationTitle}>Connecter un traceur GPS</Text>
+            <Text style={styles.illustrationTitle}>{tr('Connecter un traceur GPS', 'Connect a GPS tracker')}</Text>
             <Text style={styles.illustrationSub}>
-              L'IMEI est inscrit sous le boîtier du traceur
+              {tr('L’IMEI est inscrit sous le boîtier du traceur', 'The IMEI is printed under the tracker casing')}
             </Text>
           </View>
 
           {/* FORMULAIRE */}
           <View style={styles.section}>
-            <AddDeviceForm title="INFORMATIONS" onSuccess={handleAddSuccess} />
+            <AddDeviceForm title={tr('INFORMATIONS', 'INFORMATION')} onSuccess={handleAddSuccess} />
           </View>
 
           {/* DISPOSITIFS EXISTANTS */}
           {vehicles.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>
-                DISPOSITIFS CONNECTÉS ({vehicles.length})
+                {tr('DISPOSITIFS CONNECTÉS', 'CONNECTED DEVICES')} ({vehicles.length})
               </Text>
               <View style={styles.deviceList}>
                 {vehicles.map(v => (
@@ -108,7 +110,7 @@ export default function AddDeviceFromProfileScreen() {
                         styles.deviceStatusText,
                         { color: v.estActif ? Colors.successStrong : Colors.textMuted },
                       ]}>
-                        {v.estActif ? 'Actif' : 'Inactif'}
+                        {v.estActif ? tr('Actif', 'Active') : tr('Inactif', 'Inactive')}
                       </Text>
                     </View>
                   </View>

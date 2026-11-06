@@ -19,10 +19,12 @@ import { vehicleService } from '../../services/vehicleService';
 import { stopAlarm } from '../../services/alarmAlert';
 import { formatTime } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
+import { useI18n } from '../../i18n';
 
 // Écran d'alarme plein écran, superposé à toute l'application (comme dans la
 // superposé à l'application). Il reste affiché jusqu'à « Arrêter » ou « Acquitter ».
 export default function AlarmAlertOverlay() {
+  const { tr } = useI18n();
   const insets = useSafeAreaInsets();
   const pending = useAlarmAlertStore((s) => s.pending);
   const clear = useAlarmAlertStore((s) => s.clear);
@@ -60,7 +62,7 @@ export default function AlarmAlertOverlay() {
   if (!pending) return null;
 
   const vehicle = vehicles.find((v) => v.id === pending.vehiculeId);
-  const vehicleName = vehicle?.nom ?? pending.vehicule?.nom ?? 'Traceur Faucon';
+  const vehicleName = vehicle?.nom ?? pending.vehicule?.nom ?? tr('Traceur Faucon', 'Faucon tracker');
 
   const dismiss = () => {
     clear();
@@ -76,7 +78,7 @@ export default function AlarmAlertOverlay() {
         .show(
           getErrorMessage(
             error,
-            "Impossible d'acquitter l'alerte. Elle reste visible dans l'onglet Alertes.",
+            tr('Impossible d’acquitter l’alerte. Elle reste visible dans l’onglet Alertes.', 'Unable to acknowledge the alert. It remains visible in the Alerts tab.'),
           ),
           'danger',
         );
@@ -127,31 +129,30 @@ export default function AlarmAlertOverlay() {
           </View>
         </View>
 
-        <Text style={styles.eyebrow}>DÉCOLLEMENT DÉTECTÉ</Text>
+        <Text style={styles.eyebrow}>{tr('DÉCOLLEMENT DÉTECTÉ', 'DEVICE REMOVED')}</Text>
         <Text style={styles.vehicle}>{vehicleName}</Text>
         <Text style={styles.time}>
-          Retiré de son support à {formatTime(pending.horodatage)}
+          {tr('Retiré de son support à', 'Removed from its mount at')} {formatTime(pending.horodatage)}
         </Text>
 
         <View style={styles.messageBox}>
           <Text style={styles.message}>
-            Le traceur a été retiré sans autorisation. Vérifiez le conteneur
-            immédiatement.
+            {tr('Le traceur a été retiré sans autorisation. Vérifiez le conteneur immédiatement.', 'The tracker was removed without authorisation. Check the container immediately.')}
           </Text>
         </View>
 
         <View style={styles.spacer} />
 
         <TouchableOpacity style={styles.stopBtn} onPress={dismiss}>
-          <Text style={styles.stopText}>ARRÊTER L’ALARME</Text>
+          <Text style={styles.stopText}>{tr('ARRÊTER L’ALARME', 'STOP THE ALARM')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.ackBtn} onPress={acknowledge}>
-          <Text style={styles.ackText}>Acquitter l’alerte</Text>
+          <Text style={styles.ackText}>{tr('Acquitter l’alerte', 'Acknowledge alert')}</Text>
         </TouchableOpacity>
 
         <Text style={styles.hint}>
-          L’alarme se réarme automatiquement dès que le traceur est recollé.
+          {tr('L’alarme se réarme automatiquement dès que le traceur est recollé.', 'The alarm re-arms automatically once the tracker is reattached.')}
         </Text>
       </LinearGradient>
     </Modal>

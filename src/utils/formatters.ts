@@ -1,3 +1,11 @@
+let currentLanguage: 'fr' | 'en' = 'fr';
+
+export const setFormatterLanguage = (language: 'fr' | 'en') => {
+  currentLanguage = language;
+};
+
+export const localeTag = (): string => (currentLanguage === 'en' ? 'en-GB' : 'fr-FR');
+
 export const formatSpeed = (speed: number): string =>
   `${Math.round(speed)} km/h`;
 
@@ -17,7 +25,7 @@ export const CAMEROON_TZ = 'Africa/Douala';
 export const formatTime = (iso: string): string => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '--:--';
-  return date.toLocaleTimeString('fr-FR', {
+  return date.toLocaleTimeString(localeTag(), {
     hour:     '2-digit',
     minute:   '2-digit',
     timeZone: CAMEROON_TZ,
@@ -53,6 +61,14 @@ export const formatCoords = (lat: number, lon: number): string =>
 export const formatRelativeTime = (iso: string): string => {
   const diffMs = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diffMs / 60000);
+  if (currentLanguage === 'en') {
+    if (min < 1)   return 'just now';
+    if (min < 60)  return `${min} min ago`;
+    const h = Math.floor(min / 60);
+    if (h < 24)    return `${h} h ago`;
+    const j = Math.floor(h / 24);
+    return `${j} d ago`;
+  }
   if (min < 1)   return "à l'instant";
   if (min < 60)  return `il y a ${min} min`;
   const h = Math.floor(min / 60);
@@ -103,7 +119,7 @@ export const isDeviceStopped = (lastMovedAt?: string | null): boolean => {
 export const displayDeviceId = (device: { trackerId?: string | null; imei?: string | null }): string => {
   if (device.trackerId) return device.trackerId;
   if (device.imei) return `FCN-${device.imei.slice(-4)}`;
-  return 'ID inconnu';
+  return currentLanguage === 'en' ? 'Unknown ID' : 'ID inconnu';
 };
 
 // Calcul distance Haversine côté mobile (pour afficher distance user ↔ device)

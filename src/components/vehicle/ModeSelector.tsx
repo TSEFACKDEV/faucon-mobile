@@ -10,6 +10,8 @@ import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useI18n } from '../../i18n';
+import { localeTag } from '../../utils/formatters';
 
 type Mode = 'WORK' | 'MOVE' | 'STANDBY';
 
@@ -18,32 +20,40 @@ const MODES: {
   label:     string;
   icon:      keyof typeof Ionicons.glyphMap;
   desc:      string;
+  descEn:    string;
   battery:   string;
   interval:  string;
+  intervalEn: string;
 }[] = [
   {
     key:      'WORK',
     label:    'WORK',
     icon:     'radio-outline',
     desc:     'GPS + GSM actifs en continu',
+    descEn:   'GPS + GSM continuously active',
     battery:  '18-24h / 1000mAh',
     interval: 'Envoi toutes les 30s',
+    intervalEn: 'Send every 30s',
   },
   {
     key:      'MOVE',
     label:    'MOVE',
     icon:     'walk-outline',
     desc:     'GPS actif si mouvement détecté',
+    descEn:   'GPS active when movement is detected',
     battery:  '3-7 jours / 1000mAh',
     interval: 'Envoi sur détection',
+    intervalEn: 'Send on detection',
   },
   {
     key:      'STANDBY',
     label:    'STANDBY',
     icon:     'moon-outline',
     desc:     'GPS éteint — GSM basse conso.',
+    descEn:   'GPS off — low-power GSM.',
     battery:  '12 jours / 1000mAh',
     interval: 'Réveil sur SMS',
+    intervalEn: 'Wake up on SMS',
   },
 ];
 
@@ -59,6 +69,7 @@ interface Props {
 }
 
 export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Props) {
+  const { tr } = useI18n();
   const [selected, setSelected] = useState<Mode>(currentMode);
   const [saving,   setSaving]   = useState(false);
   const [checking, setChecking] = useState(false);
@@ -108,11 +119,11 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       // Le firmware renvoie le mode réellement appliqué dans "detail".
       if (detail === 'WORK' || detail === 'MOVE' || detail === 'STANDBY') {
         onUpdated(detail);
-        setConfirmedAt(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala' }));
+        setConfirmedAt(new Date().toLocaleTimeString(localeTag(), { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala' }));
         useToastStore.getState().show(
           lastCommandeUpdate.codeCommande === 'MODE?'
-            ? `Mode confirmé par le traceur : ${detail}`
-            : `Mode ${detail} appliqué au traceur`,
+            ? tr(`Mode confirmé par le traceur : ${detail}`, `Mode confirmed by the tracker: ${detail}`)
+            : tr(`Mode ${detail} appliqué au traceur`, `Mode ${detail} applied to the tracker`),
           'success'
         );
       }
@@ -123,18 +134,18 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       // doit le dire clairement plutôt que de laisser croire à un bug.
       if (detail === 'commande inconnue') {
         useToastStore.getState().show(
-          "Ce traceur ne connaît pas encore la lecture du mode — son firmware doit être mis à jour (v12 patchée).",
+          tr('Ce traceur ne connaît pas encore la lecture du mode — son firmware doit être mis à jour (v12 patchée).', 'This tracker does not support reading the mode yet — its firmware must be updated (patched v12).'),
           'danger'
         );
       } else {
         useToastStore.getState().show(
-          detail ? `Le traceur a refusé la commande : ${detail}` : 'Le traceur a refusé la commande.',
+          detail ? tr(`Le traceur a refusé la commande : ${detail}`, `The tracker refused the command: ${detail}`) : tr('Le traceur a refusé la commande.', 'The tracker refused the command.'),
           'danger'
         );
       }
     } else if (lastCommandeUpdate.statutExecution === 'TIMEOUT') {
       useToastStore.getState().show(
-        'Pas de réponse du traceur — vérifiez sa connexion avant de réessayer.',
+        tr('Pas de réponse du traceur — vérifiez sa connexion avant de réessayer.', 'No response from the tracker — check its connection before trying again.'),
         'danger'
       );
     }
@@ -167,7 +178,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
     } catch (err) {
       console.error('[ModeSelector]', err);
       useToastStore.getState().show(
-        getErrorMessage(err, `Impossible d'appliquer le mode ${selected}. La commande n'a pas pu être envoyée au traceur.`),
+        getErrorMessage(err, tr(`Impossible d’appliquer le mode ${selected}. La commande n’a pas pu être envoyée au traceur.`, `Unable to apply mode ${selected}. The command could not be sent to the tracker.`)),
         'danger'
       );
       setSelected(currentMode);
@@ -189,7 +200,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
         timerRef.current = null;
         setChecking(false);
         useToastStore.getState().show(
-          'Aucune réponse du traceur — il est peut-être hors ligne.',
+          tr('Aucune réponse du traceur — il est peut-être hors ligne.', 'No response from the tracker — it may be offline.'),
           'danger'
         );
       }, TIMEOUT_LECTURE_MS);
@@ -197,7 +208,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       console.error('[ModeSelector] readMode', err);
       setChecking(false);
       useToastStore.getState().show(
-        getErrorMessage(err, "Impossible de demander le mode au traceur. Vérifiez votre connexion."),
+        getErrorMessage(err, tr('Impossible de demander le mode au traceur. Vérifiez votre connexion.', 'Unable to request the mode from the tracker. Check your connection.')),
         'danger'
       );
     }
@@ -205,9 +216,9 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Mode de fonctionnement</Text>
+      <Text style={styles.sectionTitle}>{tr('Mode de fonctionnement', 'Operating mode')}</Text>
       <Text style={styles.sectionSub}>
-        Le mode contrôle la fréquence d'envoi GPS et la consommation d'énergie.
+        {tr('Le mode contrôle la fréquence d’envoi GPS et la consommation d’énergie.', 'The mode controls GPS reporting frequency and power consumption.')}
       </Text>
 
       {/* État réel connu du traceur — distinct du mode sélectionné ci-dessous
@@ -215,11 +226,11 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
       <View style={styles.currentBar}>
         <View style={styles.currentBarLeft}>
           <Ionicons name="hardware-chip-outline" size={16} color={Colors.primary} />
-          <Text style={styles.currentBarLabel}>Mode appliqué par le traceur</Text>
+          <Text style={styles.currentBarLabel}>{tr('Mode appliqué par le traceur', 'Mode applied by the tracker')}</Text>
         </View>
         <View style={styles.currentBarRight}>
           <Text style={styles.currentBarValue}>{currentMode}</Text>
-          {confirmedAt && <Text style={styles.currentBarTime}>confirmé à {confirmedAt}</Text>}
+          {confirmedAt && <Text style={styles.currentBarTime}>{tr('confirmé à', 'confirmed at')} {confirmedAt}</Text>}
         </View>
       </View>
 
@@ -235,7 +246,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
           <Ionicons name="refresh-outline" size={16} color={Colors.primary} />
         )}
         <Text style={styles.checkBtnText}>
-          {checking ? 'Interrogation du traceur...' : 'Vérifier sur le traceur'}
+          {checking ? tr('Interrogation du traceur...', 'Querying tracker...') : tr('Vérifier sur le traceur', 'Check on tracker')}
         </Text>
       </TouchableOpacity>
 
@@ -262,7 +273,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
 
               {/* Badge actuel */}
               {isCurrent && (
-                <Badge label="Actuel" tone="accent" style={styles.currentBadge} />
+                <Badge label={tr('Actuel', 'Current')} tone="accent" style={styles.currentBadge} />
               )}
 
               <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
@@ -278,7 +289,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
               </Text>
 
               <Text style={[styles.modeDesc, isActive && styles.modeDescActive]}>
-                {mode.desc}
+                {tr(mode.desc, mode.descEn)}
               </Text>
 
               <View style={styles.modeMeta}>
@@ -299,7 +310,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
                     color={isActive ? 'rgba(255,255,255,0.8)' : Colors.textMuted}
                   />
                   <Text style={[styles.metaText, isActive && styles.metaTextActive]}>
-                    {mode.interval}
+                    {tr(mode.interval, mode.intervalEn)}
                   </Text>
                 </View>
               </View>
@@ -316,7 +327,7 @@ export default function ModeSelector({ vehiculeId, currentMode, onUpdated }: Pro
 
       {hasChanged && (
         <Button
-          label={`Appliquer le mode ${selected}`}
+          label={tr(`Appliquer le mode ${selected}`, `Apply mode ${selected}`)}
           onPress={handleSave}
           loading={saving}
           style={styles.saveBtn}

@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useI18n } from '../../i18n';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -328,11 +329,21 @@ const buildHtml = () => `
    try {
     // Valeurs par défaut (alignées sur constants/colors.ts) — écrasées dès
     // réception du thème transmis par le message 'init'.
+    var LABELS = {
+      activity: 'Activité', speed: 'Vitesse', today: 'Aujourd’hui',
+      battery: 'Batterie', signal: 'Signal', satellites: 'Satellites',
+      replay: 'Rejouer', detail: 'Détail'
+    };
+
     var THEME = {
       primary: '#0057FF', primaryLight: '#EAF1FF', accent: '#00C2FF', textPrimary: '#0B1526',
       textSecondary: '#3D4A61', textMuted: '#5A6980', info: '#3B7DFF',
       success: '#22C55E', bg: '#F5F8FC'
     };
+
+    function applyLabels(labels) {
+      if (labels) Object.assign(LABELS, labels);
+    }
 
     function applyTheme(theme) {
       if (!theme) return;
@@ -514,19 +525,19 @@ const buildHtml = () => `
         +   '</div>'
 
         +   '<div class="pop-grid">'
-        +     '<div class="pop-stat"><span class="pop-stat-icon">' + CLOCK_SVG + '</span><div><div class="pop-stat-label">Activité</div><div class="pop-stat-value">' + escapeHtml(p.lastActivityLabel) + '</div></div></div>'
-        +     '<div class="pop-stat"><span class="pop-stat-icon">' + SPEED_SVG + '</span><div><div class="pop-stat-label">Vitesse</div><div class="pop-stat-value">' + escapeHtml(p.speedLabel) + '</div></div></div>'
-        +     '<div class="pop-stat"><span class="pop-stat-icon">' + ROUTE_SVG + '</span><div><div class="pop-stat-label">Aujourd\\'hui</div><div class="pop-stat-value">' + escapeHtml(p.kmTodayLabel) + '</div></div></div>'
-        +     '<div class="pop-stat"><span class="pop-stat-icon" style="color:' + p.batteryColor + ';">' + BATTERY_OUTLINE_SVG + '</span><div><div class="pop-stat-label">Batterie</div><div class="pop-stat-value" style="color:' + p.batteryColor + ';">' + Math.round(p.batteryPercent) + '% · ' + escapeHtml(p.batteryStateLabel) + '</div></div></div>'
-        +     (p.signalPercent != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + signalBarsSvg(p.signalPercent, p.signalColor || THEME.primary) + '</span><div><div class="pop-stat-label">Signal</div><div class="pop-stat-value">' + Math.round(p.signalPercent) + '%</div></div></div>' : '')
-        +     (p.satelliteCount != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + SATELLITE_SVG + '</span><div><div class="pop-stat-label">Satellites</div><div class="pop-stat-value">' + p.satelliteCount + '</div></div></div>' : '')
+        +     '<div class="pop-stat"><span class="pop-stat-icon">' + CLOCK_SVG + '</span><div><div class="pop-stat-label">' + LABELS.activity + '</div><div class="pop-stat-value">' + escapeHtml(p.lastActivityLabel) + '</div></div></div>'
+        +     '<div class="pop-stat"><span class="pop-stat-icon">' + SPEED_SVG + '</span><div><div class="pop-stat-label">' + LABELS.speed + '</div><div class="pop-stat-value">' + escapeHtml(p.speedLabel) + '</div></div></div>'
+        +     '<div class="pop-stat"><span class="pop-stat-icon">' + ROUTE_SVG + '</span><div><div class="pop-stat-label">' + LABELS.today + '</div><div class="pop-stat-value">' + escapeHtml(p.kmTodayLabel) + '</div></div></div>'
+        +     '<div class="pop-stat"><span class="pop-stat-icon" style="color:' + p.batteryColor + ';">' + BATTERY_OUTLINE_SVG + '</span><div><div class="pop-stat-label">' + LABELS.battery + '</div><div class="pop-stat-value" style="color:' + p.batteryColor + ';">' + Math.round(p.batteryPercent) + '% · ' + escapeHtml(p.batteryStateLabel) + '</div></div></div>'
+        +     (p.signalPercent != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + signalBarsSvg(p.signalPercent, p.signalColor || THEME.primary) + '</span><div><div class="pop-stat-label">' + LABELS.signal + '</div><div class="pop-stat-value">' + Math.round(p.signalPercent) + '%</div></div></div>' : '')
+        +     (p.satelliteCount != null ? '<div class="pop-stat"><span class="pop-stat-icon">' + SATELLITE_SVG + '</span><div><div class="pop-stat-label">' + LABELS.satellites + '</div><div class="pop-stat-value">' + p.satelliteCount + '</div></div></div>' : '')
         +   '</div>'
 
         +   (p.addressLabel ? '<div class="pop-address">' + escapeHtml(p.addressLabel) + '</div>' : '')
         +   '<div class="pop-divider"></div>'
         +   '<div class="pop-actions">'
-        +     '<div class="pop-btn" data-action="replay" data-id="' + m.id + '">▶ Rejouer</div>'
-        +     '<div class="pop-btn pop-btn-primary" data-action="detail" data-id="' + m.id + '">Détail</div>'
+        +     '<div class="pop-btn" data-action="replay" data-id="' + m.id + '">▶ ' + LABELS.replay + '</div>'
+        +     '<div class="pop-btn pop-btn-primary" data-action="detail" data-id="' + m.id + '">' + LABELS.detail + '</div>'
         +   '</div>'
         + '</div>'
         + '</div>';
@@ -741,11 +752,14 @@ const buildHtml = () => `
         data = JSON.parse(event.data);
         if (data.type === 'init') {
           applyTheme(data.theme);
+          applyLabels(data.labels);
           setInitialRegion(data.region);
           setTileLayer(data.tileUrlTemplate, data.attribution);
           syncMarkers(data.markers);
           if (data.polylines) syncPolylines(data.polylines);
           if (data.editableCircle) setEditableCircle(data.editableCircle);
+        } else if (data.type === 'setLabels') {
+          applyLabels(data.labels);
         } else if (data.type === 'updateMarkers') {
           syncMarkers(data.markers);
         } else if (data.type === 'updatePolylines') {
@@ -811,19 +825,30 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
   { style, initialRegion, tileUrlTemplate, attribution, markers, polylines, editableCircle, onMarkerPress, onPopupAction, onCircleChange, selectedId, floatingControls },
   ref
 ) {
+  const { tr } = useI18n();
   const insets = useSafeAreaInsets();
   const webviewRef = useRef<WebView>(null);
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const html = useMemo(() => buildHtml(), []);
   const theme = useMemo(() => buildTheme(), []);
+  const labels = useMemo(() => ({
+    activity: tr('Activité', 'Activity'),
+    speed: tr('Vitesse', 'Speed'),
+    today: tr('Aujourd’hui', 'Today'),
+    battery: tr('Batterie', 'Battery'),
+    signal: tr('Signal', 'Signal'),
+    satellites: tr('Satellites', 'Satellites'),
+    replay: tr('Rejouer', 'Replay'),
+    detail: tr('Détail', 'Details'),
+  }), [tr]);
 
   // Si la WebView ne signale jamais "ready" (ex: CDN Leaflet injoignable),
   // on l'affiche clairement plutôt que de laisser une carte vide sans explication.
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!isReady) {
-        setLoadError(prev => prev ?? "La carte met trop de temps à charger (vérifiez votre connexion internet).");
+        setLoadError(prev => prev ?? tr('La carte met trop de temps à charger (vérifiez votre connexion internet).', 'The map is taking too long to load (check your internet connection).'));
       }
     }, 9000);
     return () => clearTimeout(timeout);
@@ -851,13 +876,13 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
   const runScan = () => {
     const user = markers.find(m => m.icon === 'user');
     if (!user) {
-      Alert.alert('Position indisponible', 'Impossible de localiser votre téléphone. Activez la géolocalisation.');
+      Alert.alert(tr('Position indisponible', 'Position unavailable'), tr('Impossible de localiser votre téléphone. Activez la géolocalisation.', 'Unable to locate your phone. Enable location services.'));
       return;
     }
     const vehicles = markers.filter(m => m.icon === 'vehicle');
     const targets = selectedId ? vehicles.filter(v => v.id === selectedId) : vehicles;
     if (!targets || targets.length === 0) {
-      Alert.alert('Aucun dispositif', 'Aucun dispositif connecté trouvé à proximité.');
+      Alert.alert(tr('Aucun dispositif', 'No devices'), tr('Aucun dispositif connecté trouvé à proximité.', 'No connected device found nearby.'));
       return;
     }
 
@@ -925,7 +950,7 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
         onCircleChange?.(data.center, data.radiusMeters);
       } else if (data.type === 'mapError') {
         console.warn('OsmMapView error', data.message);
-        setLoadError("La carte n'a pas pu se charger. Vérifiez votre connexion Internet, puis réessayez.");
+        setLoadError(tr('La carte n’a pas pu se charger. Vérifiez votre connexion Internet, puis réessayez.', 'The map could not load. Check your internet connection and try again.'));
       } else if (data.type === 'mapWarning') {
         // Erreur récupérable sur UNE mise à jour (ex: position transitoirement
         // invalide) — déjà écartée côté WebView, la carte reste utilisable :
@@ -939,14 +964,14 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
 
   const handleWebViewError = useCallback((e: { nativeEvent: unknown }) => {
     console.warn('OsmMapView WebView error', e.nativeEvent);
-    setLoadError("La carte n'a pas pu se charger.");
+    setLoadError(tr('La carte n’a pas pu se charger.', 'The map could not load.'));
   }, []);
 
   // Init une fois la WebView prête (envoie thème, région, tuiles, marqueurs initiaux)
   useEffect(() => {
     if (isReady) {
       post({
-        type: 'init', theme, region: initialRegion, tileUrlTemplate,
+        type: 'init', theme, labels, region: initialRegion, tileUrlTemplate,
         attribution: attribution ?? attributionFor(tileUrlTemplate), markers, polylines, editableCircle,
       });
       // Rejoue dans l'ordre les appels arrivés avant que la carte soit prête
@@ -958,6 +983,12 @@ const OsmMapView = forwardRef<OsmMapViewHandle, Props>(function OsmMapView(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
+
+  // Met à jour les libellés de la popup quand la langue change.
+  useEffect(() => {
+    if (isReady) post({ type: 'setLabels', labels });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, labels]);
 
   // Met à jour les marqueurs à chaque changement (positions live, alarmes, sélection...)
   useEffect(() => {

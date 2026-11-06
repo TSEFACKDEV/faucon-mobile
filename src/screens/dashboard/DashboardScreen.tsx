@@ -22,6 +22,7 @@ import { reverseGeocode } from '../../services/geocoding';
 import { MAP_STYLES, MapStyleId } from '../../constants/mapTiles';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
 
 // Niveau de zoom utilisé pour centrer sur un dispositif — au chargement, en
 // suivi continu ou après une sélection manuelle : une seule valeur pour que
@@ -29,6 +30,7 @@ import { useToastStore } from '../../store/toastStore';
 const FOLLOW_ZOOM = 16;
 
 export default function DashboardScreen() {
+  const { tr, language } = useI18n();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
@@ -102,15 +104,15 @@ export default function DashboardScreen() {
             // dispositif hors ligne affichait ce statut en gros dans la
             // popup, la mention "Hors ligne" n'apparaissant qu'en petit sur
             // la ligne de connexion en dessous.
-            statusLabel:  hasAlarm ? 'ALARME'
-              : isDeviceOffline(pos, vehicle.derniereCommunication) ? 'HORS LIGNE'
-              : isDeviceStopped(lastMovedAt[vehicle.id]) ? 'ARRÊTÉ' : 'EN MOUVEMENT',
+            statusLabel:  hasAlarm ? tr('ALARME', 'ALERT')
+              : isDeviceOffline(pos, vehicle.derniereCommunication) ? tr('HORS LIGNE', 'OFFLINE')
+              : isDeviceStopped(lastMovedAt[vehicle.id]) ? tr('ARRÊTÉ', 'IDLE') : tr('EN MOUVEMENT', 'MOVING'),
             statusColor:  '#fff',
-            updatedLabel: `Mis à jour à ${formatTime(pos.horodatage)}`,
+            updatedLabel: `${tr('Mis à jour à', 'Updated at')} ${formatTime(pos.horodatage)}`,
             // "Connecté" = signal réseau et batterie encore vivants (ou, à
             // défaut de signal remonté, communication récente) — pas fabriqué.
             connectionOk:    !isDeviceOffline(pos, vehicle.derniereCommunication),
-            connectionLabel: isDeviceOffline(pos, vehicle.derniereCommunication) ? 'Hors ligne' : 'En ligne',
+            connectionLabel: isDeviceOffline(pos, vehicle.derniereCommunication) ? tr('Hors ligne', 'Offline') : tr('En ligne', 'Online'),
             lastActivityLabel: vehicle.derniereCommunication
               ? formatRelativeTime(vehicle.derniereCommunication)
               : formatRelativeTime(pos.horodatage),
@@ -120,9 +122,9 @@ export default function DashboardScreen() {
             batteryColor: vehicle.niveauBatterie < 20 ? Colors.dangerStrong
                         : vehicle.niveauBatterie < 50 ? Colors.warningStrong
                         : Colors.successStrong,
-            batteryStateLabel: vehicle.niveauBatterie < 20 ? 'Critique'
-                              : vehicle.niveauBatterie < 50 ? 'Faible'
-                              : 'Bon',
+            batteryStateLabel: vehicle.niveauBatterie < 20 ? tr('Critique', 'Critical')
+                              : vehicle.niveauBatterie < 50 ? tr('Faible', 'Low')
+                              : tr('Bon', 'Good'),
             // Absents tant que le firmware ne les envoie pas — pas de valeur
             // inventée, la tuile correspondante reste alors masquée (voir
             // buildPopupHtml côté OsmMapView).
@@ -132,7 +134,7 @@ export default function DashboardScreen() {
                        : pos.signal < 50 ? Colors.warningStrong
                        : Colors.successStrong,
             satelliteCount: pos.satellites,
-            addressLabel: isSelected ? (address ?? 'Recherche de l\'adresse...') : undefined,
+            addressLabel: isSelected ? (address ?? tr('Recherche de l’adresse...', 'Looking up address...')) : undefined,
           } : undefined,
         } as OsmMarker;
       })
@@ -163,7 +165,7 @@ export default function DashboardScreen() {
       } catch (err) {
         setDailyDistance(0);
         useToastStore.getState().show(
-          getErrorMessage(err, 'Impossible de charger la distance du jour.'),
+          getErrorMessage(err, tr('Impossible de charger la distance du jour.', 'Unable to load today’s distance.')),
           'danger'
         );
       }
@@ -184,7 +186,7 @@ export default function DashboardScreen() {
       if (!cancelled) setAddress(label);
     });
     return () => { cancelled = true; };
-  }, [selectedPos?.latitude, selectedPos?.longitude]);
+  }, [selectedPos?.latitude, selectedPos?.longitude, language]);
 
   const mapRef = useRef<OsmMapViewHandle | null>(null);
   // Incrémenté à chaque sélection EXPLICITE (tap sur un marqueur, choix dans
@@ -335,7 +337,7 @@ export default function DashboardScreen() {
                     : 'rgba(255,255,255,0.5)' },
               ]} />
               <Text style={styles.deviceSelectorText} numberOfLines={1}>
-                {selectedVehicle ? selectedVehicle.nom : 'Sélectionner un dispositif'}
+                {selectedVehicle ? selectedVehicle.nom : tr('Sélectionner un dispositif', 'Select a device')}
               </Text>
             </Reanimated.View>
             <Ionicons name="chevron-down" size={16} color={Colors.white} />
@@ -369,7 +371,7 @@ export default function DashboardScreen() {
           onPress={() => setDeviceMenuOpen(false)}
         >
           <View style={styles.deviceModalCard} onStartShouldSetResponder={() => true}>
-            <Text style={styles.deviceModalTitle}>Mes dispositifs</Text>
+            <Text style={styles.deviceModalTitle}>{tr('Mes dispositifs', 'My devices')}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               {vehicles.map(v => {
                 const pos = livePositions[v.id];
@@ -388,7 +390,7 @@ export default function DashboardScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deviceRowName} numberOfLines={1}>{v.nom}</Text>
                       <Text style={styles.deviceRowMeta}>
-                        {pos ? `${Math.round(pos.vitesse)} km/h · ${formatTime(pos.horodatage)}` : 'Hors ligne'}
+                        {pos ? `${Math.round(pos.vitesse)} km/h · ${formatTime(pos.horodatage)}` : tr('Hors ligne', 'Offline')}
                       </Text>
                     </View>
                     {isSelected && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
@@ -417,13 +419,13 @@ export default function DashboardScreen() {
             entering={SlideInLeft.duration(240)}
             style={[styles.mapOptionsPanel, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.lg }]}
           >
-            <Text style={styles.mapOptionsTitle}>Fond de carte</Text>
+            <Text style={styles.mapOptionsTitle}>{tr('Fond de carte', 'Map background')}</Text>
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
               {MAP_STYLES.map(styleOption => (
                 <MapOptionRow
                   key={styleOption.id}
                   icon={styleOption.icon}
-                  label={styleOption.label}
+                  label={styleOption.id === 'satellite' ? tr('Satellite (Esri)', 'Satellite (Esri)') : styleOption.label}
                   selected={mapStyleId === styleOption.id}
                   onPress={() => setMapStyleId(styleOption.id)}
                 />
@@ -456,7 +458,7 @@ export default function DashboardScreen() {
           style={[styles.followBtn, follow && styles.followBtnActive]}
           onPress={() => setFollow(f => !f)}
           activeOpacity={0.75}
-          accessibilityLabel={follow ? 'Désactiver le suivi du véhicule' : 'Suivre le véhicule'}
+          accessibilityLabel={follow ? tr('Désactiver le suivi du véhicule', 'Disable vehicle tracking') : tr('Suivre le véhicule', 'Track vehicle')}
         >
           <Ionicons
             name={follow ? 'locate' : 'locate-outline'}
@@ -470,7 +472,7 @@ export default function DashboardScreen() {
       {isLoading && (
         <View style={styles.loader}>
           <ActivityIndicator color={Colors.primary} size="small" />
-          <Text style={styles.loaderText}>Chargement des dispositifs...</Text>
+          <Text style={styles.loaderText}>{tr('Chargement des dispositifs...', 'Loading devices...')}</Text>
         </View>
       )}
 
@@ -479,7 +481,7 @@ export default function DashboardScreen() {
         <View pointerEvents="none" style={styles.locationBanner}>
           <Ionicons name="location-outline" size={14} color={Colors.warning} />
           <Text style={styles.locationBannerText}>
-            Votre position n'est pas affichée : {locationError}
+            {tr('Votre position n’est pas affichée', 'Your position is not displayed')} : {locationError}
           </Text>
         </View>
       )}

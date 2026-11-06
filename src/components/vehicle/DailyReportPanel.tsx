@@ -12,7 +12,8 @@ import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { RapportJournalier } from '../../types';
-import { isoDateDouala, doualaDayNumber, CAMEROON_TZ } from '../../utils/formatters';
+import { isoDateDouala, doualaDayNumber, CAMEROON_TZ, localeTag } from '../../utils/formatters';
+import { useI18n } from '../../i18n';
 
 const getLast7Days = (): string[] => {
   return Array.from({ length: 7 }, (_, i) => {
@@ -27,6 +28,7 @@ interface DailyReportPanelProps {
 }
 
 export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) {
+  const { tr } = useI18n();
   const [report,      setReport]      = useState<RapportJournalier | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [loadError,   setLoadError]   = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
     } catch (err) {
       console.error('[DailyReportPanel]', err);
       setReport(null);
-      const message = getErrorMessage(err, 'Impossible de charger le rapport du jour.');
+      const message = getErrorMessage(err, tr('Impossible de charger le rapport du jour.', 'Unable to load today’s report.'));
       setLoadError(message);
       useToastStore.getState().show(message, 'danger');
     } finally {
@@ -79,7 +81,7 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
                 />
               )}
               <Text style={[styles.dayChipDay, isActive && styles.dayChipTextActive]}>
-                {isToday ? 'Auj.' : d.toLocaleDateString('fr-FR', { weekday: 'short', timeZone: CAMEROON_TZ })}
+                {isToday ? tr('Auj.', 'Today') : d.toLocaleDateString(localeTag(), { weekday: 'short', timeZone: CAMEROON_TZ })}
               </Text>
               <Text style={[styles.dayChipNum, isActive && styles.dayChipTextActive]}>
                 {doualaDayNumber(d)}
@@ -97,27 +99,27 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
         <View style={styles.empty}>
           <Ionicons name="cloud-offline-outline" size={48} color={Colors.dangerStrong} />
           <Text style={[styles.emptyText, { color: Colors.dangerStrong }]}>{loadError}</Text>
-          <Button label="Réessayer" onPress={loadReport} size="sm" style={styles.retryBtn} />
+          <Button label={tr('Réessayer', 'Retry')} onPress={loadReport} size="sm" style={styles.retryBtn} />
         </View>
       ) : !report ? (
         <View style={styles.empty}>
           <Ionicons name="bar-chart-outline" size={48} color={Colors.border} />
-          <Text style={styles.emptyText}>Aucune donnée pour cette date.</Text>
+          <Text style={styles.emptyText}>{tr('Aucune donnée pour cette date.', 'No data for this date.')}</Text>
         </View>
       ) : (
         <>
           <View style={styles.statsGrid}>
-            <StatTile icon="map-outline" label="Distance" value={`${report.distanceTotaleKm} km`} color={Colors.primary} />
-            <StatTile icon="speedometer-outline" label="Vitesse moy." value={`${report.vitesseMoyenne} km/h`} color={Colors.primary} />
+            <StatTile icon="map-outline" label={tr('Distance', 'Distance')} value={`${report.distanceTotaleKm} km`} color={Colors.primary} />
+            <StatTile icon="speedometer-outline" label={tr('Vitesse moy.', 'Avg. speed')} value={`${report.vitesseMoyenne} km/h`} color={Colors.primary} />
             <StatTile
               icon="trending-up-outline"
-              label="Vitesse max"
+              label={tr('Vitesse max', 'Max speed')}
               value={`${report.vitesseMax} km/h`}
               color={report.vitesseMax > 100 ? Colors.danger : Colors.primary}
             />
             <StatTile
               icon="time-outline"
-              label="Temps arrêt"
+              label={tr('Temps arrêt', 'Idle time')}
               value={
                 report.tempsArretMinutes >= 60
                   ? `${Math.floor(report.tempsArretMinutes / 60)}h ${report.tempsArretMinutes % 60}min`
@@ -131,13 +133,13 @@ export default function DailyReportPanel({ vehiculeId }: DailyReportPanelProps) 
             <View style={styles.alarmStrip}>
               <Ionicons name="warning-outline" size={14} color={Colors.dangerStrong} />
               <Text style={styles.alarmStripText}>
-                {report.nbAlarmes} alarme{report.nbAlarmes > 1 ? 's' : ''} déclenchée{report.nbAlarmes > 1 ? 's' : ''}
+                {report.nbAlarmes} {tr('alerte', 'alert')}{report.nbAlarmes > 1 ? 's' : ''} {tr('déclenchée', 'triggered')}{report.nbAlarmes > 1 ? 's' : ''}
               </Text>
             </View>
           ) : (
             <View style={styles.okStrip}>
               <Ionicons name="checkmark-circle-outline" size={14} color={Colors.successStrong} />
-              <Text style={styles.okStripText}>Aucune alarme</Text>
+              <Text style={styles.okStripText}>{tr('Aucune alarme', 'No alerts')}</Text>
             </View>
           )}
         </>

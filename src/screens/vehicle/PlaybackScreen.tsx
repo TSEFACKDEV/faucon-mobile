@@ -14,7 +14,8 @@ import { ElevatedShadow, GlowShadow } from '../../theme/shadows';
 import Chip from '../../components/ui/Chip';
 import { vehicleService } from '../../services/vehicleService';
 import { Position } from '../../types';
-import { formatTime, formatSpeed, formatDistance, haversineKm, isoDateDouala, CAMEROON_TZ } from '../../utils/formatters';
+import { formatTime, formatSpeed, formatDistance, haversineKm, isoDateDouala, CAMEROON_TZ, localeTag } from '../../utils/formatters';
+import { useI18n } from '../../i18n';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
@@ -27,6 +28,7 @@ const SPEEDS  = [1, 2, 5, 10];
 const zoomForDelta = (delta: number): number => Math.round(Math.log2(360 / delta));
 
 export default function PlaybackScreen() {
+  const { tr } = useI18n();
   const route      = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation<any>();
   const insets     = useSafeAreaInsets();
@@ -70,7 +72,7 @@ export default function PlaybackScreen() {
       }
     } catch (err) {
       console.error('[PlaybackScreen]', err);
-      const message = getErrorMessage(err, 'Impossible de charger le trajet. Vérifiez votre connexion et réessayez.');
+      const message = getErrorMessage(err, tr('Impossible de charger le trajet. Vérifiez votre connexion et réessayez.', 'Unable to load the trip. Check your connection and try again.'));
       setLoadError(message);
       useToastStore.getState().show(message, 'danger');
     } finally {
@@ -194,7 +196,7 @@ export default function PlaybackScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rejouer le trajet</Text>
+        <Text style={styles.headerTitle}>{tr('Rejouer le trajet', 'Replay trip')}</Text>
         <View style={{ width: 30 }} />
       </LinearGradient>
 
@@ -207,7 +209,7 @@ export default function PlaybackScreen() {
           return (
             <Chip
               key={d}
-              label={isToday ? 'Auj.' : date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', timeZone: CAMEROON_TZ })}
+              label={isToday ? tr('Auj.', 'Today') : date.toLocaleDateString(localeTag(), { weekday: 'short', day: 'numeric', timeZone: CAMEROON_TZ })}
               selected={isActive}
               onPress={() => setSelectedDate(d)}
             />
@@ -235,7 +237,7 @@ export default function PlaybackScreen() {
         {loading && (
           <View style={styles.mapLoader}>
             <ActivityIndicator color={Colors.primary} size="large" />
-            <Text style={styles.mapLoaderText}>Chargement du trajet...</Text>
+            <Text style={styles.mapLoaderText}>{tr('Chargement du trajet...', 'Loading trip...')}</Text>
           </View>
         )}
 
@@ -248,12 +250,12 @@ export default function PlaybackScreen() {
               color={loadError ? Colors.dangerStrong : Colors.textMuted}
             />
             <Text style={[styles.mapLoaderText, loadError && { color: Colors.dangerStrong }]}>
-              {loadError ? loadError : 'Aucun trajet ce jour'}
+              {loadError ? loadError : tr('Aucun trajet ce jour', 'No trip on this day')}
             </Text>
             {loadError && (
               <TouchableOpacity style={styles.retryBtn} onPress={loadPositions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="refresh" size={14} color={Colors.white} />
-                <Text style={styles.retryText}>Réessayer</Text>
+                <Text style={styles.retryText}>{tr('Réessayer', 'Retry')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -266,23 +268,23 @@ export default function PlaybackScreen() {
         {/* Stats temps réel */}
         <View style={styles.statsRow}>
           <StatBox
-            label="Heure"
+            label={tr('Heure', 'Time')}
             value={currentPos ? formatTime(currentPos.horodatage) : '--:--'}
           />
           <StatBox
-            label="Vitesse"
+            label={tr('Vitesse', 'Speed')}
             value={currentPos ? formatSpeed(currentPos.vitesse) : '--'}
           />
           <StatBox
-            label="Position"
+            label={tr('Position', 'Position')}
             value={`${currentIdx + 1} / ${positions.length}`}
           />
           <StatBox
-            label="Batterie"
+            label={tr('Batterie', 'Battery')}
             value={currentPos ? `${currentPos.niveauBatterie}%` : '--'}
           />
           <StatBox
-            label="Distance"
+            label={tr('Distance', 'Distance')}
             value={positions.length > 0 ? formatDistance(distanceParcourueKm * 1000) : '--'}
           />
         </View>
@@ -364,7 +366,7 @@ export default function PlaybackScreen() {
           <View style={styles.summary}>
             <Ionicons name="information-circle-outline" size={13} color={Colors.textMuted} />
             <Text style={styles.summaryText}>
-              {positions.length} points · de {formatTime(positions[0].horodatage)} à {formatTime(positions[positions.length - 1].horodatage)}
+              {positions.length} {tr('points', 'points')} · {tr('de', 'from')} {formatTime(positions[0].horodatage)} {tr('à', 'to')} {formatTime(positions[positions.length - 1].horodatage)}
             </Text>
           </View>
         )}

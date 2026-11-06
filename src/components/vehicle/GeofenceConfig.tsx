@@ -13,6 +13,7 @@ import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
+import { useI18n } from '../../i18n';
 
 interface GeofenceData {
   nom:         string;
@@ -34,9 +35,10 @@ const RAYON_PRESETS = [100, 250, 500, 1000, 2000, 5000];
 export default function GeofenceConfig({
   vehiculeId, current, vehiclePosition, onUpdated,
 }: Props) {
+  const { tr } = useI18n();
   const defaultCenter = vehiclePosition ?? { latitude: 3.848, longitude: 11.502 };
 
-  const [nom,     setNom]    = useState(current?.nom ?? 'Zone principale');
+  const [nom,     setNom]    = useState(current?.nom ?? tr('Zone principale', 'Main zone'));
   const [center,  setCenter] = useState({
     latitude:  current?.centreLat  ?? defaultCenter.latitude,
     longitude: current?.centreLon  ?? defaultCenter.longitude,
@@ -71,7 +73,7 @@ export default function GeofenceConfig({
     } catch (err) {
       console.error('[GeofenceConfig]', err);
       useToastStore.getState().show(
-        getErrorMessage(err, 'Impossible d\'enregistrer la zone de sécurité. Réessayez dans un instant.'),
+        getErrorMessage(err, tr('Impossible d’enregistrer la zone de sécurité. Réessayez dans un instant.', 'Unable to save the safety zone. Try again in a moment.')),
         'danger'
       );
     } finally {
@@ -81,9 +83,9 @@ export default function GeofenceConfig({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Zone de sécurité</Text>
+      <Text style={styles.title}>{tr('Zone de sécurité', 'Safety zone')}</Text>
       <Text style={styles.sub}>
-        Définissez un périmètre autorisé. Une alerte sera envoyée si le véhicule sort de cette zone.
+        {tr('Définissez un périmètre autorisé. Une alerte sera envoyée si le véhicule sort de cette zone.', 'Define an authorised perimeter. An alert will be sent if the vehicle leaves this zone.')}
       </Text>
 
       {/* CARTE INTERACTIVE */}
@@ -98,7 +100,7 @@ export default function GeofenceConfig({
           }}
           tileUrlTemplate={MAPTILER_TILE_URL}
           markers={vehiclePosition ? [
-            { id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.info, label: 'Véhicule' },
+            { id: 'vehicle', latitude: vehiclePosition.latitude, longitude: vehiclePosition.longitude, color: Colors.info, label: tr('Véhicule', 'Vehicle') },
           ] : []}
           editableCircle={{ center, radiusMeters: rayon, color: Colors.primary }}
           onCircleChange={(newCenter) => { touchedRef.current = true; setCenter(newCenter); }}
@@ -107,20 +109,20 @@ export default function GeofenceConfig({
         {/* Indication d'usage */}
         <View style={styles.hintBadge}>
           <Ionicons name="move-outline" size={13} color={Colors.primary} />
-          <Text style={styles.hintText}>Faites glisser le repère pour déplacer la zone</Text>
+          <Text style={styles.hintText}>{tr('Faites glisser le repère pour déplacer la zone', 'Drag the marker to move the zone')}</Text>
         </View>
       </View>
 
       {/* NOM */}
       <View style={styles.field}>
-        <Text style={styles.fieldLabel}>Nom de la zone</Text>
+        <Text style={styles.fieldLabel}>{tr('Nom de la zone', 'Zone name')}</Text>
         <View style={styles.inputBox}>
           <Ionicons name="bookmark-outline" size={16} color={Colors.primary} />
           <TextInput
             style={styles.input}
             value={nom}
             onChangeText={setNom}
-            placeholder="Ex: Zone port de Douala"
+            placeholder={tr('Ex: Zone port de Douala', 'E.g. Douala port zone')}
             placeholderTextColor={Colors.textMuted}
           />
         </View>
@@ -128,7 +130,7 @@ export default function GeofenceConfig({
 
       {/* RAYON */}
       <View>
-        <Text style={styles.fieldLabel}>Rayon de la zone</Text>
+        <Text style={styles.fieldLabel}>{tr('Rayon de la zone', 'Zone radius')}</Text>
         <View style={styles.rayonDisplay}>
           <Text style={styles.rayonValue}>{rayon >= 1000 ? `${(rayon/1000).toFixed(1)} km` : `${rayon} m`}</Text>
         </View>
@@ -150,14 +152,14 @@ export default function GeofenceConfig({
         <View style={styles.currentInfo}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
           <Text style={styles.currentInfoText}>
-            Zone actuelle : {current.nom} — rayon {current.rayonMetres}m
+            {tr('Zone actuelle', 'Current zone')} : {current.nom} — {tr('rayon', 'radius')} {current.rayonMetres}m
           </Text>
         </View>
       )}
 
       {/* SAUVEGARDER */}
       <Button
-        label="Appliquer la zone"
+        label={tr('Appliquer la zone', 'Apply zone')}
         onPress={handleSave}
         loading={saving}
         disabled={!nom.trim()}

@@ -2,10 +2,14 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setFormatterLanguage } from '../utils/formatters';
 
 export type Language = 'fr' | 'en';
 
 const STORAGE_KEY = 'faucon_language';
+
+let activeLanguage: Language = 'fr';
+export const getActiveLanguage = (): Language => activeLanguage;
 
 const messages: Record<Language, Record<string, string>> = {
   fr: {
@@ -140,6 +144,8 @@ interface I18nValue {
   language: Language;
   setLanguage: (language: Language) => void;
   t: (key: string) => string;
+  /** Traduction directe pour les textes locaux : tr('Français', 'English'). */
+  tr: (fr: string, en: string) => string;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -150,12 +156,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        if (saved === 'en' || saved === 'fr') setLanguageState(saved);
+        if (saved === 'en' || saved === 'fr') {
+          activeLanguage = saved;
+          setFormatterLanguage(saved);
+          setLanguageState(saved);
+        }
       })
       .catch(() => undefined);
   }, []);
 
   const setLanguage = useCallback((next: Language) => {
+    activeLanguage = next;
+    setFormatterLanguage(next);
     setLanguageState(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => undefined);
   }, []);
@@ -165,7 +177,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [language]
   );
 
-  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
+  const tr = useCallback(
+    (fr: string, en: string) => (language === 'en' ? en : fr),
+    [language]
+  );
+
+  const value = useMemo(
+    () => ({ language, setLanguage, t, tr }),
+    [language, setLanguage, t, tr]
+  );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

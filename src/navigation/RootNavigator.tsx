@@ -13,6 +13,7 @@ import { useSocket } from '../hooks/useSocket';
 import { useLivePositionRefresh } from '../hooks/useLivePositionRefresh';
 import { View, ActivityIndicator, Text, TouchableOpacity, AppState } from 'react-native';
 import { Colors } from '../constants/colors';
+import { getActiveLanguage } from '../i18n';
 
 const LoadingScreen = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.offWhite }}>
@@ -26,13 +27,13 @@ const LoadingScreen = () => (
 const LoadErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.offWhite, padding: 24, gap: 16 }}>
     <Text style={{ fontSize: 15, color: Colors.textSecondary, textAlign: 'center' }}>
-      Impossible de charger vos dispositifs. Vérifiez votre connexion Internet.
+      {getActiveLanguage() === 'en' ? 'Unable to load your devices. Check your internet connection.' : 'Impossible de charger vos dispositifs. Vérifiez votre connexion Internet.'}
     </Text>
     <TouchableOpacity
       onPress={onRetry}
       style={{ backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
     >
-      <Text style={{ color: Colors.white, fontWeight: '700' }}>Réessayer</Text>
+      <Text style={{ color: Colors.white, fontWeight: '700' }}>{getActiveLanguage() === 'en' ? 'Retry' : 'Réessayer'}</Text>
     </TouchableOpacity>
   </View>
 );

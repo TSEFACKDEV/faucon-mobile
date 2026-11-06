@@ -5,6 +5,7 @@ import { Colors } from '../../constants/colors';
 import Button from '../ui/Button';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
+import { useI18n } from '../../i18n';
 
 interface Props {
   vehiculeId: string;
@@ -18,6 +19,7 @@ interface Props {
 const NUMERO_REGEX = /^(\+[1-9]\d{7,14}|00[1-9]\d{9,15})$/;
 
 export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Props) {
+  const { tr } = useI18n();
   const [valeur,  setValeur]  = useState(current ?? '');
   const [saving,  setSaving]  = useState(false);
   const [erreur,  setErreur]  = useState<string | null>(null);
@@ -27,7 +29,7 @@ export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Pr
   const handleSave = async () => {
     const telephone = valeur.trim();
     if (!NUMERO_REGEX.test(telephone)) {
-      setErreur('Format attendu : +237XXXXXXXXX (indicatif pays inclus)');
+      setErreur(tr('Format attendu : +237XXXXXXXXX (indicatif pays inclus)', 'Expected format: +237XXXXXXXXX (country code included)'));
       return;
     }
     setErreur(null);
@@ -36,7 +38,7 @@ export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Pr
       await vehicleService.setPhoneAlerte(vehiculeId, telephone);
       onUpdated(telephone);
     } catch (err: any) {
-      setErreur(getErrorMessage(err, "Impossible d'enregistrer ce numéro. Réessayez dans un instant."));
+      setErreur(getErrorMessage(err, tr('Impossible d’enregistrer ce numéro. Réessayez dans un instant.', 'Unable to save this number. Try again in a moment.')));
     } finally {
       setSaving(false);
     }
@@ -44,10 +46,9 @@ export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Pr
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Numéro SMS d'alerte</Text>
+      <Text style={styles.sectionTitle}>{tr('Numéro SMS d’alerte', 'SMS alert number')}</Text>
       <Text style={styles.sectionSub}>
-        Le traceur envoie certaines alertes (choc violent, conduite brutale, premier signal GPS)
-        directement par SMS à ce numéro, indépendamment de l'application.
+        {tr('Le traceur envoie certaines alertes (choc violent, conduite brutale, premier signal GPS) directement par SMS à ce numéro, indépendamment de l’application.', 'The tracker sends certain alerts (violent shock, harsh driving, first GPS fix) directly by SMS to this number, independently of the app.')}
       </Text>
 
       <View style={styles.inputBox}>
@@ -65,7 +66,7 @@ export default function PhoneAlerteConfig({ vehiculeId, current, onUpdated }: Pr
       {erreur && <Text style={styles.erreur}>{erreur}</Text>}
 
       {hasChanged && (
-        <Button label="Enregistrer" onPress={handleSave} loading={saving} style={styles.saveBtn} />
+        <Button label={tr('Enregistrer', 'Save')} onPress={handleSave} loading={saving} style={styles.saveBtn} />
       )}
     </View>
   );

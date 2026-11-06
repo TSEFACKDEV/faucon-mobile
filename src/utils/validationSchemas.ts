@@ -1,45 +1,43 @@
 import * as Yup from 'yup';
 
-export const registerSchema = Yup.object({
+type Lang = 'fr' | 'en';
+const m = (lang: Lang, fr: string, en: string) => (lang === 'en' ? en : fr);
+
+export const getRegisterSchema = (lang: Lang = 'fr') => Yup.object({
   userName: Yup.string()
-    .min(3, 'Au moins 3 caractères')
-    .max(30, 'Maximum 30 caractères')
-    .required('Nom d\'utilisateur requis'),
+    .min(3, m(lang, 'Au moins 3 caractères', 'At least 3 characters'))
+    .max(30, m(lang, 'Maximum 30 caractères', 'Maximum 30 characters'))
+    .required(m(lang, "Nom d'utilisateur requis", 'Username required')),
 
   email: Yup.string()
-    .email('Email invalide')
-    .required('Email requis'),
+    .email(m(lang, 'Email invalide', 'Invalid email'))
+    .required(m(lang, 'Email requis', 'Email required')),
 
-  // Doit rester aligné sur la règle serveur (server/src/controllers/auth.controller.ts,
-  // register : password.length < 8) — sinon un mot de passe de 6-7
-  // caractères passe la validation locale puis se fait rejeter par le
-  // serveur avec un message générique, après que l'utilisateur ait déjà
-  // rempli tout le formulaire.
   password: Yup.string()
-    .min(8, 'Au moins 8 caractères')
-    .required('Mot de passe requis'),
+    .min(8, m(lang, 'Au moins 8 caractères', 'At least 8 characters'))
+    .required(m(lang, 'Mot de passe requis', 'Password required')),
 
   confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas')
-    .required('Confirmation requise'),
+    .oneOf([Yup.ref('password')], m(lang, 'Les mots de passe ne correspondent pas', 'Passwords do not match'))
+    .required(m(lang, 'Confirmation requise', 'Confirmation required')),
 });
 
-export const loginSchema = Yup.object({
+export const getLoginSchema = (lang: Lang = 'fr') => Yup.object({
   email: Yup.string()
-    .email('Email invalide')
-    .required('Email requis'),
+    .email(m(lang, 'Email invalide', 'Invalid email'))
+    .required(m(lang, 'Email requis', 'Email required')),
 
   password: Yup.string()
-    .min(6, 'Au moins 6 caractères')
-    .required('Mot de passe requis'),
+    .min(6, m(lang, 'Au moins 6 caractères', 'At least 6 characters'))
+    .required(m(lang, 'Mot de passe requis', 'Password required')),
 });
 
-export const addDeviceSchema = Yup.object({
+export const getAddDeviceSchema = (lang: Lang = 'fr') => Yup.object({
   imei: Yup.string()
-    .required('ID du traceur requis')
+    .required(m(lang, 'ID du traceur requis', 'Tracker ID required'))
     .test(
       'imei-or-tracker-id',
-      'L\'IMEI ou l\'ID du traceur est invalide',
+      m(lang, "L'IMEI ou l'ID du traceur est invalide", 'The IMEI or tracker ID is invalid'),
       (value) => {
         if (!value) return false;
         return /^\d{15}$/.test(value) || /^[A-Z0-9-]{5,30}$/i.test(value);
@@ -49,12 +47,12 @@ export const addDeviceSchema = Yup.object({
   pin: Yup.string()
     .notRequired()
     .matches(/^[A-Z0-9]{6}$/i, {
-      message: 'Le code d\'activation fait 6 caractères',
+      message: m(lang, "Le code d'activation fait 6 caractères", 'The activation code must be 6 characters'),
       excludeEmptyString: true,
     }),
 
   nom: Yup.string()
-    .min(2, 'Au moins 2 caractères')
-    .max(50, 'Maximum 50 caractères')
-    .required('Nom de l\'appareil requis'),
+    .min(2, m(lang, 'Au moins 2 caractères', 'At least 2 characters'))
+    .max(50, m(lang, 'Maximum 50 caractères', 'Maximum 50 characters'))
+    .required(m(lang, "Nom de l'appareil requis", 'Device name required')),
 });

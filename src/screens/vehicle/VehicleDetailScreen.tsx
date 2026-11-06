@@ -26,10 +26,12 @@ import DailyReportPanel from '../../components/vehicle/DailyReportPanel';
 import RemoteActions from '../../components/vehicle/RemoteActions';
 import PhoneAlerteConfig from '../../components/vehicle/PhoneAlerteConfig';
 import { MAPTILER_TILE_URL } from '../../constants/mapTiles';
+import { useI18n } from '../../i18n';
 
 type RouteParams = { vehiculeId: string };
 
 export default function VehicleDetailScreen() {
+  const { tr } = useI18n();
   const route     = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -69,8 +71,8 @@ export default function VehicleDetailScreen() {
       setInfosTraceur(null);
       useToastStore.getState().show(
         lastCommandeUpdate.parametres?.detail === 'commande inconnue'
-          ? "Ce traceur ne connaît pas la commande INFO — son firmware est antérieur à la v12.1."
-          : 'Le traceur a refusé la lecture de ses informations.',
+          ? tr('Ce traceur ne connaît pas la commande INFO — son firmware est antérieur à la v12.1.', 'This tracker does not support the INFO command — its firmware is older than v12.1.')
+          : tr('Le traceur a refusé la lecture de ses informations.', 'The tracker refused to read its information.'),
         'danger'
       );
     }
@@ -84,7 +86,7 @@ export default function VehicleDetailScreen() {
     } catch (err) {
       setChargementInfos(false);
       useToastStore.getState().show(
-        getErrorMessage(err, "Impossible de demander les informations au traceur. Vérifiez votre connexion."),
+        getErrorMessage(err, tr('Impossible de demander les informations au traceur. Vérifiez votre connexion.', 'Unable to request information from the tracker. Check your connection.')),
         'danger'
       );
     }
@@ -99,7 +101,7 @@ export default function VehicleDetailScreen() {
         setVehicle(data);
       } catch (err) {
         console.error('[VehicleDetail]', err);
-        const message = getErrorMessage(err, 'Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.');
+        const message = getErrorMessage(err, tr('Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.', 'Unable to load this device. Check your connection and try again.'));
         setLoadError(message);
         useToastStore.getState().show(message, 'danger');
       } finally {
@@ -167,7 +169,7 @@ export default function VehicleDetailScreen() {
           color={loadError ? Colors.dangerStrong : Colors.textMuted}
         />
         <Text style={[styles.introuvableText, loadError && { color: Colors.dangerStrong }]}>
-          {loadError ?? 'Dispositif introuvable. Il a peut-être été supprimé de votre compte.'}
+          {loadError ?? tr('Dispositif introuvable. Il a peut-être été supprimé de votre compte.', 'Device not found. It may have been removed from your account.')}
         </Text>
         <TouchableOpacity
           style={styles.retryBtn}
@@ -177,7 +179,7 @@ export default function VehicleDetailScreen() {
             vehicleService.getVehicleById(vehiculeId)
               .then(setVehicle)
               .catch(err => {
-                const message = getErrorMessage(err, 'Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.');
+                const message = getErrorMessage(err, tr('Impossible de charger ce dispositif. Vérifiez votre connexion, puis réessayez.', 'Unable to load this device. Check your connection and try again.'));
                 setLoadError(message);
                 useToastStore.getState().show(message, 'danger');
               })
@@ -186,7 +188,7 @@ export default function VehicleDetailScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="refresh" size={14} color={Colors.white} />
-          <Text style={styles.retryText}>Réessayer</Text>
+          <Text style={styles.retryText}>{tr('Réessayer', 'Retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -208,9 +210,9 @@ export default function VehicleDetailScreen() {
     'success';
 
   const statusLabel =
-    offline ? 'HORS LIGNE' :
-    lowBattery ? 'BATTERIE FAIBLE' :
-    stopped ? 'ARRÊTÉ' : 'EN MOUVEMENT';
+    offline ? tr('HORS LIGNE', 'OFFLINE') :
+    lowBattery ? tr('BATTERIE FAIBLE', 'LOW BATTERY') :
+    stopped ? tr('ARRÊTÉ', 'IDLE') : tr('EN MOUVEMENT', 'MOVING');
 
   return (
     <View style={styles.container}>
@@ -264,14 +266,14 @@ export default function VehicleDetailScreen() {
               </Text>
             </View>
             <Text style={styles.updateText}>
-              Mis à jour à {formatTime(livePos.horodatage)}
+              {tr('Mis à jour à', 'Updated at')} {formatTime(livePos.horodatage)}
             </Text>
           </View>
         </View>
       ) : (
         <View style={styles.noGps}>
           <Ionicons name="location-outline" size={32} color={Colors.textMuted} />
-          <Text style={styles.noGpsText}>Aucune position reçue</Text>
+          <Text style={styles.noGpsText}>{tr('Aucune position reçue', 'No position received')}</Text>
         </View>
       )}
 
@@ -279,13 +281,13 @@ export default function VehicleDetailScreen() {
       <View style={styles.statsRow}>
         <QuickStat
           icon="speedometer-outline"
-          label="Vitesse"
+          label={tr('Vitesse', 'Speed')}
           value={livePos ? formatSpeed(livePos.vitesse) : '--'}
         />
         <View style={styles.statDivider} />
         <QuickStat
           icon="battery-half-outline"
-          label="Batterie"
+          label={tr('Batterie', 'Battery')}
           value={formatBattery(vehicle.niveauBatterie)}
           valueColor={vehicle.niveauBatterie < 20 ? Colors.dangerStrong
                     : vehicle.niveauBatterie < 50 ? Colors.warningStrong
@@ -294,13 +296,13 @@ export default function VehicleDetailScreen() {
         <View style={styles.statDivider} />
         <QuickStat
           icon="radio-outline"
-          label="Mode"
+          label={tr('Mode', 'Mode')}
           value={vehicle.modeActuel}
         />
         <View style={styles.statDivider} />
         <QuickStat
           icon="navigate-outline"
-          label="Cap"
+          label={tr('Cap', 'Heading')}
           value={livePos?.cap != null ? `${Math.round(livePos.cap)}°` : '--'}
         />
       </View>
@@ -308,12 +310,12 @@ export default function VehicleDetailScreen() {
       {/* ── ONGLETS ── */}
       <View style={styles.tabs}>
         {[
-          { key: 'infos',   label: 'Infos',    icon: 'information-circle-outline' },
-          { key: 'mode',    label: 'Mode',      icon: 'radio-outline'             },
-          { key: 'vitesse', label: 'Vitesse',   icon: 'speedometer-outline'       },
-          { key: 'zone',    label: 'Zone',      icon: 'location-outline'          },
-          { key: 'rapport', label: 'Rapport',   icon: 'bar-chart-outline'         },
-          { key: 'actions', label: 'Actions',   icon: 'flash-outline'             },
+          { key: 'infos',   label: tr('Infos', 'Info'),    icon: 'information-circle-outline' },
+          { key: 'mode',    label: tr('Mode', 'Mode'),      icon: 'radio-outline'             },
+          { key: 'vitesse', label: tr('Vitesse', 'Speed'),   icon: 'speedometer-outline'       },
+          { key: 'zone',    label: tr('Zone', 'Zone'),      icon: 'location-outline'          },
+          { key: 'rapport', label: tr('Rapport', 'Report'),   icon: 'bar-chart-outline'         },
+          { key: 'actions', label: tr('Actions', 'Actions'),   icon: 'flash-outline'             },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -349,44 +351,44 @@ export default function VehicleDetailScreen() {
         {/* INFOS */}
         {activeTab === 'infos' && (
           <View style={{ gap: 12 }}>
-            {vehicle.trackerId && <InfoRow label="ID Traceur" value={vehicle.trackerId} mono />}
+            {vehicle.trackerId && <InfoRow label={tr('ID Traceur', 'Tracker ID')} value={vehicle.trackerId} mono />}
             {vehicle.imei      && <InfoRow label="IMEI"       value={vehicle.imei}      mono />}
-            <InfoRow label="Nom"          value={vehicle.nom} />
-            <InfoRow label="Mode actuel"  value={vehicle.modeActuel} />
-            <InfoRow label="Batterie"     value={formatBattery(vehicle.niveauBatterie)} />
-            <InfoRow label="Dernière communication" value={vehicle.derniereCommunication ? formatTime(vehicle.derniereCommunication) : 'Aucune'} />
+            <InfoRow label={tr('Nom', 'Name')}          value={vehicle.nom} />
+            <InfoRow label={tr('Mode actuel', 'Current mode')}  value={vehicle.modeActuel} />
+            <InfoRow label={tr('Batterie', 'Battery')}     value={formatBattery(vehicle.niveauBatterie)} />
+            <InfoRow label={tr('Dernière communication', 'Last communication')} value={vehicle.derniereCommunication ? formatTime(vehicle.derniereCommunication) : tr('Aucune', 'None')} />
             <InfoRow
-              label="Support"
-              value={vehicle.estColle == null ? 'État inconnu' : (vehicle.estColle ? 'Collé au support' : 'Décollé')}
+              label={tr('Support', 'Mount')}
+              value={vehicle.estColle == null ? tr('État inconnu', 'Unknown state') : (vehicle.estColle ? tr('Collé au support', 'Attached to mount') : tr('Décollé', 'Detached'))}
               valueColor={vehicle.estColle == null ? Colors.textMuted : (vehicle.estColle ? Colors.successStrong : Colors.dangerStrong)}
             />
             {livePos && (
               <>
-                <InfoRow label="Latitude"  value={String(livePos.latitude.toFixed(6))}  mono />
-                <InfoRow label="Longitude" value={String(livePos.longitude.toFixed(6))} mono />
-                <InfoRow label="Vitesse"   value={formatSpeed(livePos.vitesse)} />
+                <InfoRow label={tr('Latitude', 'Latitude')}  value={String(livePos.latitude.toFixed(6))}  mono />
+                <InfoRow label={tr('Longitude', 'Longitude')} value={String(livePos.longitude.toFixed(6))} mono />
+                <InfoRow label={tr('Vitesse', 'Speed')}   value={formatSpeed(livePos.vitesse)} />
                 {livePos.cap != null && (
-                  <InfoRow label="Cap" value={`${Math.round(livePos.cap)}°`} />
+                  <InfoRow label={tr('Cap', 'Heading')} value={`${Math.round(livePos.cap)}°`} />
                 )}
-                <InfoRow label="Source" value={livePos.source ?? 'tcp'} />
+                <InfoRow label={tr('Source', 'Source')} value={livePos.source ?? 'tcp'} />
                 {livePos.satellites != null && (
-                  <InfoRow label="Satellites GPS" value={String(livePos.satellites)} />
+                  <InfoRow label={tr('Satellites GPS', 'GPS satellites')} value={String(livePos.satellites)} />
                 )}
                 {livePos.signal != null && (
-                  <InfoRow label="Signal réseau" value={`${livePos.signal}%`} />
+                  <InfoRow label={tr('Signal réseau', 'Network signal')} value={`${livePos.signal}%`} />
                 )}
               </>
             )}
             {vehicle.limiteVitesse && (
               <InfoRow
-                label="Limite configurée"
-                value={`${vehicle.limiteVitesse.seuilKmh} km/h (${vehicle.limiteVitesse.estActive ? 'active' : 'inactive'})`}
+                label={tr('Limite configurée', 'Configured limit')}
+                value={`${vehicle.limiteVitesse.seuilKmh} km/h (${vehicle.limiteVitesse.estActive ? tr('active', 'active') : tr('inactive', 'inactive')})`}
               />
             )}
             {vehicle.perimetreGeofence && (
               <InfoRow
-                label="Zone de sécurité"
-                value={`${vehicle.perimetreGeofence.nom} — rayon ${vehicle.perimetreGeofence.rayonMetres}m`}
+                label={tr('Zone de sécurité', 'Safety zone')}
+                value={`${vehicle.perimetreGeofence.nom} — ${tr('rayon', 'radius')} ${vehicle.perimetreGeofence.rayonMetres}m`}
               />
             )}
 
@@ -397,54 +399,53 @@ export default function VehicleDetailScreen() {
                 l'état du boîtier : rien de tout cela n'existe dans les
                 trames de position. */}
             <View style={{ gap: 8, marginTop: 8 }}>
-              <Text style={styles.sectionTitle}>État du traceur</Text>
+              <Text style={styles.sectionTitle}>{tr('État du traceur', 'Tracker status')}</Text>
 
               {diagnostic ? (
                 <>
-                  <InfoRow label="Modèle" value={diagnostic.modele ?? '—'} />
+                  <InfoRow label={tr('Modèle', 'Model')} value={diagnostic.modele ?? '—'} />
                   <InfoRow label="Firmware" value={diagnostic.version ?? '—'} />
-                  <InfoRow label="Mode appliqué" value={diagnostic.mode ?? '—'} />
+                  <InfoRow label={tr('Mode appliqué', 'Applied mode')} value={diagnostic.mode ?? '—'} />
                   <InfoRow
-                    label="Dernier diagnostic"
+                    label={tr('Dernier diagnostic', 'Last diagnostic')}
                     value={formatRelativeTime(diagnostic.horodatage)}
                   />
                   <InfoRow
-                    label="Redémarrages"
-                    value={`${diagnostic.nbWatchdog} watchdog · ${diagnostic.nbBrownout} brownout · ${diagnostic.nbPanique} panique`}
+                    label={tr('Redémarrages', 'Restarts')}
+                    value={`${diagnostic.nbWatchdog} watchdog · ${diagnostic.nbBrownout} brownout · ${diagnostic.nbPanique} ${tr('panique', 'panic')}`}
                   />
-                  <InfoRow label="Dernière cause" value={diagnostic.causeReset ?? '—'} />
+                  <InfoRow label={tr('Dernière cause', 'Last cause')} value={diagnostic.causeReset ?? '—'} />
                   {diagnostic.dernierArret && diagnostic.dernierArret !== '?' && (
-                    <InfoRow label="Dernier arrêt" value={diagnostic.dernierArret} />
+                    <InfoRow label={tr('Dernier arrêt', 'Last stop')} value={diagnostic.dernierArret} />
                   )}
                   <InfoRow
-                    label="Mémoire libre"
-                    value={diagnostic.heapLibre ? `${Math.round(diagnostic.heapLibre / 1024)} Ko` : '—'}
+                    label={tr('Mémoire libre', 'Free memory')}
+                    value={diagnostic.heapLibre ? `${Math.round(diagnostic.heapLibre / 1024)} ${tr('Ko', 'KB')}` : '—'}
                   />
                   <InfoRow
-                    label="Journal flash"
+                    label={tr('Journal flash', 'Flash log')}
                     value={
                       diagnostic.fileNombre
-                        ? `${diagnostic.fileNombre} position(s) en attente`
-                        : 'vide'
+                        ? `${diagnostic.fileNombre} ${tr('position(s) en attente', 'position(s) pending')}`
+                        : tr('vide', 'empty')
                     }
                   />
                   {diagnostic.positionsPerdues > 0 && (
                     <InfoRow
-                      label="Positions perdues"
+                      label={tr('Positions perdues', 'Lost positions')}
                       value={String(diagnostic.positionsPerdues)}
                     />
                   )}
                   {diagnostic.i2cRecuperations > 0 && (
                     <InfoRow
-                      label="Récupérations I2C"
+                      label={tr('Récupérations I2C', 'I2C recoveries')}
                       value={String(diagnostic.i2cRecuperations)}
                     />
                   )}
                 </>
               ) : (
                 <Text style={styles.diagVide}>
-                  Aucun diagnostic reçu — le traceur n'a pas encore publié
-                  son état de santé (firmware v12.1 requis).
+                  {tr('Aucun diagnostic reçu — le traceur n’a pas encore publié son état de santé (firmware v12.1 requis).', 'No diagnostic received — the tracker has not published its health status yet (firmware v12.1 required).')}
                 </Text>
               )}
 
@@ -460,7 +461,7 @@ export default function VehicleDetailScreen() {
                   <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
                 )}
                 <Text style={styles.readInfosBtnText}>
-                  {chargementInfos ? 'Interrogation...' : 'Interroger le traceur'}
+                  {chargementInfos ? tr('Interrogation...', 'Querying...') : 'Interroger le traceur'}
                 </Text>
               </TouchableOpacity>
 

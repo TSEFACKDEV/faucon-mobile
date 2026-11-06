@@ -21,6 +21,8 @@ import { apiKeyService } from '../../services/apiKeyService';
 import { ApiKey } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
+import { localeTag } from '../../utils/formatters';
 
 // Gestion des clés API du propriétaire :
 // création, affichage du secret une seule fois, révocation.
@@ -28,7 +30,7 @@ const formatDate = (iso?: string | null): string => {
   if (!iso) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('fr-FR', {
+  return date.toLocaleDateString(localeTag(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -37,6 +39,7 @@ const formatDate = (iso?: string | null): string => {
 };
 
 export default function ApiKeysScreen() {
+  const { tr } = useI18n();
   const navigation = useNavigation();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +56,7 @@ export default function ApiKeysScreen() {
     try {
       setKeys(await apiKeyService.list());
     } catch (err) {
-      setError(getErrorMessage(err, 'Impossible de charger vos clés API.'));
+      setError(getErrorMessage(err, tr('Impossible de charger vos clés API.', 'Unable to load your API keys.')));
     } finally {
       setLoading(false);
     }
@@ -65,7 +68,7 @@ export default function ApiKeysScreen() {
 
   const handleCreate = async () => {
     if (!keyName.trim()) {
-      useToastStore.getState().show('Donnez un nom à la clé.', 'info');
+      useToastStore.getState().show(tr('Donnez un nom à la clé.', 'Give the key a name.'), 'info');
       return;
     }
     setCreating(true);
@@ -78,7 +81,7 @@ export default function ApiKeysScreen() {
     } catch (err) {
       useToastStore
         .getState()
-        .show(getErrorMessage(err, 'Impossible de créer la clé API.'), 'danger');
+        .show(getErrorMessage(err, tr('Impossible de créer la clé API.', 'Unable to create the API key.')), 'danger');
     } finally {
       setCreating(false);
     }
@@ -86,23 +89,23 @@ export default function ApiKeysScreen() {
 
   const handleRevoke = (key: ApiKey) => {
     Alert.alert(
-      'Révoquer cette clé',
-      `La clé « ${key.nom} » cessera immédiatement de fonctionner. Cette action est définitive.`,
+      tr('Révoquer cette clé', 'Revoke this key'),
+      tr(`La clé « ${key.nom} » cessera immédiatement de fonctionner. Cette action est définitive.`, `The key “${key.nom}” will stop working immediately. This action is permanent.`),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: tr('Annuler', 'Cancel'), style: 'cancel' },
         {
-          text: 'Révoquer',
+          text: tr('Révoquer', 'Revoke'),
           style: 'destructive',
           onPress: async () => {
             setRevokingId(key.id);
             try {
               await apiKeyService.revoke(key.id);
               setKeys((prev) => prev.filter((item) => item.id !== key.id));
-              useToastStore.getState().show('Clé révoquée.', 'success');
+              useToastStore.getState().show(tr('Clé révoquée.', 'Key revoked.'), 'success');
             } catch (err) {
               useToastStore
                 .getState()
-                .show(getErrorMessage(err, 'Impossible de révoquer cette clé.'), 'danger');
+                .show(getErrorMessage(err, tr('Impossible de révoquer cette clé.', 'Unable to revoke this key.')), 'danger');
             } finally {
               setRevokingId(null);
             }
@@ -115,7 +118,7 @@ export default function ApiKeysScreen() {
   return (
     <View style={styles.container}>
       <BrandBar
-        title="Clés API"
+        title={tr('Clés API', 'API keys')}
         right={
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
             <Ionicons name="close" size={22} color={Colors.white} />
@@ -138,17 +141,16 @@ export default function ApiKeysScreen() {
                 <Ionicons name="key-outline" size={20} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.introTitle}>Intégrations en lecture seule</Text>
+                <Text style={styles.introTitle}>{tr('Intégrations en lecture seule', 'Read-only integrations')}</Text>
                 <Text style={styles.introText}>
-                  Une clé donne accès aux positions et alarmes de vos traceurs,
-                  jamais au mot de passe ni aux réglages du compte.
+                  {tr('Une clé donne accès aux positions et alarmes de vos traceurs, jamais au mot de passe ni aux réglages du compte.', 'A key grants access to your trackers’ positions and alerts, never to the password or account settings.')}
                 </Text>
               </View>
             </View>
           </Card>
 
           <Button
-            label="Créer une clé API"
+            label={tr('Créer une clé API', 'Create an API key')}
             onPress={() => setNameModal(true)}
             style={{ marginTop: 16 }}
           />
@@ -156,17 +158,17 @@ export default function ApiKeysScreen() {
           {error ? (
             <Card style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
-              <Button label="Réessayer" variant="secondary" size="sm" onPress={load} />
+              <Button label={tr('Réessayer', 'Retry')} variant="secondary" size="sm" onPress={load} />
             </Card>
           ) : null}
 
-          <Text style={styles.sectionTitle}>VOS CLÉS</Text>
+          <Text style={styles.sectionTitle}>{tr('VOS CLÉS', 'YOUR KEYS')}</Text>
 
           {!loading && keys.length === 0 && !error ? (
             <EmptyState
               icon="key-outline"
-              title="Aucune clé API"
-              subtitle="Créez une clé pour connecter Faucon à vos outils, un tableau de bord ou une application métier."
+              title={tr('Aucune clé API', 'No API keys')}
+              subtitle={tr('Créez une clé pour connecter Faucon à vos outils, un tableau de bord ou une application métier.', 'Create a key to connect Faucon to your tools, a dashboard or a business application.')}
             />
           ) : null}
 
@@ -194,24 +196,24 @@ export default function ApiKeysScreen() {
                       !key.estActive && styles.statusTextInactive,
                     ]}
                   >
-                    {key.estActive ? 'Active' : 'Révoquée'}
+                    {key.estActive ? tr('Active', 'Active') : tr('Révoquée', 'Revoked')}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.keyMeta}>
                 <Text style={styles.keyMetaText}>
-                  Créée le {formatDate(key.dateCreation)}
+                  {tr('Créée le', 'Created on')} {formatDate(key.dateCreation)}
                 </Text>
                 {key.derniereUtilisation ? (
                   <Text style={styles.keyMetaText}>
-                    Dernier usage : {formatDate(key.derniereUtilisation)}
+                    {tr('Dernier usage', 'Last used')} : {formatDate(key.derniereUtilisation)}
                   </Text>
                 ) : (
-                  <Text style={styles.keyMetaText}>Jamais utilisée</Text>
+                  <Text style={styles.keyMetaText}>{tr('Jamais utilisée', 'Never used')}</Text>
                 )}
                 <Text style={styles.keyMetaText}>
-                  Portée : {(key.scopes ?? ['owner:read']).join(', ')}
+                  {tr('Portée', 'Scope')} : {(key.scopes ?? ['owner:read']).join(', ')}
                 </Text>
               </View>
 
@@ -226,7 +228,7 @@ export default function ApiKeysScreen() {
                   ) : (
                     <>
                       <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-                      <Text style={styles.revokeText}>Révoquer</Text>
+                      <Text style={styles.revokeText}>{tr('Révoquer', 'Revoke')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -235,8 +237,7 @@ export default function ApiKeysScreen() {
           ))}
 
           <Text style={styles.footnote}>
-            Conservez la clé dans un coffre-fort de secrets. Ne la mettez jamais
-            dans Git, un site public ou une application distribuée.
+            {tr('Conservez la clé dans un coffre-fort de secrets. Ne la mettez jamais dans Git, un site public ou une application distribuée.', 'Keep the key in a secrets vault. Never put it in Git, a public website or a distributed app.')}
           </Text>
         </ScrollView>
       )}
@@ -250,29 +251,28 @@ export default function ApiKeysScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nouvelle clé API</Text>
+            <Text style={styles.modalTitle}>{tr('Nouvelle clé API', 'New API key')}</Text>
             <Text style={styles.modalText}>
-              Donnez un nom qui vous permettra de la reconnaître (ex. « Tableau
-              de bord logistique »).
+              {tr('Donnez un nom qui vous permettra de la reconnaître (ex. « Tableau de bord logistique »).', 'Give it a name you will recognise (e.g. “Logistics dashboard”).')}
             </Text>
             <TextInput
               style={styles.modalInput}
               value={keyName}
               onChangeText={setKeyName}
-              placeholder="Nom de la clé"
+              placeholder={tr('Nom de la clé', 'Key name')}
               placeholderTextColor={Colors.textMuted}
               autoFocus
               maxLength={60}
             />
             <View style={styles.modalActions}>
               <Button
-                label="Annuler"
+                label={tr('Annuler', 'Cancel')}
                 variant="secondary"
                 onPress={() => setNameModal(false)}
                 style={{ flex: 1 }}
               />
               <Button
-                label="Créer"
+                label={tr('Créer', 'Create')}
                 onPress={handleCreate}
                 loading={creating}
                 style={{ flex: 1 }}
@@ -291,9 +291,9 @@ export default function ApiKeysScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Votre clé API</Text>
+            <Text style={styles.modalTitle}>{tr('Votre clé API', 'Your API key')}</Text>
             <Text style={styles.modalText}>
-              Copiez-la maintenant. Elle ne sera plus jamais affichée.
+              {tr('Copiez-la maintenant. Elle ne sera plus jamais affichée.', 'Copy it now. It will never be shown again.')}
             </Text>
             <View style={styles.secretBox}>
               <Text selectable style={styles.secretText}>
@@ -301,9 +301,9 @@ export default function ApiKeysScreen() {
               </Text>
             </View>
             <Text style={styles.secretWarning}>
-              Ne la partagez pas et ne la publiez jamais dans un dépôt public.
+              {tr('Ne la partagez pas et ne la publiez jamais dans un dépôt public.', 'Do not share it and never publish it in a public repository.')}
             </Text>
-            <Button label="J’ai copié la clé" onPress={() => setSecret(null)} />
+            <Button label={tr('J’ai copié la clé', 'I copied the key')} onPress={() => setSecret(null)} />
           </View>
         </View>
       </Modal>

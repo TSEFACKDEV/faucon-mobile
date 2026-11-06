@@ -17,8 +17,10 @@ import { Vehicle } from '../../types';
 import { formatTime, displayDeviceId, isDeviceOffline, isDeviceStopped } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
 
 export default function DevicesScreen() {
+  const { tr } = useI18n();
   const navigation = useNavigation<any>();
   const { livePositions, lastMovedAt, activeVehicleId, setActiveVehicleId } = useVehicleStore();
   const { vehicles, refetch } = useVehicles();
@@ -36,7 +38,7 @@ export default function DevicesScreen() {
     } catch (err) {
       console.error('[DevicesScreen]', err);
       useToastStore.getState().show(
-        getErrorMessage(err, 'Impossible de rafraîchir la liste. Vérifiez votre connexion, puis réessayez.'),
+        getErrorMessage(err, tr('Impossible de rafraîchir la liste. Vérifiez votre connexion, puis réessayez.', 'Unable to refresh the list. Check your connection and try again.')),
         'danger'
       );
     } finally {
@@ -61,9 +63,9 @@ export default function DevicesScreen() {
   const handlePartager = async (vehicle: Vehicle) => {
     const pos = livePositions[vehicle.id];
     const posText = pos
-      ? `Dernière position : ${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)} (${formatTime(pos.horodatage)})`
-      : 'Aucune position récente disponible.';
-    const idLine = vehicle.imei ? `IMEI ${vehicle.imei}` : `Traceur ${vehicle.trackerId ?? 'inconnu'}`;
+      ? `${tr('Dernière position', 'Last position')} : ${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)} (${formatTime(pos.horodatage)})`
+      : tr('Aucune position récente disponible.', 'No recent position available.');
+    const idLine = vehicle.imei ? `IMEI ${vehicle.imei}` : `${tr('Traceur', 'Tracker')} ${vehicle.trackerId ?? tr('inconnu', 'unknown')}`;
     try {
       await Share.share({
         message: `${vehicle.nom} — ${displayDeviceId(vehicle)} (${idLine})\n${posText}`,
@@ -75,12 +77,12 @@ export default function DevicesScreen() {
 
   const handleSupprimer = (vehicle: Vehicle) => {
     Alert.alert(
-      'Supprimer le dispositif',
-      `Voulez-vous vraiment retirer "${vehicle.nom}" de votre compte ?`,
+      tr('Supprimer le dispositif', 'Delete device'),
+      tr(`Voulez-vous vraiment retirer "${vehicle.nom}" de votre compte ?`, `Do you really want to remove "${vehicle.nom}" from your account?`),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: tr('Annuler', 'Cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: tr('Supprimer', 'Delete'),
           style: 'destructive',
           onPress: async () => {
             setDeletingId(vehicle.id);
@@ -89,7 +91,7 @@ export default function DevicesScreen() {
               await refetch();
             } catch (err) {
               console.error('[Supprimer]', err);
-              Alert.alert('Erreur', getErrorMessage(err, 'Impossible de supprimer ce dispositif pour le moment.'));
+              Alert.alert(tr('Erreur', 'Error'), getErrorMessage(err, tr('Impossible de supprimer ce dispositif pour le moment.', 'Unable to delete this device right now.')));
             } finally {
               setDeletingId(null);
             }
@@ -113,7 +115,7 @@ export default function DevicesScreen() {
       setRenaming(null);
     } catch (err) {
       console.error('[Renommer]', err);
-      Alert.alert('Erreur', getErrorMessage(err, 'Impossible de renommer ce dispositif pour le moment.'));
+      Alert.alert(tr('Erreur', 'Error'), getErrorMessage(err, tr('Impossible de renommer ce dispositif pour le moment.', 'Unable to rename this device right now.')));
     } finally {
       setSaving(false);
     }
@@ -123,7 +125,7 @@ export default function DevicesScreen() {
     const pos = livePositions[item.id];
     const offline = isDeviceOffline(pos, item.derniereCommunication);
     const stopped = isDeviceStopped(lastMovedAt[item.id]);
-    const statusLabel = offline ? 'Hors ligne' : stopped ? 'Immobilisé' : 'En mouvement';
+    const statusLabel = offline ? tr('Hors ligne', 'Offline') : stopped ? tr('Immobilisé', 'Idle') : tr('En mouvement', 'Moving');
     const statusColor = offline ? Colors.textMuted : stopped ? Colors.warningStrong : Colors.successStrong;
     // Icône distincte en plus de la couleur pour chaque statut — la couleur seule
     // ne doit jamais être le seul signal (accessibilité, daltonisme).
@@ -150,7 +152,7 @@ export default function DevicesScreen() {
               {isTracked && (
                 <View style={styles.trackedBadge}>
                   <Ionicons name="navigate" size={10} color={Colors.white} />
-                  <Text style={styles.trackedBadgeText}>Suivi</Text>
+                  <Text style={styles.trackedBadgeText}>{tr('Suivi', 'Tracked')}</Text>
                 </View>
               )}
             </View>
@@ -165,7 +167,7 @@ export default function DevicesScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>
-              <Ionicons name={batteryIcon} size={12} color={batteryColor} />  BATTERIE
+              <Ionicons name={batteryIcon} size={12} color={batteryColor} />  {tr('BATTERIE', 'BATTERY')}
             </Text>
             <View style={styles.batteryTrack}>
               <View style={[styles.batteryFill, { width: `${item.niveauBatterie}%`, backgroundColor: batteryColor }]} />
@@ -174,24 +176,24 @@ export default function DevicesScreen() {
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>
-              <Ionicons name="speedometer-outline" size={12} color={Colors.textMuted} />  VITESSE
+              <Ionicons name="speedometer-outline" size={12} color={Colors.textMuted} />  {tr('VITESSE', 'SPEED')}
             </Text>
             <Text style={styles.statValue}>{pos ? `${Math.round(pos.vitesse)} km/h` : '--'}</Text>
           </View>
         </View>
 
         <View style={styles.actionsRow}>
-          <ActionButton icon="time-outline" label="Historique" onPress={() => handleHistorique(item.id)} />
-          <ActionButton icon="share-social-outline" label="Partager" onPress={() => handlePartager(item)} />
-          <ActionButton icon="location-outline" label="Position" onPress={() => handlePosition(item)} />
-          <ActionButton icon="options-outline" label="Config" onPress={() => handleConfig(item.id)} />
+          <ActionButton icon="time-outline" label={tr('Historique', 'History')} onPress={() => handleHistorique(item.id)} />
+          <ActionButton icon="share-social-outline" label={tr('Partager', 'Share')} onPress={() => handlePartager(item)} />
+          <ActionButton icon="location-outline" label={tr('Position', 'Position')} onPress={() => handlePosition(item)} />
+          <ActionButton icon="options-outline" label={tr('Config', 'Config')} onPress={() => handleConfig(item.id)} />
           {deletingId === item.id ? (
             <View style={styles.actionBtn}>
               <ActivityIndicator size="small" color={Colors.danger} />
-              <Text style={[styles.actionLabel, { color: Colors.danger }]}>Supprimer</Text>
+              <Text style={[styles.actionLabel, { color: Colors.danger }]}>{tr('Supprimer', 'Delete')}</Text>
             </View>
           ) : (
-            <ActionButton icon="trash-outline" label="Supprimer" color={Colors.danger} onPress={() => handleSupprimer(item)} />
+            <ActionButton icon="trash-outline" label={tr('Supprimer', 'Delete')} color={Colors.danger} onPress={() => handleSupprimer(item)} />
           )}
         </View>
       </View>
@@ -201,7 +203,7 @@ export default function DevicesScreen() {
   return (
     <View style={styles.container}>
       <BrandBar
-        title="Mes dispositifs"
+        title={tr('Mes dispositifs', 'My devices')}
         right={
           <View style={styles.totalPill}>
             <Text style={styles.total}>{vehicles.length}</Text>
@@ -223,14 +225,14 @@ export default function DevicesScreen() {
             onPress={() => navigation.navigate('AddDeviceFromProfile')}
           >
             <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-            <Text style={styles.addBtnText}>Ajouter un dispositif</Text>
+            <Text style={styles.addBtnText}>{tr('Ajouter un dispositif', 'Add a device')}</Text>
           </TouchableOpacity>
         }
         ListEmptyComponent={
           <EmptyState
             icon="cube-outline"
-            title="Aucun dispositif"
-            subtitle="Ajoutez votre premier traceur GPS pour commencer."
+            title={tr('Aucun dispositif', 'No devices')}
+            subtitle={tr('Ajoutez votre premier traceur GPS pour commencer.', 'Add your first GPS tracker to get started.')}
           />
         }
         renderItem={renderCard}
@@ -239,20 +241,20 @@ export default function DevicesScreen() {
       <Modal visible={!!renaming} transparent animationType="fade" onRequestClose={() => setRenaming(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Renommer le dispositif</Text>
+            <Text style={styles.modalTitle}>{tr('Renommer le dispositif', 'Rename device')}</Text>
             <TextInput
               style={styles.modalInput}
               value={newName}
               onChangeText={setNewName}
-              placeholder="Nom du dispositif"
+              placeholder={tr('Nom du dispositif', 'Device name')}
               placeholderTextColor={Colors.textMuted}
               autoFocus
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setRenaming(null)}>
-                <Text style={styles.modalCancelText}>Annuler</Text>
+                <Text style={styles.modalCancelText}>{tr('Annuler', 'Cancel')}</Text>
               </TouchableOpacity>
-              <Button label="Enregistrer" onPress={confirmRename} loading={saving} style={{ flex: 1 }} />
+              <Button label={tr('Enregistrer', 'Save')} onPress={confirmRename} loading={saving} style={{ flex: 1 }} />
             </View>
           </View>
         </View>

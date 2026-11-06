@@ -47,7 +47,7 @@ const SettingRow = ({ icon, label, onPress, rightElement, danger }: SettingRowPr
 // quelques réglages utiles, puis déconnexion. Plus de formulaire d'édition
 // inline ni de sections redondantes.
 export default function ProfileScreen() {
-  const { t, language, setLanguage } = useI18n();
+  const { t, tr, language, setLanguage } = useI18n();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -101,7 +101,7 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.userName}>{user?.userName ?? 'Utilisateur'}</Text>
+        <Text style={styles.userName}>{user?.userName ?? tr('Utilisateur', 'User')}</Text>
         <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
         {user?.telephone ? <Text style={styles.userPhone}>{user.telephone}</Text> : null}
       </LinearGradient>

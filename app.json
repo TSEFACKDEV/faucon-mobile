@@ -2,7 +2,7 @@
   "expo": {
     "name": "FAUCON",
     "slug": "faucon",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo/falcon-icon.png",
     "ios": {
@@ -51,7 +51,9 @@
         {
           "icon": "./assets/logo/falcon-icon-foreground.png",
           "color": "#E11D48",
-          "sounds": ["./assets/sounds/alarme.wav"]
+          "sounds": [
+            "./assets/sounds/alarme.wav"
+          ]
         }
       ]
     ],

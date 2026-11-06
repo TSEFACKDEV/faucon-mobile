@@ -21,54 +21,55 @@ import { useI18n } from '../../i18n';
 // ── CONFIG PAR TYPE D'ALARME ──────────────────────────────────────
 const ALARM_CONFIG: Record<TypeAlarme, {
   label:  string;
+  labelEn: string;
   icon:   keyof typeof Ionicons.glyphMap;
   color:  string;
   bg:     string;
 }> = {
   SORTIE_ZONE: {
-    label: 'Sortie de zone',
+    label: 'Sortie de zone', labelEn: 'Geofence exit',
     icon:  'location-outline',
     color: Colors.danger,
     bg:    Colors.dangerTint,
   },
   VITESSE_EXCESSIVE: {
-    label: 'Vitesse excessive',
+    label: 'Vitesse excessive', labelEn: 'Speeding',
     icon:  'speedometer-outline',
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
   },
   DECOLLEMENT_TRACEUR: {
-    label: 'Retrait dispositif',
+    label: 'Retrait dispositif', labelEn: 'Device removed',
     icon:  'alert-circle-outline',
     color: Colors.danger,
     bg:    Colors.dangerTint,
   },
   NON_MOUVEMENT: {
-    label: 'Immobilisation',
+    label: 'Immobilisation', labelEn: 'Vehicle idle',
     icon:  'pause-circle-outline',
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
   },
   BATTERIE_FAIBLE: {
-    label: 'Batterie faible',
+    label: 'Batterie faible', labelEn: 'Low battery',
     icon:  'battery-dead-outline',
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
   },
   CONDUITE_BRUTALE: {
-    label: 'Conduite brutale',
+    label: 'Conduite brutale', labelEn: 'Harsh driving',
     icon:  'warning-outline',
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
   },
   CHOC: {
-    label: 'Choc détecté',
+    label: 'Choc détecté', labelEn: 'Shock detected',
     icon:  'pulse-outline',
     color: Colors.danger,
     bg:    Colors.dangerTint,
   },
   MOUVEMENT_BRUTAL: {
-    label: 'Mouvement brutal',
+    label: 'Mouvement brutal', labelEn: 'Harsh movement',
     icon:  'swap-vertical-outline',
     color: Colors.warningStrong,
     bg:    Colors.warningTint,
@@ -101,7 +102,7 @@ const PulseDot = ({ color }: { color: string }) => {
 };
 
 export default function AlertsScreen() {
-  const { t } = useI18n();
+  const { t, tr } = useI18n();
   const { vehicles, activeAlarms, addAlarm, removeAlarm } = useVehicleStore();
 
   const [allAlarmes,  setAllAlarmes]  = useState<Alarme[]>([]);
@@ -145,7 +146,7 @@ export default function AlertsScreen() {
 
       setAllAlarmes(all);
       if (rejected > 0 && all.length === 0) {
-        const message = 'Impossible de récupérer les alertes. Vérifiez votre connexion, puis réessayez.';
+        const message = tr('Impossible de récupérer les alertes. Vérifiez votre connexion, puis réessayez.', 'Unable to retrieve alerts. Check your connection and try again.');
         setLoadError(message);
         useToastStore.getState().show(message, 'danger');
       } else {
@@ -153,7 +154,7 @@ export default function AlertsScreen() {
       }
     } catch (err) {
       console.error('[AlertsScreen]', err);
-      const message = getErrorMessage(err, 'Impossible de récupérer les alertes. Réessayez dans un instant.');
+      const message = getErrorMessage(err, tr('Impossible de récupérer les alertes. Réessayez dans un instant.', 'Unable to retrieve alerts. Try again in a moment.'));
       setLoadError(message);
       useToastStore.getState().show(message, 'danger');
     } finally {
@@ -200,7 +201,7 @@ export default function AlertsScreen() {
     } catch (err) {
       console.error('[acquitter]', err);
       useToastStore.getState().show(
-        getErrorMessage(err, 'Impossible d\'acquitter cette alerte. Réessayez dans un instant.'),
+        getErrorMessage(err, tr('Impossible d’acquitter cette alerte. Réessayez dans un instant.', 'Unable to acknowledge this alert. Try again in a moment.')),
         'danger'
       );
     } finally {
@@ -225,7 +226,7 @@ export default function AlertsScreen() {
               removeAlarm(alarme.id);
             } catch (err) {
               console.error('[supprimerAlarme]', err);
-              Alert.alert('Erreur', getErrorMessage(err, 'Impossible de supprimer cette alerte pour le moment.'));
+              Alert.alert(tr('Erreur', 'Error'), getErrorMessage(err, tr('Impossible de supprimer cette alerte pour le moment.', 'Unable to delete this alert right now.')));
             } finally {
               setDeletingId(null);
             }
@@ -272,8 +273,8 @@ export default function AlertsScreen() {
       if (nbFailed > 0) {
         useToastStore.getState().show(
           nbFailed === toAcquit.length
-            ? 'Impossible de marquer les alertes comme lues. Vérifiez votre connexion.'
-            : `${nbFailed} alerte(s) n'ont pas pu être marquées comme lues.`,
+            ? tr('Impossible de marquer les alertes comme lues. Vérifiez votre connexion.', 'Unable to mark alerts as read. Check your connection.')
+            : tr(`${nbFailed} alerte(s) n’ont pas pu être marquées comme lues.`, `${nbFailed} alert(s) could not be marked as read.`),
           'danger'
         );
       }
@@ -291,7 +292,7 @@ export default function AlertsScreen() {
 
   // Nom du véhicule
   const getVehicleName = (vehiculeId: string): string =>
-    vehicles.find(v => v.id === vehiculeId)?.nom ?? 'Véhicule inconnu';
+    vehicles.find(v => v.id === vehiculeId)?.nom ?? tr('Véhicule inconnu', 'Unknown vehicle');
 
   if (loading) {
     return (
@@ -399,7 +400,7 @@ export default function AlertsScreen() {
               {/* Contenu */}
               <View style={styles.cardBody}>
                 <View style={styles.cardTopRow}>
-                  <Text style={styles.cardType}>{config.label}</Text>
+                  <Text style={styles.cardType}>{tr(config.label, config.labelEn)}</Text>
                   <View style={styles.cardTopRight}>
                     <Text style={styles.cardTime}>
                       {formatTime(item.horodatage)}
@@ -428,10 +429,10 @@ export default function AlertsScreen() {
                   item.valeurMesuree != null && item.seuilConfigure != null && (
                   <Text style={styles.cardValue}>
                     {item.typeAlarme === 'VITESSE_EXCESSIVE'
-                      ? `${item.valeurMesuree} km/h → seuil : ${item.seuilConfigure} km/h`
+                      ? `${item.valeurMesuree} km/h → ${tr('seuil', 'limit')} : ${item.seuilConfigure} km/h`
                       : item.typeAlarme === 'SORTIE_ZONE'
-                      ? `Distance : ${Math.round(item.valeurMesuree)} m (rayon : ${item.seuilConfigure} m)`
-                      : `Valeur : ${item.valeurMesuree}`
+                      ? `${tr('Distance', 'Distance')} : ${Math.round(item.valeurMesuree)} m (${tr('rayon', 'radius')} : ${item.seuilConfigure} m)`
+                      : `${tr('Valeur', 'Value')} : ${item.valeurMesuree}`
                     }
                   </Text>
                 )}
@@ -453,7 +454,7 @@ export default function AlertsScreen() {
                 ) : (
                   <View style={styles.acquittedRow}>
                     <Ionicons name="checkmark-circle" size={13} color={Colors.successStrong} />
-                    <Text style={styles.acquittedText}>Acquittée</Text>
+                    <Text style={styles.acquittedText}>{tr('Acquittée', 'Acknowledged')}</Text>
                   </View>
                 )}
               </View>

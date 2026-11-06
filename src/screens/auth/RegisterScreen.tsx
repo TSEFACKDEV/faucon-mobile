@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
-import { registerSchema } from '../../utils/validationSchemas';
+import { getRegisterSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import InputField from '../../components/ui/InputField';
@@ -24,6 +24,7 @@ import { Colors, Gradients } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useI18n } from '../../i18n';
 
 // Le serveur renvoie un message métier ciblé ("Cet email est déjà utilisé",
 // "Ce nom d'utilisateur est déjà pris", "Le mot de passe doit contenir au
@@ -32,9 +33,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // nom d'utilisateur ou le mot de passe s'affichait sous le mauvais champ.
 const routeRegisterError = (message: string): 'userName' | 'email' | 'password' | null => {
   const m = message.toLowerCase();
-  if (m.includes('utilisateur') || m.includes('pseudo')) return 'userName';
+  if (m.includes('utilisateur') || m.includes('pseudo') || m.includes('username')) return 'userName';
   if (m.includes('email') || m.includes('e-mail')) return 'email';
-  if (m.includes('mot de passe')) return 'password';
+  if (m.includes('mot de passe') || m.includes('password')) return 'password';
   return null;
 };
 
@@ -60,6 +61,7 @@ const initialValues: RegisterValues = {
 // voisins à chaque frappe — c'est ce couplage qui provoquait le vol de focus
 // entre champs observé avec l'ancienne implémentation Formik.
 export default function RegisterScreen() {
+  const { tr, language } = useI18n();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { setUser, setTokens } = useAuthStore();
@@ -77,7 +79,7 @@ export default function RegisterScreen() {
 
     let validated: RegisterValues;
     try {
-      validated = await registerSchema.validate(values, { abortEarly: false });
+      validated = await getRegisterSchema(language).validate(values, { abortEarly: false });
     } catch (err) {
       const fieldErrors: Partial<RegisterValues> = {};
       if (err instanceof Yup.ValidationError) {
@@ -106,7 +108,7 @@ export default function RegisterScreen() {
       setUser(user);
     } catch (error: any) {
       console.error('[Register] échec de l\'inscription:', error?.response?.data?.message ?? error?.message);
-      const message = getErrorMessage(error, 'Impossible de créer votre compte pour le moment. Réessayez dans un instant.');
+      const message = getErrorMessage(error, tr('Impossible de créer votre compte pour le moment. Réessayez dans un instant.', 'Unable to create your account right now. Try again in a moment.'));
       const field = routeRegisterError(message);
       if (field) {
         setErrors((e) => ({ ...e, [field]: message }));
@@ -129,20 +131,20 @@ export default function RegisterScreen() {
         <View style={styles.headerContent}>
           <Logo tone="white" size={44} />
           <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
-            Voir · Surveiller · Contrôler
+            {tr('Voir · Surveiller · Contrôler', 'See · Monitor · Control')}
           </AppText>
         </View>
       </View>
 
       <View style={styles.card}>
-        <AppText variant="h1" style={styles.title}>Créer un compte</AppText>
+        <AppText variant="h1" style={styles.title}>{tr('Créer un compte', 'Create an account')}</AppText>
         <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-          Inscrivez-vous pour commencer le suivi
+          {tr('Inscrivez-vous pour commencer le suivi', 'Sign up to start monitoring')}
         </AppText>
 
         <View>
           <InputField
-            label="Nom d'utilisateur"
+            label={tr('Nom d’utilisateur', 'Username')}
             icon="person-outline"
             placeholder="johndoe"
             autoComplete="username"
@@ -151,7 +153,7 @@ export default function RegisterScreen() {
             error={errors.userName}
           />
           <InputField
-            label="Adresse email"
+            label={tr('Adresse email', 'Email address')}
             icon="mail-outline"
             placeholder="john@email.com"
             keyboardType="email-address"
@@ -161,9 +163,9 @@ export default function RegisterScreen() {
             error={errors.email}
           />
           <InputField
-            label="Mot de passe"
+            label={tr('Mot de passe', 'Password')}
             icon="lock-closed-outline"
-            placeholder="Min. 8 caractères"
+            placeholder={tr('Min. 8 caractères', 'At least 8 characters')}
             isPassword
             autoComplete="new-password"
             value={values.password}
@@ -171,22 +173,22 @@ export default function RegisterScreen() {
             error={errors.password}
           />
           <InputField
-            label="Confirmer le mot de passe"
+            label={tr('Confirmer le mot de passe', 'Confirm password')}
             icon="shield-checkmark-outline"
-            placeholder="Répéter le mot de passe"
+            placeholder={tr('Répéter le mot de passe', 'Repeat the password')}
             isPassword
             value={values.confirmPassword}
             onChangeText={setField('confirmPassword')}
             error={errors.confirmPassword}
           />
 
-          <Button label="S'inscrire" onPress={handleRegister} loading={submitting} size="lg" style={styles.submitBtn} />
+          <Button label={tr('S’inscrire', 'Sign up')} onPress={handleRegister} loading={submitting} size="lg" style={styles.submitBtn} />
         </View>
 
         <View style={styles.loginRow}>
-          <AppText variant="body" color={Colors.textSecondary}>Déjà un compte ? </AppText>
+          <AppText variant="body" color={Colors.textSecondary}>{tr('Déjà un compte ?', 'Already have an account?')} </AppText>
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <AppText variant="bodyBold" color={Colors.accentDark}>Se connecter</AppText>
+            <AppText variant="bodyBold" color={Colors.accentDark}>{tr('Se connecter', 'Sign in')}</AppText>
           </TouchableOpacity>
         </View>
       </View>

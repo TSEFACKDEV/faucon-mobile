@@ -5,6 +5,7 @@ import { Alarme } from '../types';
 import { useAlarmAlertStore } from '../store/alarmAlertStore';
 import { useVehicleStore } from '../store/vehicleStore';
 import { formatTime } from '../utils/formatters';
+import { getActiveLanguage } from '../i18n';
 
 // Alarme de décollement : sonnerie forte + vibration + notification locale
 // prioritaire, avec sonnerie, vibration et notification.
@@ -16,6 +17,8 @@ let player: AudioPlayer | null = null;
 let sounding = false;
 // Évite de rejouer la même alarme à chaque reconnexion / rafraîchissement.
 let alertedIds = new Set<string>();
+
+const isEnglish = () => getActiveLanguage() === 'en';
 
 export const initAlarmNotifications = async (): Promise<void> => {
   Notifications.setNotificationHandler({
@@ -35,17 +38,16 @@ export const initAlarmNotifications = async (): Promise<void> => {
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(SUPPORT_CHANNEL_ID, {
-        name: 'Support traceur',
-        description: 'Confirmation quand un traceur est collé à son support.',
+        name: isEnglish() ? 'Tracker support' : 'Support traceur',
+        description: isEnglish() ? 'Confirmation when a tracker is reattached to its mount.' : 'Confirmation quand un traceur est collé à son support.',
         importance: Notifications.AndroidImportance.HIGH,
         enableVibrate: true,
         showBadge: true,
       });
 
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-        name: 'Alarme de décollement',
-        description:
-          'Alerte prioritaire quand un traceur est retiré de son support.',
+        name: isEnglish() ? 'Detachment alarm' : 'Alarme de décollement',
+        description: isEnglish() ? 'Priority alert when a tracker is removed from its mount.' : 'Alerte prioritaire quand un traceur est retiré de son support.',
         importance: Notifications.AndroidImportance.MAX,
         sound: SOUND_FILE,
         audioAttributes: {
@@ -99,11 +101,11 @@ export const notifyTrackerAttached = async (vehicleName: string): Promise<void> 
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Traceur recollé',
-        body: `${vehicleName} est de nouveau collé à son support.`,
+        title: isEnglish() ? 'Tracker reattached' : 'Traceur recollé',
+        body: isEnglish() ? `${vehicleName} is attached to its mount again.` : `${vehicleName} est de nouveau collé à son support.`,
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.HIGH,
-        color: '#0057FF',
+        color: '#0B5CFF',
         data: { type: 'SUPPORT_COLLE' },
       },
       trigger: null,
@@ -135,9 +137,9 @@ const showNotification = async (
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `DÉCOLLEMENT — ${vehicleName}`,
-        body: 'Le traceur a été retiré de son support. Vérifiez le conteneur immédiatement.',
-        subtitle: `Détecté à ${formatTime(horodatage)}`,
+        title: isEnglish() ? `REMOVED — ${vehicleName}` : `DÉCOLLEMENT — ${vehicleName}`,
+        body: isEnglish() ? 'The tracker was removed from its mount. Check the container immediately.' : 'Le traceur a été retiré de son support. Vérifiez le conteneur immédiatement.',
+        subtitle: isEnglish() ? `Detected at ${formatTime(horodatage)}` : `Détecté à ${formatTime(horodatage)}`,
         sound: SOUND_FILE,
         vibrate: [0, 900, 350, 900, 350, 900, 350, 900],
         priority: Notifications.AndroidNotificationPriority.MAX,
@@ -157,7 +159,7 @@ const vehicleNameFor = (alarm: Alarme): string => {
   const vehicle = useVehicleStore
     .getState()
     .vehicles.find((item) => item.id === alarm.vehiculeId);
-  return vehicle?.nom ?? alarm.vehicule?.nom ?? 'Traceur';
+  return vehicle?.nom ?? alarm.vehicule?.nom ?? (isEnglish() ? 'Tracker' : 'Traceur');
 };
 
 /**

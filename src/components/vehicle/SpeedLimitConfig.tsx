@@ -11,6 +11,7 @@ import Card from '../ui/Card';
 import { vehicleService } from '../../services/vehicleService';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
+import { useI18n } from '../../i18n';
 
 interface SpeedLimitData {
   seuilKmh:  number;
@@ -26,6 +27,7 @@ interface Props {
 const PRESETS = [30, 50, 70, 90, 110, 130];
 
 export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Props) {
+  const { tr } = useI18n();
   const [seuil,   setSeuil]   = useState(current?.seuilKmh ?? 90);
   const [saving,  setSaving]  = useState(false);
   const [input,   setInput]   = useState(String(current?.seuilKmh ?? 90));
@@ -50,7 +52,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
     // yeux.
     const parsed = parseInt(input, 10);
     if (isNaN(parsed) || parsed < 10 || parsed > 250) {
-      useToastStore.getState().show('Entrez une valeur entre 10 et 250 km/h.', 'danger');
+      useToastStore.getState().show(tr('Entrez une valeur entre 10 et 250 km/h.', 'Enter a value between 10 and 250 km/h.'), 'danger');
       return;
     }
     setSaving(true);
@@ -61,7 +63,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
     } catch (err) {
       console.error('[SpeedLimitConfig]', err);
       useToastStore.getState().show(
-        getErrorMessage(err, `Impossible d'appliquer la limitation de ${seuil} km/h. Réessayez dans un instant.`),
+        getErrorMessage(err, tr(`Impossible d’appliquer la limitation de ${seuil} km/h. Réessayez dans un instant.`, `Unable to apply the ${seuil} km/h limit. Try again in a moment.`)),
         'danger'
       );
     } finally {
@@ -77,9 +79,9 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Limitation de vitesse</Text>
+      <Text style={styles.title}>{tr('Limitation de vitesse', 'Speed limit')}</Text>
       <Text style={styles.sub}>
-        Une notification sera envoyée si le véhicule dépasse ce seuil.
+        {tr('Une notification sera envoyée si le véhicule dépasse ce seuil.', 'A notification will be sent if the vehicle exceeds this threshold.')}
       </Text>
 
       {/* AFFICHAGE SEUIL */}
@@ -109,7 +111,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
 
       {/* SAISIE MANUELLE */}
       <View style={styles.inputRow}>
-        <Text style={styles.inputLabel}>Valeur personnalisée :</Text>
+        <Text style={styles.inputLabel}>{tr('Valeur personnalisée', 'Custom value')} :</Text>
         <View style={styles.inputBox}>
           <TextInput
             style={styles.input}
@@ -124,7 +126,7 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
       </View>
 
       {/* PRÉRÉGLAGES */}
-      <Text style={styles.presetsTitle}>Préréglages rapides</Text>
+      <Text style={styles.presetsTitle}>{tr('Préréglages rapides', 'Quick presets')}</Text>
       <View style={styles.presets}>
         {PRESETS.map(p => (
           <Chip
@@ -142,14 +144,14 @@ export default function SpeedLimitConfig({ vehiculeId, current, onUpdated }: Pro
         <View style={styles.currentInfo}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
           <Text style={styles.currentInfoText}>
-            Actuel : {current.seuilKmh} km/h — {current.estActive ? 'Active' : 'Inactive'}
+            {tr('Actuel', 'Current')} : {current.seuilKmh} km/h — {current.estActive ? tr('Active', 'Active') : tr('Inactive', 'Inactive')}
           </Text>
         </View>
       )}
 
       {/* SAUVEGARDER */}
       <Button
-        label={`Appliquer — ${seuil} km/h`}
+        label={tr(`Appliquer — ${seuil} km/h`, `Apply — ${seuil} km/h`)}
         onPress={handleSave}
         loading={saving}
         disabled={seuil < 10 || seuil > 250}

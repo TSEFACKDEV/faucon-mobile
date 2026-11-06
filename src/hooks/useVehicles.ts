@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { vehicleService } from '../services/vehicleService';
+import { getActiveLanguage } from '../i18n';
 import { useVehicleStore } from '../store/vehicleStore';
 import { getErrorMessage } from '../utils/errors';
 import { useToastStore } from '../store/toastStore';
@@ -66,7 +67,7 @@ export const useVehicles = () => {
       nonAcquittees.forEach(maybeTriggerDetachmentAlarm);
     } catch (err) {
       console.error('[useVehicles]', err);
-      const message = getErrorMessage(err, 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.');
+      const message = getErrorMessage(err, getActiveLanguage() === 'en' ? 'Unable to load your devices. Check your connection and try again.' : 'Impossible de charger vos dispositifs. Vérifiez votre connexion, puis réessayez.');
       // Distinct de "0 dispositif" : voir loadError dans vehicleStore.ts —
       // sans ça, AuthenticatedGate affichait AddDeviceScreen à un
       // utilisateur dont le chargement a simplement échoué, alors qu'il a

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
+import { getActiveLanguage } from '../i18n';
 
 interface UserLocation {
   latitude:  number;
@@ -18,7 +19,7 @@ export const useLocation = () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          setError('Permission de localisation refusée');
+          setError(getActiveLanguage() === 'en' ? 'Location permission denied' : 'Permission de localisation refusée');
           return;
         }
 
@@ -51,7 +52,7 @@ export const useLocation = () => {
         );
       } catch (err: any) {
         console.error('[useLocation]', err);
-        setError('Position indisponible pour le moment. Vérifiez que la localisation est activée sur votre téléphone.');
+        setError(getActiveLanguage() === 'en' ? 'Position unavailable right now. Check that location is enabled on your phone.' : 'Position indisponible pour le moment. Vérifiez que la localisation est activée sur votre téléphone.');
       } finally {
         setLoading(false);
       }

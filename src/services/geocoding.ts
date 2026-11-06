@@ -2,6 +2,8 @@
 // gratuit et sans clé API. Politique d'usage : 1 req/s max, User-Agent
 // personnalisé obligatoire — voir https://operations.osmfoundation.org/policies/nominatim/
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
+import { getActiveLanguage } from '../i18n';
+
 const USER_AGENT = 'FauconTracker/1.0 (admin@faucon.cm)';
 
 // Clé de cache arrondie à 4 décimales (~11 m) : deux positions très proches
@@ -10,7 +12,7 @@ const USER_AGENT = 'FauconTracker/1.0 (admin@faucon.cm)';
 const cache = new Map<string, string | null>();
 
 const cacheKey = (lat: number, lon: number) =>
-  `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  `${getActiveLanguage()}:${lat.toFixed(4)},${lon.toFixed(4)}`;
 
 type NominatimAddress = {
   road?: string;
@@ -43,7 +45,7 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<string |
   try {
     const url = `${NOMINATIM_URL}?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
     const response = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'fr' },
+      headers: { 'User-Agent': USER_AGENT, 'Accept-Language': getActiveLanguage() },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 

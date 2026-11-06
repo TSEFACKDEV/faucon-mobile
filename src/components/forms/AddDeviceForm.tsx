@@ -3,10 +3,11 @@ import { Formik, FormikHelpers } from 'formik';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { authService } from '../../services/authService';
-import { addDeviceSchema } from '../../utils/validationSchemas';
+import { getAddDeviceSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
 import InputField from '../ui/FormikInputField';
 import Button from '../ui/Button';
+import { useI18n } from '../../i18n';
 
 export interface AddDeviceFormValues {
   imei: string;
@@ -27,9 +28,11 @@ interface Props {
 
 export default function AddDeviceForm({
   title,
-  submitLabel = "CONNECTER L'APPAREIL",
+  submitLabel,
   onSuccess,
 }: Props) {
+  const { tr, language } = useI18n();
+  const finalSubmitLabel = submitLabel ?? tr("CONNECTER L'APPAREIL", 'CONNECT DEVICE');
   const handleSubmit = async (
     values: AddDeviceFormValues,
     { setSubmitting, setFieldError }: FormikHelpers<AddDeviceFormValues>
@@ -38,7 +41,7 @@ export default function AddDeviceForm({
       await authService.addDevice(values.imei, values.nom, values.pin || undefined);
       onSuccess(values);
     } catch (error: any) {
-      const message = getErrorMessage(error, 'IMEI invalide ou déjà enregistré');
+      const message = getErrorMessage(error, tr('IMEI invalide ou déjà enregistré', 'Invalid or already registered IMEI'));
       if (message.toLowerCase().includes('activation') || message.toLowerCase().includes('pin')) {
         setFieldError('pin', message);
       } else {
@@ -55,26 +58,26 @@ export default function AddDeviceForm({
 
       <Formik
         initialValues={initialValues}
-        validationSchema={addDeviceSchema}
+        validationSchema={getAddDeviceSchema(language)}
         onSubmit={handleSubmit}
       >
         {({ handleSubmit: submit, isSubmitting }) => (
           <View style={{ gap: 4 }}>
             <InputField
               name="imei"
-              label="ID du traceur ou IMEI"
+              label={tr('ID du traceur ou IMEI', 'Tracker ID or IMEI')}
               icon="barcode-outline"
-              placeholder="Ex: TRACKER-001 ou 358000000000001"
+              placeholder={tr('Ex: TRACKER-001 ou 358000000000001', 'E.g. TRACKER-001 or 358000000000001')}
             />
             <InputField
               name="nom"
-              label="Nom de l'équipement"
+              label={tr('Nom de l’équipement', 'Equipment name')}
               icon="cube-outline"
-              placeholder="Ex: Camion Nord, Conteneur 01"
+              placeholder={tr('Ex: Camion Nord, Conteneur 01', 'E.g. North Truck, Container 01')}
             />
             <InputField
               name="pin"
-              label="Code d'activation (PIN)"
+              label={tr('Code d’activation (PIN)', 'Activation code (PIN)')}
               icon="key-outline"
               placeholder="Ex: 7K3M9P"
               autoCapitalize="characters"
@@ -87,18 +90,15 @@ export default function AddDeviceForm({
                 color={Colors.cyan600}
               />
               <View style={{ flex: 1 }}>
-                <Text style={styles.infoTitle}>Comment trouver l'IMEI et le PIN ?</Text>
+                <Text style={styles.infoTitle}>{tr('Comment trouver l’IMEI et le PIN ?', 'How to find the IMEI and PIN')}</Text>
                 <Text style={styles.infoText}>
-                  L'IMEI est un code unique de 15 chiffres gravé sous votre
-                  traceur GPS FAUCON. Le PIN à 6 caractères est imprimé sur
-                  l'étiquette de l'emballage — il est requis uniquement lors
-                  du tout premier rattachement du traceur à un compte.
+                  {tr('L’IMEI est un code unique de 15 chiffres gravé sous votre traceur GPS FAUCON. Le PIN à 6 caractères est imprimé sur l’étiquette de l’emballage — il est requis uniquement lors du tout premier rattachement du traceur à un compte.', 'The IMEI is a unique 15-digit code engraved under your FAUCON GPS tracker. The 6-character PIN is printed on the packaging label — it is only required when the tracker is first linked to an account.')}
                 </Text>
               </View>
             </View>
 
             <Button
-              label={submitLabel}
+              label={finalSubmitLabel}
               onPress={() => submit()}
               loading={isSubmitting}
               style={{ marginTop: 12 }}

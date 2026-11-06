@@ -15,17 +15,19 @@ import AppText from '../../components/ui/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddDeviceForm from '../../components/forms/AddDeviceForm';
 import { useVehicles } from '../../hooks/useVehicles';
+import { useI18n } from '../../i18n';
 
 // Écran racine (monté par RootNavigator, hors de tout Stack) tant que
 // l'utilisateur authentifié n'a aucun traceur connecté — pas de useNavigation
 // ici, il n'y a pas de navigateur parent à ce niveau.
 export default function AddDeviceScreen() {
+  const { tr } = useI18n();
   const insets = useSafeAreaInsets();
   const { refetch } = useVehicles();
 
   const handleAddDeviceSuccess = async () => {
     await refetch();
-    Alert.alert('Appareil connecté', 'Votre dispositif est prêt à être suivi.');
+    Alert.alert(tr('Appareil connecté', 'Device connected'), tr('Votre dispositif est prêt à être suivi.', 'Your device is ready to be tracked.'));
   };
 
   return (
@@ -53,15 +55,15 @@ export default function AddDeviceScreen() {
               </View>
             </View>
 
-            <AppText variant="h1" style={styles.title}>Connectez votre traceur</AppText>
+            <AppText variant="h1" style={styles.title}>{tr('Connectez votre traceur', 'Connect your tracker')}</AppText>
             <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-              Une dernière étape avant d'accéder à votre tableau de bord : saisissez l'identifiant unique inscrit sur le boîtier de votre traceur GPS FAUCON.
+              {tr('Une dernière étape avant d’accéder à votre tableau de bord : saisissez l’identifiant unique inscrit sur le boîtier de votre traceur GPS FAUCON.', 'One last step before accessing your dashboard: enter the unique identifier printed on your FAUCON GPS tracker.')}
             </AppText>
 
             <View style={styles.statusCard}>
               <Ionicons name="pulse-outline" size={16} color={Colors.cyan600} />
               <AppText variant="caption" color={Colors.cyan700} style={styles.statusText}>
-                Le suivi démarre dès que l'appareil est enregistré.
+                {tr('Le suivi démarre dès que l’appareil est enregistré.', 'Tracking starts as soon as the device is registered.')}
               </AppText>
             </View>
 

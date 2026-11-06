@@ -8,6 +8,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { getErrorMessage } from '../../utils/errors';
 import { isDeviceOffline } from '../../utils/formatters';
 import { CodeCommande } from '../../types';
+import { useI18n } from '../../i18n';
 
 interface Props {
   vehiculeId: string;
@@ -19,33 +20,47 @@ const ACTIONS: {
   code:    CodeCommande;
   icon:    keyof typeof Ionicons.glyphMap;
   label:   string;
+  labelEn: string;
   desc:    string;
+  descEn:  string;
   danger?: boolean;
   confirmTitre?: string;
+  confirmTitreEn?: string;
   confirmMessage?: string;
+  confirmMessageEn?: string;
 }[] = [
   {
     code:  'LOCALISER',
     icon:  'locate-outline',
     label: 'Localiser maintenant',
+    labelEn: 'Locate now',
     desc:  "Demande au traceur d'envoyer sa position tout de suite, sans attendre son prochain cycle.",
+    descEn: 'Ask the tracker to send its position immediately, without waiting for its next cycle.',
   },
   {
     code:  'REDEMARRER',
     icon:  'refresh-outline',
     label: 'Redémarrer le traceur',
+    labelEn: 'Restart tracker',
     desc:  'Relance le boîtier à distance (perte de position pendant ~1 min, le temps de reprendre le fix GPS).',
+    descEn: 'Restarts the device remotely (position lost for ~1 min while it reacquires GPS).',
     confirmTitre:   'Redémarrer le traceur ?',
+    confirmTitreEn: 'Restart the tracker?',
     confirmMessage: 'Le boîtier va redémarrer et cessera brièvement de transmettre sa position.',
+    confirmMessageEn: 'The device will restart and briefly stop transmitting its position.',
   },
   {
     code:  'RESET_USINE',
     icon:  'warning-outline',
     label: 'Réinitialiser (usine)',
+    labelEn: 'Reset (factory)',
     desc:  'Efface la calibration du capteur de décollement — une nouvelle calibration physique en 2 étapes sera nécessaire au redémarrage.',
+    descEn: 'Clears the detachment sensor calibration — a new two-step physical calibration will be required on restart.',
     danger: true,
     confirmTitre:   'Réinitialiser le traceur ?',
+    confirmTitreEn: 'Reset the tracker?',
     confirmMessage: "Cette action efface la calibration du capteur et redémarre le boîtier. Il faudra recalibrer physiquement le traceur (le détacher puis le recoller) juste après.",
+    confirmMessageEn: 'This clears the sensor calibration and restarts the device. You will need to physically recalibrate the tracker (detach then reattach it) right after.',
   },
 ];
 
@@ -57,6 +72,7 @@ const ACTIONS: {
 const CLIENT_TIMEOUT_MS = 30_000;
 
 export default function RemoteActions({ vehiculeId }: Props) {
+  const { tr } = useI18n();
   const [enAttente, setEnAttente] = useState<Record<CodeCommande, EnAttente | undefined>>({} as any);
   const lastCommandeUpdate = useVehicleStore((s) => s.lastCommandeUpdate);
   const livePositions = useVehicleStore((s) => s.livePositions);
@@ -100,14 +116,14 @@ export default function RemoteActions({ vehiculeId }: Props) {
     setEnAttente((prev) => ({ ...prev, [match.codeCommande]: undefined }));
 
     if (lastCommandeUpdate.statutExecution === 'SUCCESS') {
-      Alert.alert('Commande exécutée', `${match.label} : confirmé par le traceur.`);
+      Alert.alert(tr('Commande exécutée', 'Command completed'), tr(`${match.label} : confirmé par le traceur.`, `${match.label}: confirmed by the tracker.`));
     } else if (lastCommandeUpdate.statutExecution === 'FAILED') {
       const detail = lastCommandeUpdate.parametres?.detail;
-      Alert.alert('Commande refusée', detail ? `${match.label} : ${detail}` : `${match.label} a échoué.`);
+      Alert.alert(tr('Commande refusée', 'Command refused'), detail ? `${match.label} : ${detail}` : tr(`${match.label} a échoué.`, `${match.label} failed.`));
     } else if (lastCommandeUpdate.statutExecution === 'TIMEOUT') {
       Alert.alert(
-        'Pas de réponse',
-        `${match.label} : le traceur n'a pas confirmé à temps (hors réseau ou éteint). Réessaie plus tard.`
+        tr('Pas de réponse', 'No response'),
+        tr(`${match.label} : le traceur n’a pas confirmé à temps (hors réseau ou éteint). Réessaie plus tard.`, `${match.label}: the tracker did not confirm in time (out of network or powered off). Try again later.`)
       );
     }
   }, [lastCommandeUpdate]);
@@ -137,16 +153,16 @@ export default function RemoteActions({ vehiculeId }: Props) {
             return { ...prev, [code]: undefined };
           });
           Alert.alert(
-            'Pas de réponse',
-            `${label} : aucune confirmation reçue (connexion perdue ou app mise en arrière-plan). Vérifie l'état du traceur avant de réessayer.`
+            tr('Pas de réponse', 'No response'),
+            tr(`${label} : aucune confirmation reçue (connexion perdue ou app mise en arrière-plan). Vérifie l’état du traceur avant de réessayer.`, `${label}: no confirmation received (connection lost or app backgrounded). Check the tracker status before trying again.`)
           );
         }, CLIENT_TIMEOUT_MS);
       }
     } catch (err: any) {
       setEnAttente((prev) => ({ ...prev, [code]: undefined }));
       Alert.alert(
-        'Commande non envoyée',
-        getErrorMessage(err, 'Impossible d\'envoyer la commande au traceur. Vérifiez votre connexion et réessayez.')
+        tr('Commande non envoyée', 'Command not sent'),
+        getErrorMessage(err, tr('Impossible d’envoyer la commande au traceur. Vérifiez votre connexion et réessayez.', 'Unable to send the command to the tracker. Check your connection and try again.'))
       );
     }
   };
@@ -154,15 +170,15 @@ export default function RemoteActions({ vehiculeId }: Props) {
   const handlePress = (action: typeof ACTIONS[number]) => {
     if (offline) {
       Alert.alert(
-        'Traceur hors ligne',
-        'Le traceur n\'est pas connecté. La commande ne pourra pas lui être livrée tant qu\'il ne sera pas de retour en ligne.'
+        tr('Traceur hors ligne', 'Tracker offline'),
+        tr('Le traceur n’est pas connecté. La commande ne pourra pas lui être livrée tant qu’il ne sera pas de retour en ligne.', 'The tracker is not connected. The command cannot be delivered until it comes back online.')
       );
       return;
     }
     if (action.confirmTitre) {
-      Alert.alert(action.confirmTitre, action.confirmMessage, [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Confirmer', style: 'destructive', onPress: () => declencher(action.code, action.label) },
+      Alert.alert(tr(action.confirmTitre, action.confirmTitreEn ?? action.confirmTitre), tr(action.confirmMessage ?? '', action.confirmMessageEn ?? action.confirmMessage ?? ''), [
+        { text: tr('Annuler', 'Cancel'), style: 'cancel' },
+        { text: tr('Confirmer', 'Confirm'), style: 'destructive', onPress: () => declencher(action.code, action.label) },
       ]);
     } else {
       declencher(action.code, action.label);
@@ -171,10 +187,9 @@ export default function RemoteActions({ vehiculeId }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Actions à distance</Text>
+      <Text style={styles.sectionTitle}>{tr('Actions à distance', 'Remote actions')}</Text>
       <Text style={styles.sectionSub}>
-        Ces actions parlent directement au boîtier via le réseau mobile — une confirmation
-        s'affiche dès que le traceur répond.
+        {tr('Ces actions parlent directement au boîtier via le réseau mobile — une confirmation s’affiche dès que le traceur répond.', 'These actions talk directly to the device over the mobile network — a confirmation appears as soon as the tracker responds.')}
       </Text>
 
       <View style={{ gap: 12 }}>
@@ -212,9 +227,9 @@ export default function RemoteActions({ vehiculeId }: Props) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardLabel, action.danger && styles.cardLabelDanger]}>
-                  {action.label}
+                  {tr(action.label, action.labelEn)}
                 </Text>
-                <Text style={styles.cardDesc}>{pending ? 'En attente de réponse du traceur…' : action.desc}</Text>
+                <Text style={styles.cardDesc}>{pending ? tr('En attente de réponse du traceur…', 'Waiting for tracker response…') : tr(action.desc, action.descEn)}</Text>
               </View>
             </TouchableOpacity>
           );

@@ -22,7 +22,8 @@
         "EXPO_PUBLIC_API_URL": "https://faucon.169.58.69.36.sslip.io/api",
         "EXPO_PUBLIC_SOCKET_URL": "https://faucon.169.58.69.36.sslip.io",
         "EXPO_PUBLIC_MAPTILER_KEY": "iF6VvIYG95QOqnMoBoyg"
-      }
+      },
+      "autoIncrement": true
     },
     "production": {
       "autoIncrement": true,

@@ -19,6 +19,7 @@ import { useOnboardingStore } from '../../store/onboardingStore';
 import AppText from '../../components/ui/Typography';
 import Button from '../../components/ui/Button';
 import Logo from '../../components/ui/Logo';
+import { useI18n } from '../../i18n';
 
 interface SlideProps {
   item: OnboardingSlide;
@@ -28,6 +29,7 @@ interface SlideProps {
 }
 
 function Slide({ item, index, scrollX, width }: SlideProps) {
+  const { tr } = useI18n();
   const animatedStyle = useAnimatedStyle(() => {
     const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
     const opacity = interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolation.CLAMP);
@@ -49,9 +51,9 @@ function Slide({ item, index, scrollX, width }: SlideProps) {
         </LinearGradient>
       </Animated.View>
       <Animated.View style={animatedStyle}>
-        <AppText variant="h1" style={styles.title}>{item.title}</AppText>
+        <AppText variant="h1" style={styles.title}>{tr(item.title, item.titleEn)}</AppText>
         <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-          {item.subtitle}
+          {tr(item.subtitle, item.subtitleEn)}
         </AppText>
       </Animated.View>
     </View>
@@ -70,6 +72,7 @@ function Dot({ index, scrollX, width }: { index: number; scrollX: SharedValue<nu
 }
 
 export default function OnboardingScreen() {
+  const { tr } = useI18n();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const markSeen = useOnboardingStore((s) => s.markSeen);
@@ -104,7 +107,7 @@ export default function OnboardingScreen() {
         <Logo tone="color" size={22} showWordmark={false} />
         {!isLast && (
           <TouchableOpacity onPress={markSeen} style={styles.skipBtn} hitSlop={8}>
-            <AppText variant="bodyBold" color={Colors.textSecondary}>Passer</AppText>
+            <AppText variant="bodyBold" color={Colors.textSecondary}>{tr('Passer', 'Skip')}</AppText>
           </TouchableOpacity>
         )}
       </View>
@@ -133,7 +136,7 @@ export default function OnboardingScreen() {
         </View>
 
         <Button
-          label={isLast ? 'Commencer' : 'Suivant'}
+          label={isLast ? tr('Commencer', 'Get started') : tr('Suivant', 'Next')}
           onPress={goNext}
           variant={isLast ? 'gold' : 'primary'}
         />

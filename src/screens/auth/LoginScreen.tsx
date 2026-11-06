@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
-import { loginSchema } from '../../utils/validationSchemas';
+import { getLoginSchema } from '../../utils/validationSchemas';
 import { getErrorMessage } from '../../utils/errors';
 import { useToastStore } from '../../store/toastStore';
 import InputField from '../../components/ui/InputField';
@@ -39,7 +39,7 @@ const initialValues: LoginValues = { email: '', password: '' };
 // voisins à chaque frappe — c'est ce couplage qui provoquait le vol de focus
 // entre champs observé avec l'ancienne implémentation Formik.
 export default function LoginScreen() {
-  const { t } = useI18n();
+  const { t, tr, language } = useI18n();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { setUser, setTokens } = useAuthStore();
@@ -57,7 +57,7 @@ export default function LoginScreen() {
 
     let validated: LoginValues;
     try {
-      validated = await loginSchema.validate(values, { abortEarly: false });
+      validated = await getLoginSchema(language).validate(values, { abortEarly: false });
     } catch (err) {
       const fieldErrors: Partial<LoginValues> = {};
       if (err instanceof Yup.ValidationError) {
@@ -106,7 +106,7 @@ export default function LoginScreen() {
         <View style={styles.headerContent}>
           <Logo tone="white" size={44} />
           <AppText variant="body" color="rgba(255,255,255,0.8)" style={styles.tagline}>
-            Voir · Surveiller · Contrôler
+            {tr('Voir · Surveiller · Contrôler', 'See · Monitor · Control')}
           </AppText>
         </View>
       </View>
@@ -114,7 +114,7 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <AppText variant="h1" style={styles.title}>{t('login.title')}</AppText>
         <AppText variant="body" color={Colors.textSecondary} style={styles.subtitle}>
-          Accédez à votre tableau de bord
+          {tr('Accédez à votre tableau de bord', 'Access your dashboard')}
         </AppText>
 
         <View>
